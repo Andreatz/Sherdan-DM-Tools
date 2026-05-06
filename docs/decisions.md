@@ -100,3 +100,23 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - **`encounters.location_id`** referenzia `entities.id` con `onDelete: 'set null'` — non vincoliamo `type='location'` a livello DB (richiederebbe trigger). Validazione lato API.
 - **`random_tables.campaign_id` nullable.** Tabelle SRD/public-domain non sono legate a una campagna specifica.
 - **Check costanti.** Migration applicata: 17 tabelle, 7 enum custom, 39 indici `idx_*`, 6 constraint su `entity_secrets`. Smoke test su entity con embedding 1536-dim + properties JSONB + tags TEXT[] + cascade delete OK.
+
+---
+
+## 2026-05-06 — Zod schemas per `properties` JSONB
+
+**Contesto.** Ogni entity ha una colonna `properties JSONB` la cui forma dipende dal `type`. Postgres non puo' validarla; lo facciamo lato app via Zod prima di insert/update.
+
+**Decisioni di forma.**
+
+- **Un file per `entity_type`** in `src/lib/validation/` (8 file) + `_shared.ts` per primitivi riusati (`sensoryDetailsSchema`, `voiceSchema`, `goalsSchema`, `weaknessSchema`, `extraField`, `stringArray`). Coerente con CLAUDE.md §6.
+- **`.strict()` ovunque, `extra: z.record(...).optional()` come escape hatch.** Strict rifiuta chiavi sconosciute al top level, evitando data loss silenzioso quando il chiamante invia campi non previsti. Per estensioni legittime c'e' `extra`. La regola "JSONB per i campi instabili" (CLAUDE.md §4.4) si applica al livello dell'organizzazione del DB, non a quello della forma di un singolo record: nel record vogliamo struttura riconoscibile.
+- **Discriminator type-safe.** `propertiesSchemaByType` usa `satisfies Record<EntityTypeName, z.ZodTypeAny>` dove `EntityTypeName = (typeof entityType.enumValues)[number]`. Aggiungere un valore all'enum Drizzle e dimenticare lo schema corrispondente diventa un errore di typecheck. Single source of truth e' la pgEnum di Drizzle.
+- **NPC schema fedele alla specifica ROADMAP.** Modificarlo significa modificare ROADMAP §0 prima — quel template e' calibrato sul materiale Sherdan e ha valore di contratto col Wiki UI / NPC generator.
+- **Campi narrativamente carichi sono `string` (markdown)**. Niente vincoli di lunghezza minima oltre `min(1)` dove necessario (es. `weakness.description`, `feature.name`). Lasciamo respiro al testo.
+- **CR come stringa regex `^(0|1\/8|1\/4|1\/2|[1-9][0-9]?|3[0-3])$`.** Permette "1/4" e "0" senza forzare un numero decimale. 33 e' il CR massimo nel D&D 5e.
+- **`location.map_data` e `item.mechanics` come `z.unknown()`.** Forme che si stabilizzeranno nelle Fasi 5/8; oggi vincolarle sarebbe debito tecnico. CLAUDE.md §4.4: "Promuovi a colonne (qui, a sotto-schema) quando i campi si stabilizzano".
+- **Goals "segreti" non vivono in `properties`.** `factionPropertiesSchema.goals` contiene gli obiettivi dichiarati. Quelli reali ma nascosti vanno in `entity_secrets` (pattern Sherdan #2 + #3).
+- **Identita' multiple non vivono in `properties`.** Sono modellate via `entity_identities` (DDL dedicato). Non duplichiamo qui.
+
+**Test.** Smoke script `scripts/validation-smoke.ts` con un payload "ok" e uno "broken" per ognuno degli 8 tipi. Diagnosticita' dei messaggi verificata (es. "abilities.cha: Invalid input: expected number, received undefined"). Sara' migrato a vitest quando arriva il test setup nella stessa Fase 0.
