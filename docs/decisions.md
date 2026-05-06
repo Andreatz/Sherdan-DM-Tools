@@ -193,3 +193,24 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 **Caveat preview.** Il modello e' "preview", potenzialmente cambia o viene ritirato senza preavviso. Per uso personale e' un rischio accettabile (basta cambiare `GEMINI_MODEL`); per un prodotto in produzione sarebbe meglio un modello stable. Quando `gemini-3-flash` (senza `-preview`) sara' GA, vale la pena swappare.
 
 **Verifica live (questa sessione).** `complete` ("pong") + `completeStructured` (JSON `{pong:true, lang:"it"}` validato Zod) + `RoutedProvider.complete` tutti OK. Tempi di risposta nell'ordine di 1-3s.
+
+---
+
+## 2026-05-07 — Config management e dotenv-safe equivalente
+
+**Contesto.** Il task ROADMAP "Config management" richiede `.env`, `dotenv-safe` e config object tipizzato. I primi due erano gia' a posto (`env.ts` Zod-based, `.env`/`.env.example` separati). Mancava la parte "dotenv-safe": una rete di sicurezza contro la drift tra documentazione (`.env.example`), validazione (Zod schema) e ambiente locale (`.env`).
+
+**Decisioni.**
+
+- **No dipendenza esterna** (`dotenv-safe`): scriviamo l'equivalente in `scripts/env-check.ts` (~100 righe). Riduce superficie di dipendenze, aderisce al filtro CLAUDE.md §3 ("se serve una libreria fuori stack, chiedi prima"). La versione hand-rolled fa tutto cio' che serve a noi: parse di `.env` files (con strip dei commenti e delle quote), confronto con un set di chiavi noto, output diagnostico.
+- **Tre invarianti verificati** dal sync-check:
+  1. Ogni chiave in `.env.example` e' presente nello schema Zod (`envSchemaKeys`). Catch per "ho documentato una var ma non la valido".
+  2. Ogni chiave nello schema Zod e' presente in `.env.example`. Catch per "ho aggiunto una var allo schema ma non l'ho documentata".
+  3. Ogni chiave nel `.env` locale e' o nello schema o documentata. Warning, non errore: chiavi sperimentali sono ok ma vanno notate.
+- **Errori vs warnings.** Drift schema/example = errore (exit 1, blocca CI). `.env` locale fuori sync = warning. Razionale: in CI non c'e' `.env`, e drift vs example sono problemi di documentazione che vanno fixati ASAP; warning su `.env` locale e' info utile per il dev senza bloccare.
+- **POSTGRES_\* nello schema come `optional`.** Sono consumate da `docker-compose.yml` (template `${POSTGRES_DB:-default}`), non dall'app. L'app legge `DATABASE_URL` composta. Includerle nello schema le rende "conosciute" ed evita falsi positivi nel sync-check; il commento esplicativo nello schema previene che qualcuno le usi nell'app code.
+- **NODE_ENV documentato in `.env.example` ma vuoto.** Next.js / Node lo impostano automaticamente, non lo scriviamo nel `.env`. Il commento spiega perche' c'e' la riga.
+- **Server-only convention.** `src/lib/env.ts` non ha `import "server-only"` perche' viene usato anche dagli script CLI (Node, fuori da Next.js). Convenzione documentata in cima al file: non importarlo da React client. Quando aggiungeremo componenti client e API routes, valuteremo se splittare in `env.ts` (universale) e `env.server.ts` (server-only re-export).
+- **Single-read mantenuto.** `parsed = schema.safeParse(process.env)` a livello di modulo. Throw immediato su invalid. Pattern fail-fast: meglio crash al boot che bug subdoli a runtime.
+
+**Risultati.** 12 chiavi documentate, 12 validate, in sync. `pnpm env:check` aggiunto come gate riusabile (CI / pre-commit futuri).
