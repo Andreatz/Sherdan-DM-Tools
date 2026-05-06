@@ -148,3 +148,27 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 4. `pnpm llm:ping` per verificare end-to-end.
 
 **Versioni al momento della decisione.** Ollama: non ancora installato sulla macchina (verifica live posticipata). Zod: 4.4.3 (toJSONSchema nativo).
+
+---
+
+## 2026-05-06 — Gemini come chat primario, Ollama come fallback + embed unico
+
+**Contesto.** Stessa giornata, decisione successiva: l'utente vuole sfruttare la qualita' di Gemini (free tier, AI Studio) mantenendo Ollama come fallback offline. Aggiornamento dell'architettura LLM senza buttare via il provider Ollama.
+
+**Decisioni.**
+
+- **Architettura "split per metodo":**
+  - **Chat** (`complete`, `completeStructured`, `stream`): Gemini primario, Ollama fallback automatico su errori transient (network, 5xx, 429). Errori 4xx (input invalido, content blocked) propagano senza fallback — un fallback su input rotti maschera bug.
+  - **Embed** (`embed`, `embedBatch`): **sempre Ollama** (mxbai-embed-large, 1024-dim). Mai switchato. Switchare embed provider cambia il vector space e invalida ogni similarity search sui dati gia' embeddati. La stabilita' qui ha valore di invariante.
+- **`RoutedProvider` (src/lib/llm/router.ts).** Wrapper che compone i due provider. Per gli stream, fallback solo se non e' stato emesso alcun chunk (best-effort: a meta' stream lasciare propagare l'errore evita output duplicati/corrotti).
+- **`GeminiProvider` via REST** (no `@google/genai` SDK). Coerente con `OllamaProvider`. Endpoint: `https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent` per chat, `:streamGenerateContent?alt=sse` per stream. `embed`/`embedBatch` rejecting con `LLMError` esplicito perche' devono passare dal router.
+- **JSON Schema sanitization.** Gemini accetta un subset OpenAPI 3.0, rigetta `$schema`/`$id`/`$ref`/`$defs`/`additionalProperties`/`patternProperties`/`not` che Zod 4 inietta. Il sanitizer in `gemini.ts` li strippa ricorsivamente prima di inviare. Anche `format` accetta solo i valori standard OpenAPI.
+- **`thinkingBudget: 0` di default.** Gemini 2.5 ha "thinking" abilitato di default che consuma `maxOutputTokens` prima dell'output (una `complete` con `maxTokens=10` finiva a 0 token di output). Disabilitato per default: output predicibile + quota efficiente. Modelli che non supportano `thinkingBudget` ignorano il campo (nessun rischio di compatibilita').
+- **Modello scelto: `gemini-2.5-flash`.** Tier free, ottima qualita' in italiano, latenza ~1-3s. Configurabile via `GEMINI_MODEL`.
+- **Validation env via `superRefine`.** Se `LLM_PROVIDER=gemini` ma `GOOGLE_AI_API_KEY` manca, il bootstrap fallisce con messaggio diagnostico. Niente errori silenziosi.
+- **API key in `.env` (gitignored), `.env.example` con placeholder vuoto.** L'utente ha condiviso la key in chat: la conversazione e' un canale di transito, la key va rigenerata se il transcript persiste. Documentato nelle note di handover ma non in `decisions.md` (la key concreta non sta nel repo).
+- **Privacy:** sul free tier Gemini, gli input/output possono essere usati da Google per training. Tradeoff esplicito accettato dall'utente. Mitigazione futura: tier paid Gemini (no training) o ritorno a Ollama-only via `LLM_PROVIDER=ollama`.
+
+**Verifica live (questa sessione).** Gemini `complete` + `completeStructured` + `RoutedProvider.complete` tutti OK. Ollama daemon raggiungibile ma modelli non ancora scaricati: pull di `qwen2.5:7b-instruct-q4_K_M` (4.7 GB, fallback chat) e `mxbai-embed-large` (670 MB, embed) restano azione di setup utente.
+
+**Versioni al momento della decisione.** Gemini API v1beta. Modello `gemini-2.5-flash`. Zod 4.4.3 (`z.toJSONSchema`).
