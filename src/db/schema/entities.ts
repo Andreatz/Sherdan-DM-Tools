@@ -40,7 +40,7 @@ export const entities = pgTable(
       { onDelete: "set null" },
     ),
     visibility: visibility("visibility").default("dm_only").notNull(),
-    embedding: vector("embedding", { dimensions: 1536 }),
+    embedding: vector("embedding", { dimensions: 1024 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

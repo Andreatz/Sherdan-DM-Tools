@@ -52,7 +52,7 @@ CREATE TABLE "entities" (
 	"tags" text[] DEFAULT '{}' NOT NULL,
 	"parent_id" uuid,
 	"visibility" "visibility" DEFAULT 'dm_only' NOT NULL,
-	"embedding" vector(1536),
+	"embedding" vector(1024),
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -178,7 +178,7 @@ CREATE TABLE "rule_documents" (
 	"section" text,
 	"content" text NOT NULL,
 	"chunk_index" integer,
-	"embedding" vector(1536),
+	"embedding" vector(1024),
 	"metadata" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );

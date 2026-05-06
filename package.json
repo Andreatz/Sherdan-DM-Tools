@@ -12,7 +12,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:ping": "tsx scripts/db-ping.ts"
+    "db:ping": "tsx scripts/db-ping.ts",
+    "llm:ping": "tsx scripts/llm-ping.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

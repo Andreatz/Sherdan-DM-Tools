@@ -120,3 +120,31 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - **Identita' multiple non vivono in `properties`.** Sono modellate via `entity_identities` (DDL dedicato). Non duplichiamo qui.
 
 **Test.** Smoke script `scripts/validation-smoke.ts` con un payload "ok" e uno "broken" per ognuno degli 8 tipi. Diagnosticita' dei messaggi verificata (es. "abilities.cha: Invalid input: expected number, received undefined"). Sara' migrato a vitest quando arriva il test setup nella stessa Fase 0.
+
+---
+
+## 2026-05-06 — LLM stack: OSS-only via Ollama
+
+**Contesto.** Decisione utente: solo strumenti FOSS, niente API a pagamento. Cambia il provider previsto in CLAUDE.md/ROADMAP (Anthropic) ma non l'astrazione (provider-agnostic).
+
+**Scelte.**
+
+- **Runtime: Ollama.** Standard de-facto per LLM locali, HTTP API stabile su `:11434`, supporta structured output (`format: <jsonschema>` da v0.5+), tool calling, embeddings, streaming. Servizio gestito; niente SDK Node esterno (fetch built-in).
+- **Modello chat: `qwen2.5:7b-instruct-q4_K_M`** (~4.7 GB). Hardware utente: i7-12700H, 16 GB RAM, RTX 3050 (4 GB VRAM), ~34 GB disco liberi. Qwen 2.5 7B Q4 e' il sweet spot: gira CPU + offload parziale GPU, italiano decente, latenza accettabile (5-30s/risposta). Alternative configurabili via `OLLAMA_MODEL`.
+- **Modello embedding: `mxbai-embed-large`** (~670 MB, 1024-dim). Multilingue forte, italiano molto buono. Alternative: `nomic-embed-text` (768-dim, piu' leggero), `bge-m3` (1024-dim).
+- **Dimensione embedding: 1024** invece di 1536 (CLAUDE.md §8.4 ammette divergenze documentate). I modelli OSS 1024-dim sono i piu' competitivi disponibili. Schema modificato: `entities.embedding` e `rule_documents.embedding` ridotti a `vector(1024)`.
+- **Migration: opzione α (amend del 0000).** Migration 0000 ri-generata, file rinominato `0000_next_robbie_robertson.sql`. Volume Docker droppato (`docker compose down -v`) e ri-applicato da zero. CLAUDE.md §4.5 chiede migrations additive ma siamo pre-data e l'utente ha autorizzato esplicitamente. CLAUDE.md §12.7 (no migration distruttive senza autorizzazione) rispettato: la scelta α e' stata proposta e accettata. La regola additiva torna in vigore dalla 0001 in poi.
+- **Astrazione provider-agnostic.** `LLMProvider` interface in `src/lib/llm/types.ts`: `complete`, `completeStructured`, `stream`, `embed`, `embedBatch`. Implementazione `OllamaProvider` in `ollama.ts`. Singleton via `getLLMProvider()`. Aggiungere un secondo provider domani (cloud o altro locale) significa solo implementare l'interfaccia e cambiare la factory.
+- **Structured output.** Ollama accetta JSON Schema in `format`. Convertiamo Zod schema con `z.toJSONSchema()` (Zod 4 nativo, no extra dep). La response viene parsata e ri-validata col Zod schema originale: due reti di sicurezza (vincolo lato modello + parse lato client). Default `temperature: 0` per structured (creativita' va contro aderenza).
+- **Streaming.** Async iterable di stringhe (token chunks). NDJSON parser line-by-line.
+- **Errori tipizzati.** `LLMError` (con `cause` e `status`) per tutto. `LLMStructuredOutputError` (con `rawOutput`) quando la risposta non parsa o non aderisce allo schema — il raw output e' utile per debug.
+
+**Tradeoff esplicito.** I generators (Fase 3+) avranno qualita' sensibilmente inferiore a un modello cloud frontier su task complessi (NPC con 3 segreti stratificati coerenti, prep assistant agentic). Il framework non si rompe, ma la prosa sara' piu' grezza. Mitigazione: `StyleCalibrator` (Fase 3) puo' iniettare few-shot examples dal materiale Sherdan per migliorare l'aderenza stilistica anche con modelli piccoli.
+
+**Setup richiesto all'utente** (una volta, non in scope di questo task):
+1. Scaricare Ollama da ollama.com (installer Windows).
+2. `ollama pull qwen2.5:7b-instruct-q4_K_M` (~4.7 GB).
+3. `ollama pull mxbai-embed-large` (~670 MB).
+4. `pnpm llm:ping` per verificare end-to-end.
+
+**Versioni al momento della decisione.** Ollama: non ancora installato sulla macchina (verifica live posticipata). Zod: 4.4.3 (toJSONSchema nativo).

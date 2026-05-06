@@ -21,7 +21,7 @@ export const ruleDocuments = pgTable(
     content: text("content").notNull(),
     // Posizione del chunk all'interno del documento sorgente, per ordinare.
     chunkIndex: integer("chunk_index"),
-    embedding: vector("embedding", { dimensions: 1536 }),
+    embedding: vector("embedding", { dimensions: 1024 }),
     metadata: jsonb("metadata").default({}).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
