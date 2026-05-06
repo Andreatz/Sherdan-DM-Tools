@@ -194,6 +194,8 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 
 **Verifica live (questa sessione).** `complete` ("pong") + `completeStructured` (JSON `{pong:true, lang:"it"}` validato Zod) + `RoutedProvider.complete` tutti OK. Tempi di risposta nell'ordine di 1-3s.
 
+**Update 2026-05-07 — thinking riabilitato.** Inizialmente `thinkingBudget: 0` era hardcoded perche' su Gemini 2.5 i token di thinking consumavano `maxOutputTokens` causando output vuoti con maxTokens piccoli. Decisione rivista: il thinking migliora la qualita' su task complessi (NPC stratificati, plot thread coerenti), e per la campagna Sherdan la qualita' della prosa conta piu' della velocita'. Ora `thinking` e' una opzione di `CompleteOptions` (`undefined` = default modello, ON per Gemini 3+; `false` = disabilita; `true` = budget dinamico; `number` = budget esatto). Default ON. Nei chiamanti che vogliono path veloce/predicibile (sanity check, db ping-like) si passa `thinking: false`. Nota operativa: con thinking ON serve `maxTokens` generoso (1024+) perche' i thinking tokens sono inclusi in `maxOutputTokens`.
+
 ---
 
 ## 2026-05-07 — Config management e dotenv-safe equivalente

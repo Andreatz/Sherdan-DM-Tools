@@ -27,6 +27,17 @@ export interface CompleteOptions {
   system?: string;
   /** Abort cooperativo per richieste lunghe. */
   signal?: AbortSignal;
+  /**
+   * Modalita' di "thinking" / reasoning interno del modello.
+   * - `undefined` (default): usa il default del provider (Gemini 3+: ON)
+   * - `false`: disabilita il thinking (output predicibile, meno token)
+   * - `true`: abilita con budget dinamico deciso dal modello
+   * - `number`: budget esatto in token per il thinking
+   *
+   * Provider che non supportano thinking (es. Ollama oggi) ignorano l'opzione.
+   * I token di thinking contano contro `maxTokens`/`maxOutputTokens`.
+   */
+  thinking?: boolean | number;
 }
 
 export interface LLMProvider {

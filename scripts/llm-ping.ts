@@ -81,14 +81,31 @@ async function pingGemini(apiKey: string, model: string): Promise<boolean> {
   const gemini = new GeminiProvider({ apiKey, model });
   let ok = true;
 
+  // Test 1: complete senza thinking (path veloce, output predicibile)
   try {
     const out = await gemini.complete("Rispondi solo: pong", {
       temperature: 0,
       maxTokens: 10,
+      thinking: false,
     });
-    console.log(`  [OK]   complete  ("${out.trim().slice(0, 60)}")`);
+    console.log(`  [OK]   complete (thinking=off)  ("${out.trim().slice(0, 60)}")`);
   } catch (err) {
-    reportLlmError("  ", "complete", err);
+    reportLlmError("  ", "complete (thinking=off)", err);
+    ok = false;
+  }
+
+  // Test 2: complete con thinking ON (default del modello). maxTokens
+  // generosi perche' i token di thinking contano contro maxOutputTokens.
+  try {
+    const out = await gemini.complete(
+      "Riassumi in una frase la differenza tra wizard e sorcerer in D&D 5e.",
+      { temperature: 0, maxTokens: 1024 },
+    );
+    console.log(
+      `  [OK]   complete (thinking=on)   ("${out.trim().slice(0, 80)}...")`,
+    );
+  } catch (err) {
+    reportLlmError("  ", "complete (thinking=on)", err);
     ok = false;
   }
 
@@ -96,6 +113,7 @@ async function pingGemini(apiKey: string, model: string): Promise<boolean> {
     const obj = await gemini.completeStructured(
       "Rispondi con un JSON {pong: true, language: 'it'}",
       PingSchema,
+      { maxTokens: 1024 },
     );
     console.log(
       `  [OK]   completeStructured  (pong=${obj.pong}, lang=${obj.language})`,

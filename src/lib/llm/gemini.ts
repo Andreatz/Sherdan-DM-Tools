@@ -267,13 +267,22 @@ function toGeminiMessages(input: LLMInput, system?: string): GeminiMessages {
 }
 
 function geminiGenerationConfig(options: CompleteOptions) {
-  const out: Record<string, unknown> = {
-    // Gemini 2.5 ha "thinking" abilitato di default che consuma
-    // `maxOutputTokens` prima del testo finale. Per il progetto ci serve
-    // output predicibile e quota efficiente: disabilitato.
-    // Modelli che non supportano `thinkingBudget` ignorano il campo.
-    thinkingConfig: { thinkingBudget: 0 },
-  };
+  const out: Record<string, unknown> = {};
+  // `thinking` controlla `thinkingConfig.thinkingBudget`. Default = ON
+  // (lasciamo decidere al modello) per qualita' superiore. Disabilita
+  // esplicitamente con `thinking: false` per output predicibili / chiamate
+  // di test / risposte brevi. Ricorda: i token di thinking contano contro
+  // `maxOutputTokens`, quindi se thinking e' ON serve un budget generoso.
+  if (options.thinking === false) {
+    out.thinkingConfig = { thinkingBudget: 0 };
+  } else if (options.thinking === true) {
+    out.thinkingConfig = { thinkingBudget: -1 };
+  } else if (typeof options.thinking === "number") {
+    out.thinkingConfig = { thinkingBudget: options.thinking };
+  }
+  // Se `thinking` e' undefined: niente `thinkingConfig`, Gemini usa il
+  // default del modello (ON per Gemini 2.5+ Flash/Pro).
+
   if (options.temperature !== undefined) out.temperature = options.temperature;
   if (options.maxTokens !== undefined) out.maxOutputTokens = options.maxTokens;
   if (options.stop !== undefined) out.stopSequences = options.stop;
