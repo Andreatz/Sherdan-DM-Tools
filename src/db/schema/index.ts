@@ -1,5 +1,9 @@
-// Placeholder dello schema Drizzle. La migration completa con tutte
-// le tabelle Sherdan (Fase 0 task "Prima migration") sostituira'
-// questo export aggregando i file per dominio (entities.ts,
-// sessions.ts, plot.ts, ecc.) come da CLAUDE.md sezione 6.
-export {};
+export * from "./campaigns";
+export * from "./encounters";
+export * from "./entities";
+export * from "./enums";
+export * from "./loot";
+export * from "./plot";
+export * from "./rules";
+export * from "./sessions";
+export * from "./tables";

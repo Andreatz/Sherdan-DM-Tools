@@ -79,3 +79,24 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 
 **Versioni installate al momento della decisione.**
 - drizzle-orm 0.45.2, drizzle-kit 0.31.10, postgres 3.4.9, zod 4.4.3, dotenv 17.4.2, tsx 4.21.0.
+
+---
+
+## 2026-05-06 — Prima migration: scelte di modellazione
+
+**Contesto.** Schema completo v2 (17 tabelle), prima migration. Decisioni non ovvie che vale la pena fissare.
+
+**Decisioni.**
+
+- **Split per dominio.** Un file per dominio in `src/db/schema/` (enums, campaigns, entities, sessions, plot, encounters, loot, tables, rules) + barrel `index.ts`. Drizzle-kit accetta sia un singolo file sia un barrel — il barrel mantiene CLAUDE.md §6 e permette di evolvere ogni dominio indipendentemente. Imports circolari tra `entities.ts` e `sessions.ts`/`plot.ts` sono gestiti dalla forma `() => table.column` di Drizzle (lazy ref), funzionano in ESM.
+- **Enum stabili come `pgEnum`, vocabolari aperti come `text`.** Enum: `visibility`, `entity_type`, `secret_layer`, `clue_status`, `plot_thread_status`, `plot_role`, `encounter_difficulty`. Aperti (TEXT): `entity_links.relation_type`, `session_entities.role`, `plot_thread_events.event_type`, `pc_hooks.status`, `encounter_participants.role`, `rule_documents.source`. Validazione lato app via Zod, in linea con CLAUDE.md §8.6.
+- **Visibilita' separata dai segreti.** Le entita' hanno `visibility` (dm_only/discovered/public, scelta DM su cosa esporre), e _separatamente_ possono avere `entity_secrets` con `layer` (surface/intermediate/deep) il cui ciclo di "discoperta" e' tracciato da `discovered_at_session`. I due assi non si collassano: un'entita' `discovered` puo' avere segreti deep ancora segreti, e viceversa — pattern Sherdan #2.
+- **`entity_secrets` con check constraint XOR-or.** `CHECK (entity_id IS NOT NULL OR plot_thread_id IS NOT NULL)`: un segreto deve appartenere a una entity, a un plot thread, o a entrambi (es. il segreto della Scissione e' sia di una deita' sia di una macro-trama). Verificato che il vincolo fa fallire insert vuoti.
+- **Self-reference `entities.parent_id`** per gerarchie (location -> sub-location, faction -> luogotenente). `ON DELETE SET NULL` per non perdere figli orfani senza preavviso.
+- **`truth_clues.related_entities` come `uuid[]` + GIN.** Volutamente non normalizzato in join table: la briciola e' una unita' atomica e tipicamente coinvolge 2-3 entita'. GIN per `... && ARRAY[id]::uuid[]` query (entity X appare in quante briciole).
+- **`embedding vector(1536)`** su `entities` e `rule_documents`. Dimensione default per modelli Anthropic-class. La colonna e' nullable (popolata async). Indici ivfflat/hnsw rinviati: ivfflat richiede dati per il training, hnsw e' costoso da costruire — entrambi vanno aggiunti in Fase 1.5 dopo il bootstrap quando ci saranno ~50 righe di Sherdan.
+- **`updated_at` via `$onUpdate(() => new Date())`.** Implementato lato Drizzle invece che con trigger Postgres. Funziona perche' tutti gli writer passano dall'app; se in futuro arrivano writer SQL diretti, si aggiunge un trigger BEFORE UPDATE in migration successiva.
+- **`CREATE EXTENSION IF NOT EXISTS vector|pg_trgm`** prepended manualmente alla migration generata. Drizzle-kit non li auto-genera, ma il container Docker li installa via init script. Il prepend rende la migration auto-sufficiente per chiunque cloni il repo e usi un Postgres diverso.
+- **`encounters.location_id`** referenzia `entities.id` con `onDelete: 'set null'` — non vincoliamo `type='location'` a livello DB (richiederebbe trigger). Validazione lato API.
+- **`random_tables.campaign_id` nullable.** Tabelle SRD/public-domain non sono legate a una campagna specifica.
+- **Check costanti.** Migration applicata: 17 tabelle, 7 enum custom, 39 indici `idx_*`, 6 constraint su `entity_secrets`. Smoke test su entity con embedding 1536-dim + properties JSONB + tags TEXT[] + cascade delete OK.
