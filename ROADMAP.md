@@ -195,9 +195,9 @@ L'idea: i campi che si ripresentano in ogni NPC della campagna Sherdan diventano
 
 ---
 
-## Fase 0 — Setup & infrastruttura
+## Fase 0 — Setup & infrastruttura ✅
 
-**Durata**: 3-5 giorni · **Tool sbloccati**: nessuno (foundation)
+**Durata**: 3-5 giorni · **Tool sbloccati**: nessuno (foundation) · **Chiusa il 2026-05-07**
 
 ### Goal
 Tutta l'infrastruttura per essere produttivi: progetto inizializzato, DB locale, prima migration, LLM client funzionante, layout di base.
@@ -230,7 +230,10 @@ Tutta l'infrastruttura per essere produttivi: progetto inizializzato, DB locale,
 - [x] CI minima: lint + test su push (GitHub Actions)
   - _Note implementative: `.github/workflows/ci.yml` con job singolo `validate` (Ubuntu, Node 24, pnpm 10, frozen-lockfile). Trigger: push su main + pull request su main. Concurrency group cancella build piu' vecchie sullo stesso ref. Step: env:check -> lint -> typecheck -> test -> build. Niente Postgres in CI: i test attuali sono unit (Zod schemas) e `/campaigns` e' marcata `force-dynamic` quindi `next build` non interroga il DB. Env minime fake per soddisfare la validazione Zod (`DATABASE_URL` placeholder, `LLM_PROVIDER=ollama` per evitare il check di `GOOGLE_AI_API_KEY`). Dry-run locale: tutto verde in ~10s. Quando arriveranno integration test col DB (Fase 1.5+), si aggiunge il service container `pgvector/pgvector:pg16` al job._
   - _(scoperto durante questo task) `/campaigns` cambiata da static a `force-dynamic`: i dati cambiano sempre, e questo evita che `next build` tenti di prerenderizzare la pagina interrogando il DB. Cambio coerente comunque, non un workaround._
-- [ ] README con setup instructions per il "te" futuro
+- [x] README con setup instructions per il "te" futuro
+  - _Note implementative: README completo in italiano. Sezioni: cos'e' il progetto, pre-requisiti (Node/pnpm/Docker/Ollama opzionale), setup prima volta (clone, install, .env, docker, db:migrate, ollama pull, dev), istruzioni per ottenere una Gemini API key gratuita (con avviso privacy free tier), comandi quotidiani (dev, quality gate, DB), struttura del progetto, stack, stato del progetto, e troubleshooting con i 5 fail piu' probabili (DB unreachable, Gemini Pro quota, Ollama mancante, build dynamic, env drift). Pointer espliciti a ROADMAP.md, CLAUDE.md, docs/decisions.md._
+- [x] (scoperto durante README) Seed minimale: campagna "Sherdan" nel DB
+  - _Note implementative: `scripts/db-seed.ts` (`pnpm db:seed`). Idempotente: se la campagna "Sherdan" esiste gia', non duplica. Inserisce con name + description + settings (`system: D&D 5e`, `language: it`, `tone`). Necessario per soddisfare la Definition of Done della Fase 0 ("hai una campagna seed nel DB"). Verifica live: `/campaigns` mostra la card, link a `/campaigns/<uuid>` apre il detail con tutte le sezioni placeholder. La popolazione vera (NPC, fazioni, plot) avviene in Fase 1.5._
 
 ### Definition of done
 Esegui `pnpm dev`, vedi la home, hai una campagna seed nel DB (Sherdan vuota, con solo nome e settings), riesci a fare una chiamata LLM che ritorna JSON validato.

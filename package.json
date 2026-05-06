@@ -16,6 +16,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:ping": "tsx scripts/db-ping.ts",
+    "db:seed": "tsx scripts/db-seed.ts",
     "llm:ping": "tsx scripts/llm-ping.ts",
     "env:check": "tsx scripts/env-check.ts"
   },
