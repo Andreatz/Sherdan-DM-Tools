@@ -59,3 +59,23 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - **Healthcheck**: `pg_isready` ogni 5s, 10 retries. Permette a chi lancera' migrations o test di aspettare che il DB sia pronto invece di sleep arbitrari.
 
 **Decisione contestuale**: `.gitignore` esteso con `!.env.example` per consentire il commit del template senza esporre `.env` reale (CLAUDE.md §12.8).
+
+---
+
+## 2026-05-06 — ORM: Drizzle + postgres.js
+
+**Contesto.** CLAUDE.md §3 indica Drizzle come scelta preferita ("preferito per i tipi nativi e le migrations leggibili"). Va concretizzato con un driver e un set di convenzioni.
+
+**Scelte.**
+
+- **Driver**: `postgres` (postgres.js) invece di `pg` (node-postgres). Drizzle lo raccomanda come default — performance migliore, API moderna basata su tagged templates, supporto nativo a `BigInt`/`Date`/`JSON`. L'unica feature di `pg` che ci mancherebbe è il connection pool con eventi LISTEN/NOTIFY: postgres.js li supporta entrambi.
+- **Schema layout**: una directory `src/db/schema/` con `index.ts` che ri-esporta tutto (CLAUDE.md §6). Drizzle accetta sia un singolo file sia una directory; il barrel `index.ts` consente sia ai file di dominio (`entities.ts`, `sessions.ts`, ...) sia alla `drizzle.config.ts` di puntare a un solo path.
+- **Migrazioni**: cartella `src/db/migrations/` (sotto `src/` per coerenza con il resto del codice DB). Generate da `drizzle-kit generate`, applicate da `tsx src/db/migrate.ts` che usa `drizzle-orm/postgres-js/migrator`.
+- **`drizzle.config.ts` a root**: convenzione Drizzle, fuori da `src/`. Usa import relativo (`./src/lib/env`) invece dell'alias `@/*` perché il loader di drizzle-kit non risolve sempre i path TS.
+- **Env tipizzato**: `src/lib/env.ts` con Zod, single-read di `process.env`, throw con messaggio descrittivo se invalid. Pattern di CLAUDE.md §7 ("Config tipizzata letta una sola volta"). Il task "Config management" successivo estendera' questo modulo con dotenv-safe e altri campi (chiavi LLM, log level, ecc.) — qui il minimo necessario per il bootstrap del DB.
+- **Caricamento `.env` nelle CLI**: `import "dotenv/config"` in cima a `drizzle.config.ts`, `src/db/migrate.ts`, `scripts/db-ping.ts`. Next.js carica `.env` da solo a runtime, ma le CLI Node no. `tsx` come runner per gli script TS (Node 24 + tsx, nessun build step).
+- **Connessione client**: istanziata a top-level in `src/db/client.ts`. Tecnicamente e' una "side effect" rispetto a CLAUDE.md §7, ma postgres.js e' lazy (non apre socket finche' non c'e' una query) e questo e' il pattern canonico di Drizzle. Eccezione consapevole.
+- **Scripts**: `db:generate`, `db:migrate`, `db:push` (solo dev/prototipazione), `db:studio`, `db:ping`. Coerenti con quelli citati nel quality gate (CLAUDE.md §11).
+
+**Versioni installate al momento della decisione.**
+- drizzle-orm 0.45.2, drizzle-kit 0.31.10, postgres 3.4.9, zod 4.4.3, dotenv 17.4.2, tsx 4.21.0.
