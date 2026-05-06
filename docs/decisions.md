@@ -238,3 +238,25 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - **Fields riservati di pino.** `level`, `time`, `msg` sono nomi che pino usa internamente. Documentato nello smoke script: usare `npcLevel`/`occurredAt`/`message` se serve un field con quel concetto.
 - **Wiring iniziale: solo `RoutedProvider`.** Il `console.warn` di default per il fallback chat e' diventato `log.warn({ op, err, status }, "primary failed, using fallback")`. Gli altri moduli (db client, providers LLM concreti) NON sono wirati ora — gli aggiungeremo logging mirato quando arrivano feature osservabili (e.g., logging di tokens/latency in Fase 3 con `generation_log`). CLAUDE.md §"Don't add features beyond task scope".
 - **Console.* negli script CLI.** `db-ping`, `llm-ping`, `env-check`, `logger-smoke` continuano a usare `console.log`/`error`. Sono CLI tools, l'output testuale e' il canale giusto. Pino e' per il codice applicativo.
+
+---
+
+## 2026-05-07 — Test setup con Vitest
+
+**Contesto.** CLAUDE.md §9 elenca cosa testare (roller, CR calc, validation Zod, parser Sherdan, migrations) e cosa no (UI puri, codice generato, wrapper triviali). Servono tooling e convenzioni.
+
+**Decisioni.**
+
+- **Vitest 4.** API jest-compatibile, ESM-native, transformer veloce (Vite). Niente Jest: vitest e' lo standard nei nuovi progetti TS/Vite-based, e Next.js 16 funziona bene con vitest senza setup speciale. `@vitest/ui` opzionale per esplorazione visuale (`pnpm test:ui`).
+- **Path alias allineato al tsconfig.** `vitest.config.ts` mappa `@` a `src/` con `resolve.alias`. Niente `vite-tsconfig-paths` plugin: una alias e' sufficiente, evitiamo dep extra.
+- **Layout `tests/` separato da `src/`.** CLAUDE.md §6: "stesso albero di `src/`, ma sotto `tests/unit/` o `tests/integration/`". Test co-located con codice (es. `src/foo.ts` + `src/foo.test.ts`) sarebbe piu' veloce per refactor, ma il layout separato matcha CLAUDE.md e tiene i `src/` puliti per quando arriveranno bundler / IDE che non escludono `*.test.ts`.
+- **`tests/setup.ts` con `import "dotenv/config"`.** Necessario perche' `src/lib/env.ts` parsa `process.env` al load e fallisce se mancano var. Vitest imposta `NODE_ENV=test` automaticamente (no override manuale).
+- **`process.env` esposto a vitest** via `env: process.env` in config. Senza questo, alcuni runtime test non vedono var caricate da dotenv.
+- **Generic narrowing su `validateEntityProperties` / `safeValidateEntityProperties`.** Originariamente non-generic: `validateEntityProperties("npc", x).race` falliva al typecheck. Refactored a `<T extends EntityTypeName>` con tipi `PropertiesFor<T>` e `SafeValidateResult<T>`. Zod 4 non espone `SafeParseReturnType`: definito locale come union `{success:true,data} | {success:false,error:z.ZodError}`. Test ora possono accedere `result.data.race` con type safety.
+- **22 test iniziali su `properties` JSONB.** Coverage: happy/bad path per ognuno degli 8 `entity_type`, edge cases NPC pattern Sherdan (multi-sensorialita', voice, weaknesses with who_could_exploit), verifica `.strict()` (chiavi non documentate rifiutate), verifica che `secrets` non vadano in properties (devono usare la tabella `entity_secrets`). Migrato da `scripts/validation-smoke.ts` (eliminato dopo migrazione).
+- **Test rimandati.**
+  - Roller library (Fase 2): non scritta ancora.
+  - CR calculator (Fase 5): non scritta ancora.
+  - Parser Sherdan (Fase 1.5): non scritta ancora.
+  - Migrations: aggiungeremo un test della forma post-migration (lista tabelle, indici, vincoli) quando arrivera' la prima ALTER non triviale.
+  - LLM provider: difficile testare senza mock dei modelli; i sanity script (`db-ping`, `llm-ping`) coprono il lato infrastrutturale.

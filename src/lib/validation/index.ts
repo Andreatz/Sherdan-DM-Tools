@@ -37,22 +37,39 @@ const propertiesSchemaByType = {
   organization: organizationPropertiesSchema,
 } as const satisfies Record<EntityTypeName, z.ZodTypeAny>;
 
-export function getPropertiesSchema(type: EntityTypeName) {
+type SchemaByType = typeof propertiesSchemaByType;
+
+/** Tipo delle properties per uno specifico `entity_type`. */
+export type PropertiesFor<T extends EntityTypeName> = z.infer<SchemaByType[T]>;
+
+export function getPropertiesSchema<T extends EntityTypeName>(
+  type: T,
+): SchemaByType[T] {
   return propertiesSchemaByType[type];
 }
 
 // Throws ZodError se il payload non valida. Usare a livello API, dopo aver
-// determinato il `type` dalla request.
-export function validateEntityProperties(
-  type: EntityTypeName,
+// determinato il `type` dalla request. Il tipo di ritorno e' narrato dal
+// generic in modo che `validateEntityProperties("npc", x).race` typechecki.
+export function validateEntityProperties<T extends EntityTypeName>(
+  type: T,
   properties: unknown,
-) {
-  return propertiesSchemaByType[type].parse(properties);
+): PropertiesFor<T> {
+  return propertiesSchemaByType[type].parse(properties) as PropertiesFor<T>;
 }
 
-export function safeValidateEntityProperties(
-  type: EntityTypeName,
+// In Zod 4 il tipo del risultato di safeParse non e' esposto col nome
+// `SafeParseReturnType` come in v3. Lo riformuliamo localmente per
+// mantenere il narrowing del generic `T`.
+export type SafeValidateResult<T extends EntityTypeName> =
+  | { success: true; data: PropertiesFor<T> }
+  | { success: false; error: z.ZodError };
+
+export function safeValidateEntityProperties<T extends EntityTypeName>(
+  type: T,
   properties: unknown,
-) {
-  return propertiesSchemaByType[type].safeParse(properties);
+): SafeValidateResult<T> {
+  return propertiesSchemaByType[type].safeParse(
+    properties,
+  ) as SafeValidateResult<T>;
 }
