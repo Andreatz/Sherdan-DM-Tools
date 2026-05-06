@@ -250,7 +250,9 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
 ### Task
 
 **Backend**
-- [ ] API routes CRUD per `campaigns`
+- [x] API routes CRUD per `campaigns`
+  - _Note implementative: `src/app/api/campaigns/route.ts` (GET list, POST create) e `src/app/api/campaigns/[id]/route.ts` (GET, PATCH, DELETE). Input validato via Zod (`createSchema.strict()`, `updateSchema.strict()`, `idParamSchema` con `z.uuid()`). PATCH rifiuta body vuoto con `BadRequestError`. DELETE ritorna 204 no-content. Error handler centralizzato in `src/lib/api/respond.ts` con helper `ok/created/noContent/fail`: `fail()` traduce ZodError -> 400 validation_failed, AppError -> status mappato, errori sconosciuti -> 500 generico (dettagli solo nei log). Errori tipizzati in `src/lib/api/errors.ts`: `AppError` base + `NotFoundError` (404), `ValidationFailedError` (400), `BadRequestError` (400), `ConflictError` (409). Logger pino registra 4xx come info, 5xx come error. Smoke live verificato via curl: tutti 5 endpoint OK + 3 error path (404 dopo delete, 400 su body vuoto, 400 su uuid malformato)._
+  - _Test handler rimandati: vitest mock di Drizzle e' fragile, integration tests con DB richiedono setup CI con service container Postgres. Si fanno arrivare in un task dedicato dopo la prima manciata di route._
 - [ ] API routes CRUD per `entities` (con filtri: type, tag, parent_id, search) — `description` è verità GM, `public_description` opzionale
 - [ ] API routes CRUD per `entity_links` (con `public_relation_type` opzionale)
 - [ ] API routes CRUD per `entity_identities`
