@@ -12,7 +12,7 @@ const schema = z
 
     // Gemini (richiesto se LLM_PROVIDER=gemini, controllo via superRefine).
     GOOGLE_AI_API_KEY: z.string().optional(),
-    GEMINI_MODEL: z.string().min(1).default("gemini-2.5-flash"),
+    GEMINI_MODEL: z.string().min(1).default("gemini-3-flash-preview"),
 
     // Ollama (sempre richiesto: e' embed provider universale e fallback chat).
     OLLAMA_BASE_URL: z.string().min(1).default("http://localhost:11434"),

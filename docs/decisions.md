@@ -172,3 +172,24 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 **Verifica live (questa sessione).** Gemini `complete` + `completeStructured` + `RoutedProvider.complete` tutti OK. Ollama daemon raggiungibile ma modelli non ancora scaricati: pull di `qwen2.5:7b-instruct-q4_K_M` (4.7 GB, fallback chat) e `mxbai-embed-large` (670 MB, embed) restano azione di setup utente.
 
 **Versioni al momento della decisione.** Gemini API v1beta. Modello `gemini-2.5-flash`. Zod 4.4.3 (`z.toJSONSchema`).
+
+---
+
+## 2026-05-07 — Modello Gemini definitivo: `gemini-3-flash-preview`
+
+**Contesto.** Decisione di ottimizzare la qualita' del modello chat. L'utente ha richiesto `gemini-3.1-pro-preview`, poi `gemini-3.1-flash-preview`. Verifica live ha rivelato due constraint:
+
+1. **Tutti i Pro Gemini (2.5-pro, 3-pro-preview, 3.1-pro-preview, alias `gemini-pro-latest`) hanno quota free tier = 0.** L'API ritorna 429 con `"limit: 0"` esplicito su `generate_content_free_tier_input_token_count` e `_requests`. Pro = solo con billing abilitato. Coerente con la scelta utente "no paid".
+2. **`gemini-3.1-flash-preview` non esiste** come endpoint chat. La famiglia 3.1 Flash espone solo varianti specializzate: `lite-preview`, `image-preview`, `tts-preview`, `live-preview`. Niente "Flash piena" 3.1 sull'API pubblica oggi.
+
+**Modelli FREE TIER usabili oggi per chat (verificati live):**
+- `gemini-3-flash-preview` ✅ — Flash piu' recente disponibile su free tier, miglior qualita' tra i free
+- `gemini-3.1-flash-lite-preview` ✅ — versione lite, piu' veloce ma qualita' inferiore al 3-flash
+- `gemini-2.5-flash` ✅ — stable, ben testato
+- `gemini-2.0-flash`, `gemini-2.0-flash-lite` ✅ — vecchi, evitati
+
+**Scelta finale: `gemini-3-flash-preview`.** Aggiornato sia in `.env` (locale) sia come default in `src/lib/env.ts` e `.env.example`.
+
+**Caveat preview.** Il modello e' "preview", potenzialmente cambia o viene ritirato senza preavviso. Per uso personale e' un rischio accettabile (basta cambiare `GEMINI_MODEL`); per un prodotto in produzione sarebbe meglio un modello stable. Quando `gemini-3-flash` (senza `-preview`) sara' GA, vale la pena swappare.
+
+**Verifica live (questa sessione).** `complete` ("pong") + `completeStructured` (JSON `{pong:true, lang:"it"}` validato Zod) + `RoutedProvider.complete` tutti OK. Tempi di risposta nell'ordine di 1-3s.
