@@ -214,3 +214,25 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - **Single-read mantenuto.** `parsed = schema.safeParse(process.env)` a livello di modulo. Throw immediato su invalid. Pattern fail-fast: meglio crash al boot che bug subdoli a runtime.
 
 **Risultati.** 12 chiavi documentate, 12 validate, in sync. `pnpm env:check` aggiunto come gate riusabile (CI / pre-commit futuri).
+
+---
+
+## 2026-05-07 — Logging strutturato con pino
+
+**Contesto.** Task ROADMAP "Logging strutturato: pino (TS)". Cross-cutting concern (CLAUDE.md): log strutturati con request_id, metriche LLM, fail-fast su regressioni.
+
+**Decisioni.**
+
+- **pino 10 + pino-pretty 13.** Standard de-facto in TS, asincrono, performante. Nessun runtime Edge in scope: usiamo Node ovunque, no compromessi.
+- **Pretty in dev/test, JSON in production.** Lettura umana mentre lavoro al tavolo, ingestione automatica quando il Player Dashboard sara' deployato. Ramificazione via `transport: { target: "pino-pretty" }` solo se `NODE_ENV !== "production"`.
+- **Default level per ambiente.**
+  - `development`: `debug` — molto verboso, voglio vedere tutto durante lo sviluppo
+  - `production`: `info`
+  - `test`: `warn` — silenzioso ma non muto, cosi' vedo regressioni sui test
+  - Override via `LOG_LEVEL` env (es. `LOG_LEVEL=trace pnpm dev` per debug profondo)
+- **Scope come metadata.** `getLogger("llm.router")` produce un child logger con `scope: "llm.router"` nel JSON (e prefisso visibile in pino-pretty). Pattern dotted (`llm.router`, `db.client`, `parsers.npc`) per gerarchia leggibile.
+- **Redaction always-on.** Lista esplicita di path sensibili in `redact.paths`: `apiKey`, `password`, `GOOGLE_AI_API_KEY`, `DATABASE_URL`, `headers.authorization`. `[Redacted]` come placeholder. Sia top-level (`apiKey`) sia nested (`*.apiKey`) per sicurezza. In produzione log finiscono in file/stdout, una API key per errore puo' diventare un incidente — ridondanza accettata.
+- **Niente pid/hostname per default.** Single-user su localhost, sono rumore. `base: {}` li elimina; `ignore: "pid,hostname"` in pino-pretty per coerenza.
+- **Fields riservati di pino.** `level`, `time`, `msg` sono nomi che pino usa internamente. Documentato nello smoke script: usare `npcLevel`/`occurredAt`/`message` se serve un field con quel concetto.
+- **Wiring iniziale: solo `RoutedProvider`.** Il `console.warn` di default per il fallback chat e' diventato `log.warn({ op, err, status }, "primary failed, using fallback")`. Gli altri moduli (db client, providers LLM concreti) NON sono wirati ora — gli aggiungeremo logging mirato quando arrivano feature osservabili (e.g., logging di tokens/latency in Fase 3 con `generation_log`). CLAUDE.md §"Don't add features beyond task scope".
+- **Console.* negli script CLI.** `db-ping`, `llm-ping`, `env-check`, `logger-smoke` continuano a usare `console.log`/`error`. Sono CLI tools, l'output testuale e' il canale giusto. Pino e' per il codice applicativo.

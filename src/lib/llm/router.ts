@@ -1,11 +1,15 @@
 import type { z } from "zod";
 
+import { getLogger } from "@/lib/logger";
+
 import {
   type CompleteOptions,
   type LLMInput,
   type LLMProvider,
   LLMError,
 } from "./types";
+
+const log = getLogger("llm.router");
 
 interface RoutedProviderConfig {
   /** Provider primario per chat (complete, completeStructured, stream). */
@@ -14,7 +18,7 @@ interface RoutedProviderConfig {
   chatFallback: LLMProvider;
   /** Provider unico per embed (mai switchato per stabilita' del vector space). */
   embed: LLMProvider;
-  /** Logger opzionale per il fallback. Default: console.warn. */
+  /** Hook chiamato quando il fallback parte. Default: log a warn. */
   onFallback?: (op: string, err: unknown) => void;
 }
 
@@ -40,8 +44,14 @@ export class RoutedProvider implements LLMProvider {
     this.onFallback =
       config.onFallback ??
       ((op, err) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn(`[llm] ${op}: primary failed (${msg}), using fallback.`);
+        log.warn(
+          {
+            op,
+            err: err instanceof Error ? err.message : String(err),
+            status: err instanceof LLMError ? err.status : undefined,
+          },
+          "primary failed, using fallback",
+        );
       });
   }
 

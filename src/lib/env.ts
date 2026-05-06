@@ -16,6 +16,11 @@ const baseSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
 
+  // Livello del logger (pino). 'silent' disabilita tutto.
+  LOG_LEVEL: z
+    .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
+    .optional(),
+
   // Provider primario per chat. Embedding va sempre via Ollama.
   LLM_PROVIDER: z.enum(["gemini", "ollama"]).default("gemini"),
 
