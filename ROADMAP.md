@@ -205,7 +205,8 @@ Tutta l'infrastruttura per essere produttivi: progetto inizializzato, DB locale,
 ### Task
 - [x] Scaffolding progetto: `pnpm create next-app` (o equivalente Python) + TypeScript + Tailwind + ESLint
   - _Note implementative: Next.js 16.2.4 (non 15) installato da `create-next-app@latest`. Tailwind v4, ESLint v9 flat config, App Router, `src/`, alias `@/*`. tsconfig esteso con `noUncheckedIndexedAccess: true`. Aggiunto script `typecheck`. Vedi `docs/decisions.md` 2026-05-06 per dettagli su procedura di scaffold e gestione collisioni `public/` / `README.md`._
-- [ ] `docker-compose.yml` con Postgres 16 + extension `vector` e `pg_trgm`
+- [x] `docker-compose.yml` con Postgres 16 + extension `vector` e `pg_trgm`
+  - _Note implementative: image `pgvector/pgvector:pg16` (vector 0.8.2). Init script in `docker/postgres/init/01-extensions.sql` (creato anche `pg_trgm`). Volume named `sherdan_pg_data`. Healthcheck con `pg_isready`. Port host 5432 (configurabile via `POSTGRES_PORT`). `.env.example` aggiunto come riferimento; `.gitignore` con eccezione `!.env.example`. Container `sherdan-postgres` avviato e verificato._
 - [ ] Configurazione ORM (Drizzle/Prisma): connessione, migrations folder
 - [ ] Prima migration: schema completo v2 (campaigns + entities + entity_links + entity_identities + entity_secrets + sessions + session_entities + plot_threads + plot_thread_entities + plot_thread_events + truth_clues + pc_hooks + encounters + encounter_participants + loot_bundles + random_tables + rule_documents)
 - [ ] Validazione schema: Zod schemas per ogni `properties` JSONB type-specific (NPC, Location, Faction, Item, Monster, PC, Deity, Organization)

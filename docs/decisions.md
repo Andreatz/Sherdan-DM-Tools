@@ -42,3 +42,20 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - Il codice applicativo legge i `.md` con `fs.readFile(path.join(process.cwd(), 'public', '<file>.md'))`.
 - I `.md` non vanno mai modificati a runtime (CLAUDE.md §12.2).
 - Se in futuro l'esposizione statica diventasse un problema (ad es. condivisione del Player Dashboard pubblicamente), si rivaluta lo spostamento.
+
+---
+
+## 2026-05-06 — Postgres locale via docker-compose
+
+**Contesto.** Secondo task della Fase 0: serve un Postgres 16 locale con `pgvector` (per gli embedding 1536-dim) e `pg_trgm` (per FTS fuzzy).
+
+**Scelte.**
+
+- **Image**: `pgvector/pgvector:pg16`. Image ufficiale del progetto pgvector basata su Postgres 16, evita di dover compilare l'estensione manualmente. Versione installata: `vector 0.8.2`, `pg_trgm 1.6`.
+- **Init**: file `docker/postgres/init/01-extensions.sql` montato in `/docker-entrypoint-initdb.d/`. Postgres lo esegue una sola volta al primo avvio del volume, quindi `CREATE EXTENSION IF NOT EXISTS` per essere idempotenti se in futuro si aggiungono altri script.
+- **Persistenza**: volume Docker named `sherdan_pg_data` su `/var/lib/postgresql/data`. `PGDATA=/var/lib/postgresql/data/pgdata` (sotto-cartella) come da raccomandazione dell'image — evita problemi quando il volume root contiene file di sistema (lost+found ecc.).
+- **Networking**: porta host `5432` (sovrascrivibile con `POSTGRES_PORT`). Single-user su localhost, niente esposizione esterna.
+- **Credenziali**: defaults in `docker-compose.yml` via `${VAR:-default}` (`sherdan` / `sherdan_dev` / `sherdan_dm`). `.env.example` come riferimento per il dev. La config tipizzata applicativa arriva in un task successivo (`Config management`).
+- **Healthcheck**: `pg_isready` ogni 5s, 10 retries. Permette a chi lancera' migrations o test di aspettare che il DB sia pronto invece di sleep arbitrari.
+
+**Decisione contestuale**: `.gitignore` esteso con `!.env.example` per consentire il commit del template senza esporre `.env` reale (CLAUDE.md §12.8).
