@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Solo l'esecuzione piu' recente per ogni ref. Se pushi 3 volte di fila,
+# le prime 2 vengono cancellate.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: lint + typecheck + test + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Var minime per soddisfare la validazione Zod in src/lib/env.ts.
+    # Niente Postgres in CI: i test attuali sono unit (Zod schemas), e
+    # /campaigns e' force-dynamic quindi non viene prerendered al build.
+    # `LLM_PROVIDER=ollama` evita il check su GOOGLE_AI_API_KEY.
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      LLM_PROVIDER: ollama
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: env:check (sync .env.example <-> Zod schema)
+        run: pnpm env:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

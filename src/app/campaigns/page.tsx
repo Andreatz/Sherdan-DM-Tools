@@ -4,6 +4,11 @@ import { db } from "@/db/client";
 import { campaigns } from "@/db/schema";
 import { getLogger } from "@/lib/logger";
 
+// Niente prerendering al build: la lista cambia, vogliamo dati freschi
+// ad ogni richiesta. Inoltre questo evita che `next build` tenti di
+// connettersi al DB in CI (dove Postgres non gira).
+export const dynamic = "force-dynamic";
+
 const log = getLogger("page.campaigns");
 
 interface CampaignSummary {
