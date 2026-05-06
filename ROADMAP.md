@@ -203,7 +203,8 @@ L'idea: i campi che si ripresentano in ogni NPC della campagna Sherdan diventano
 Tutta l'infrastruttura per essere produttivi: progetto inizializzato, DB locale, prima migration, LLM client funzionante, layout di base.
 
 ### Task
-- [ ] Scaffolding progetto: `pnpm create next-app` (o equivalente Python) + TypeScript + Tailwind + ESLint
+- [x] Scaffolding progetto: `pnpm create next-app` (o equivalente Python) + TypeScript + Tailwind + ESLint
+  - _Note implementative: Next.js 16.2.4 (non 15) installato da `create-next-app@latest`. Tailwind v4, ESLint v9 flat config, App Router, `src/`, alias `@/*`. tsconfig esteso con `noUncheckedIndexedAccess: true`. Aggiunto script `typecheck`. Vedi `docs/decisions.md` 2026-05-06 per dettagli su procedura di scaffold e gestione collisioni `public/` / `README.md`._
 - [ ] `docker-compose.yml` con Postgres 16 + extension `vector` e `pg_trgm`
 - [ ] Configurazione ORM (Drizzle/Prisma): connessione, migrations folder
 - [ ] Prima migration: schema completo v2 (campaigns + entities + entity_links + entity_identities + entity_secrets + sessions + session_entities + plot_threads + plot_thread_entities + plot_thread_events + truth_clues + pc_hooks + encounters + encounter_participants + loot_bundles + random_tables + rule_documents)
