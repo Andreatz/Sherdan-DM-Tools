@@ -331,7 +331,8 @@ I .md di Sherdan hanno una struttura regolare. Ogni tipo di documento ha un temp
 ### Task
 
 **Parser**
-- [ ] Parser per `NPC.md` → `entities` (type=npc) con properties tipizzate, `entity_secrets` su tre layer, `pc_hooks` per ogni riga della tabella Agganci PG, `entity_links` per "Rapporti con i Cinque Capi" o sezioni equivalenti
+- [x] Parser per `NPC.md` → `entities` (type=npc) con properties tipizzate, `entity_secrets` su tre layer, `pc_hooks` per ogni riga della tabella Agganci PG, `entity_links` per "Rapporti con i Cinque Capi" o sezioni equivalenti
+  - _Note implementative: aggiunto parser puro `parseSherdanNpcMarkdown` in `src/lib/parsers/sherdan-npc.ts`, pensato come import-plan per il task Pipeline idempotente successivo. Su `public/NPC.md` riconosce 65 blocchi `##` importabili, produce properties NPC validate da Zod, 18 segreti stratificati, 27 agganci PG, 10 relazioni verso entità da risolvere al secondo passaggio e 66 identità/alias (inclusa la maschera pubblica Dante per Malakor). Test unitari su frammenti reali verificano Lunacupa e Malakor._
 - [ ] Parser per `Fazioni.md` → `entities` (type=faction) + sotto-entità per luogotenenti, `entity_secrets`, `entity_links` per rapporti
 - [ ] Parser per `Lore.md` → `entities` (type=organization/location/deity a seconda della sezione) con split automatico `description` (testo `🔒` markato) vs `public_description` (testo non markato)
 - [ ] Parser per `Campagna.md` → `plot_threads` (uno per arc personale + macro-arc), `sessions` con `recap` (testo) e `prep_notes` (blocchi `🔒` estratti)
