@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
@@ -44,12 +46,17 @@ interface WikiMarkdownEditorProps {
   field: MarkdownField;
   label: string;
   initialMarkdown: string | null;
+  entityPreviews: EntityPreview[];
 }
 
 interface EntitySuggestion {
   id: string;
   name: string;
   type: EntityType;
+}
+
+interface EntityPreview extends EntitySuggestion {
+  publicDescription: string | null;
 }
 
 interface WikiLinkTrigger {
@@ -155,6 +162,16 @@ function isEntitySuggestion(value: unknown): value is EntitySuggestion {
 
 function parseSuggestions(value: unknown): EntitySuggestion[] {
   return Array.isArray(value) ? value.filter(isEntitySuggestion) : [];
+}
+
+function normalizeWikiName(name: string): string {
+  return name.trim().toLocaleLowerCase("it-IT");
+}
+
+function buildEntityPreviewMap(entityPreviews: EntityPreview[]) {
+  return new Map(
+    entityPreviews.map((entity) => [normalizeWikiName(entity.name), entity]),
+  );
 }
 
 export class WikiLinkNode extends TextNode {
@@ -519,12 +536,215 @@ function $isTextNodeLike(node: LexicalNode): node is TextNode {
   return node instanceof TextNode;
 }
 
+function renderInlineMarkdown({
+  campaignId,
+  text,
+  entityPreviewByName,
+}: {
+  campaignId: string;
+  text: string;
+  entityPreviewByName: Map<string, EntityPreview>;
+}): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const tokenRe = /(`[^`]+`|\[\[[^\]\[\n]{1,200}\]\]|\*\*[^*]+\*\*|\*[^*\n]+\*)/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenRe.exec(text)) !== null) {
+    if (match.index > cursor) {
+      nodes.push(text.slice(cursor, match.index));
+    }
+
+    const token = match[0];
+    const key = `${match.index}-${token}`;
+
+    if (token.startsWith("[[")) {
+      const name = token.slice(2, -2).trim();
+      const preview = entityPreviewByName.get(normalizeWikiName(name));
+      nodes.push(
+        <WikiLinkPreview
+          key={key}
+          campaignId={campaignId}
+          name={name}
+          preview={preview}
+        />,
+      );
+    } else if (token.startsWith("`")) {
+      nodes.push(
+        <code
+          key={key}
+          className="rounded bg-zinc-100 px-1 py-0.5 text-[0.92em] text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
+        >
+          {token.slice(1, -1)}
+        </code>,
+      );
+    } else if (token.startsWith("**")) {
+      nodes.push(<strong key={key}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("*")) {
+      nodes.push(<em key={key}>{token.slice(1, -1)}</em>);
+    }
+
+    cursor = match.index + token.length;
+  }
+
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+
+  return nodes;
+}
+
+function WikiLinkPreview({
+  campaignId,
+  name,
+  preview,
+}: {
+  campaignId: string;
+  name: string;
+  preview: EntityPreview | undefined;
+}) {
+  if (!preview) {
+    return (
+      <span className="rounded bg-rose-50 px-1 font-medium text-rose-800 ring-1 ring-inset ring-rose-200 dark:bg-rose-950/50 dark:text-rose-200 dark:ring-rose-900">
+        [[{name}]]
+      </span>
+    );
+  }
+
+  return (
+    <span className="group relative inline-block">
+      <Link
+        href={`/campaigns/${campaignId}?focus=${preview.id}`}
+        className="rounded bg-sky-50 px-1 font-medium text-sky-800 ring-1 ring-inset ring-sky-200 hover:bg-sky-100 dark:bg-sky-950/50 dark:text-sky-200 dark:ring-sky-900 dark:hover:bg-sky-900/70"
+      >
+        {name}
+      </Link>
+      <span className="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-72 rounded-md border border-zinc-200 bg-white p-3 text-left text-xs leading-5 text-zinc-700 shadow-lg group-hover:block dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
+        <span className="mb-1 flex items-center justify-between gap-2">
+          <span className="font-semibold text-zinc-900 dark:text-zinc-50">
+            {preview.name}
+          </span>
+          <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] uppercase text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+            {TYPE_LABELS[preview.type]}
+          </span>
+        </span>
+        <span className="block text-zinc-500 dark:text-zinc-400">
+          {preview.publicDescription || "Nessuna versione pubblica."}
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function WikiMarkdownPreview({
+  campaignId,
+  markdown,
+  entityPreviews,
+}: {
+  campaignId: string;
+  markdown: string;
+  entityPreviews: EntityPreview[];
+}) {
+  const entityPreviewByName = useMemo(
+    () => buildEntityPreviewMap(entityPreviews),
+    [entityPreviews],
+  );
+  const lines = markdown.split(/\r?\n/);
+  const blocks: ReactNode[] = [];
+  let listItems: string[] = [];
+
+  function flushList() {
+    if (listItems.length === 0) return;
+    const items = listItems;
+    listItems = [];
+    blocks.push(
+      <ul key={`list-${blocks.length}`} className="my-3 list-disc space-y-1 pl-5">
+        {items.map((item, index) => (
+          <li key={`${index}-${item}`}>
+            {renderInlineMarkdown({
+              campaignId,
+              text: item,
+              entityPreviewByName,
+            })}
+          </li>
+        ))}
+      </ul>,
+    );
+  }
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      flushList();
+      return;
+    }
+
+    const listMatch = /^[-*]\s+(.+)$/.exec(trimmed);
+    if (listMatch) {
+      listItems.push(listMatch[1] ?? "");
+      return;
+    }
+
+    flushList();
+
+    const headingMatch = /^(#{1,3})\s+(.+)$/.exec(trimmed);
+    if (headingMatch) {
+      const level = headingMatch[1]?.length ?? 1;
+      const content = headingMatch[2] ?? "";
+      const className =
+        level === 1
+          ? "mt-5 mb-2 text-lg font-semibold"
+          : level === 2
+            ? "mt-4 mb-2 text-base font-semibold"
+            : "mt-3 mb-1 text-sm font-semibold";
+      blocks.push(
+        <h4 key={`heading-${index}`} className={className}>
+          {renderInlineMarkdown({
+            campaignId,
+            text: content,
+            entityPreviewByName,
+          })}
+        </h4>,
+      );
+      return;
+    }
+
+    blocks.push(
+      <p key={`paragraph-${index}`} className="my-2">
+        {renderInlineMarkdown({
+          campaignId,
+          text: trimmed,
+          entityPreviewByName,
+        })}
+      </p>,
+    );
+  });
+
+  flushList();
+
+  if (blocks.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
+        Nessun markdown da renderizzare.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm leading-7 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
+      {blocks}
+    </div>
+  );
+}
+
 export function WikiMarkdownEditor({
   campaignId,
   entityId,
   field,
   label,
   initialMarkdown,
+  entityPreviews,
 }: WikiMarkdownEditorProps) {
   const [markdown, setMarkdown] = useState(initialMarkdown ?? "");
   const [savedMarkdown, setSavedMarkdown] = useState(initialMarkdown ?? "");
@@ -589,33 +809,46 @@ export function WikiMarkdownEditor({
         </button>
       </div>
 
-      <LexicalComposer initialConfig={initialConfig}>
-        <div className="relative rounded-md border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-          <RichTextPlugin
-            contentEditable={
-              <ContentEditable className="min-h-64 px-4 py-3 text-sm leading-7 text-zinc-900 outline-none dark:text-zinc-100" />
-            }
-            placeholder={
-              <div className="pointer-events-none absolute px-4 py-3 text-sm text-zinc-400 dark:text-zinc-500">
-                Scrivi markdown...
-              </div>
-            }
-            ErrorBoundary={LexicalErrorBoundary}
-          />
-          <HistoryPlugin />
-          <WikiLinkTransformPlugin />
-          <WikiLinkAutocompletePlugin
+      <div className="grid gap-4 xl:grid-cols-2">
+        <LexicalComposer initialConfig={initialConfig}>
+          <div className="relative rounded-md border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+            <RichTextPlugin
+              contentEditable={
+                <ContentEditable className="min-h-64 px-4 py-3 text-sm leading-7 text-zinc-900 outline-none dark:text-zinc-100" />
+              }
+              placeholder={
+                <div className="pointer-events-none absolute px-4 py-3 text-sm text-zinc-400 dark:text-zinc-500">
+                  Scrivi markdown...
+                </div>
+              }
+              ErrorBoundary={LexicalErrorBoundary}
+            />
+            <HistoryPlugin />
+            <WikiLinkTransformPlugin />
+            <WikiLinkAutocompletePlugin
+              campaignId={campaignId}
+              onStatus={setStatus}
+            />
+            <OnChangePlugin
+              onChange={(_, editor) => {
+                setStatus(null);
+                setMarkdown(serializeMarkdown(editor));
+              }}
+            />
+          </div>
+        </LexicalComposer>
+
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase text-zinc-500 dark:text-zinc-400">
+            Preview
+          </p>
+          <WikiMarkdownPreview
             campaignId={campaignId}
-            onStatus={setStatus}
-          />
-          <OnChangePlugin
-            onChange={(_, editor) => {
-              setStatus(null);
-              setMarkdown(serializeMarkdown(editor));
-            }}
+            markdown={markdown}
+            entityPreviews={entityPreviews}
           />
         </div>
-      </LexicalComposer>
+      </div>
 
       <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
         <span>{isDirty ? "Modifiche non salvate" : "Allineato al DB"}</span>

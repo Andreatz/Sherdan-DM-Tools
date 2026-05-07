@@ -66,6 +66,7 @@ interface EntityName {
   id: string;
   type: EntityType;
   name: string;
+  publicDescription: string | null;
 }
 
 interface EntityIdentityRow {
@@ -254,6 +255,7 @@ async function fetchCampaignEntityNames(campaignId: string): Promise<EntityName[
       id: entities.id,
       type: entities.type,
       name: entities.name,
+      publicDescription: entities.publicDescription,
     })
     .from(entities)
     .where(eq(entities.campaignId, campaignId))
@@ -750,6 +752,7 @@ function EntityDetailPanel({
             field="description"
             label="Verita' GM"
             initialMarkdown={entity.description}
+            entityPreviews={Array.from(entityNameById.values())}
           />
         )}
         {activeTab === "public" && (
@@ -759,6 +762,7 @@ function EntityDetailPanel({
             field="publicDescription"
             label="Versione pubblica"
             initialMarkdown={entity.publicDescription}
+            entityPreviews={Array.from(entityNameById.values())}
           />
         )}
         {activeTab === "properties" && (
