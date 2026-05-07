@@ -14,6 +14,7 @@ import {
   pcHooks,
 } from "@/db/schema";
 import { getLogger } from "@/lib/logger";
+import { EntityLinkEditor } from "@/components/entity-link-editor";
 import { WikiMarkdownEditor } from "@/components/wiki-markdown-editor";
 
 const log = getLogger("page.campaign-detail");
@@ -775,6 +776,7 @@ function EntityDetailPanel({
         {activeTab === "links" && (
           <LinksPanel
             campaignId={campaignId}
+            currentEntityId={entity.id}
             filters={filters}
             activeTab={activeTab}
             links={data.links}
@@ -911,6 +913,7 @@ function SecretsPanel({ secrets }: { secrets: EntitySecretRow[] }) {
 
 function LinksPanel({
   campaignId,
+  currentEntityId,
   filters,
   activeTab,
   links,
@@ -918,12 +921,24 @@ function LinksPanel({
   direction,
 }: {
   campaignId: string;
+  currentEntityId?: string;
   filters: EntityListFilters;
   activeTab: DetailTab;
   links: EntityLinkRow[];
   entityNameById: Map<string, EntityName>;
   direction: "forward" | "backward";
 }) {
+  if (direction === "forward" && currentEntityId) {
+    return (
+      <EntityLinkEditor
+        campaignId={campaignId}
+        currentEntityId={currentEntityId}
+        links={links}
+        entities={Array.from(entityNameById.values())}
+      />
+    );
+  }
+
   if (links.length === 0) {
     return (
       <EmptyDetailState>
