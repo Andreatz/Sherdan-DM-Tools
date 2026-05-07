@@ -17,6 +17,7 @@ import {
 import { getLogger } from "@/lib/logger";
 import { EntityLinkEditor } from "@/components/entity-link-editor";
 import { EntityIdentityManager } from "@/components/entity-identity-manager";
+import { EntitySecretManager } from "@/components/entity-secret-manager";
 import { WikiMarkdownEditor } from "@/components/wiki-markdown-editor";
 
 const log = getLogger("page.campaign-detail");
@@ -813,7 +814,14 @@ function EntityDetailPanel({
             sessions={campaignSessions}
           />
         )}
-        {activeTab === "secrets" && <SecretsPanel secrets={data.secrets} />}
+        {activeTab === "secrets" && (
+          <EntitySecretManager
+            campaignId={campaignId}
+            entityId={entity.id}
+            secrets={data.secrets}
+            sessions={campaignSessions}
+          />
+        )}
         {activeTab === "links" && (
           <LinksPanel
             campaignId={campaignId}
@@ -861,55 +869,6 @@ function PropertiesPanel({ properties }: { properties: unknown }) {
       <pre className="max-h-[520px] overflow-auto rounded-md border border-zinc-200 bg-zinc-50 p-4 text-xs leading-6 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
         {JSON.stringify(properties, null, 2)}
       </pre>
-    </div>
-  );
-}
-
-function SecretsPanel({ secrets }: { secrets: EntitySecretRow[] }) {
-  if (secrets.length === 0) {
-    return <EmptyDetailState>Nessun segreto registrato.</EmptyDetailState>;
-  }
-
-  const layers: SecretLayer[] = ["surface", "intermediate", "deep"];
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      {layers.map((layer) => {
-        const layerSecrets = secrets.filter((secret) => secret.layer === layer);
-        return (
-          <div key={layer} className="space-y-3">
-            <h4 className="text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              {layer}
-            </h4>
-            {layerSecrets.length === 0 ? (
-              <div className="rounded-md border border-dashed border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                Vuoto
-              </div>
-            ) : (
-              layerSecrets.map((secret) => (
-                <div
-                  key={secret.id}
-                  className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800"
-                >
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-zinc-800 dark:text-zinc-200">
-                    {secret.content}
-                  </p>
-                  <DetailField label="Come sfruttarlo" value={secret.exploitHint} />
-                  <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                    {secret.discoveredAtSession
-                      ? "Scoperto dal party"
-                      : "Non ancora scoperto"}
-                  </p>
-                  <DetailField
-                    label="Note scoperta"
-                    value={secret.discoveryNotes}
-                  />
-                </div>
-              ))
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }
