@@ -301,7 +301,8 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
 **QoL**
 - [x] Vista grafo: D3 force-directed o vis-network, nodi colorati per type, opzione "mostra solo links pubblici"
   - _Note implementative: aggiunto `EntityGraphView` con D3 force-directed (`d3-force`) e rendering React/SVG. La pagina campagna carica tutte le entity e tutti gli `entity_links` della campagna; il grafo mostra nodi colorati per `entity.type`, link direzionali con label, highlight dell'entità selezionata e toggle client-side "Mostra solo links pubblici" basato su `entity_links.visibility = 'public'`. Aggiunte dipendenze `d3` e `@types/d3`; scelta documentata in `docs/decisions.md`._
-- [ ] "Recently edited" nella sidebar
+- [x] "Recently edited" nella sidebar
+  - _Note implementative: aggiunta sezione "Modificate di recente" in `EntitySidebarSection`, con gli ultimi 5 record ordinati per `entities.updated_at` e link diretto alla detail view. Estesa `GET /api/entities` con query `sort=name_asc|updated_desc` (default `name_asc`) per non dipendere dal sort client-side quando il dataset crescerà._
 - [ ] Keyboard shortcut Cmd-K per quick switch entità
 - [ ] Visibility toggle nell'editor (dm_only / discovered / public)
 

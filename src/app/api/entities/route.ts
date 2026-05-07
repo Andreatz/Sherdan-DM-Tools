@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { type SQL, and, asc, eq, ilike, or, sql } from "drizzle-orm";
+import { type SQL, and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { entities } from "@/db/schema";
@@ -61,12 +61,14 @@ export async function GET(req: NextRequest) {
 
     const cols = q.include_embedding ? baseColumnsWithEmbedding : baseColumns;
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const orderBy =
+      q.sort === "updated_desc" ? desc(entities.updatedAt) : asc(entities.name);
 
     const rows = await db
       .select(cols)
       .from(entities)
       .where(whereClause)
-      .orderBy(asc(entities.name))
+      .orderBy(orderBy)
       .limit(q.limit)
       .offset(q.offset);
 

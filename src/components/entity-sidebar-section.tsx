@@ -22,6 +22,7 @@ interface SidebarEntity {
   name: string;
   tags: string[];
   visibility: Visibility;
+  updatedAt: string;
 }
 
 const TYPE_ORDER: EntityType[] = [
@@ -64,7 +65,8 @@ function isSidebarEntity(value: unknown): value is SidebarEntity {
     Array.isArray(candidate.tags) &&
     candidate.tags.every((tag) => typeof tag === "string") &&
     typeof candidate.visibility === "string" &&
-    ["dm_only", "discovered", "public"].includes(candidate.visibility)
+    ["dm_only", "discovered", "public"].includes(candidate.visibility) &&
+    typeof candidate.updatedAt === "string"
   );
 }
 
@@ -75,6 +77,7 @@ function parseSidebarEntities(value: unknown): SidebarEntity[] {
 
 export function EntitySidebarSection() {
   const [entities, setEntities] = useState<SidebarEntity[]>([]);
+  const [recentEntities, setRecentEntities] = useState<SidebarEntity[]>([]);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,14 +89,23 @@ export function EntitySidebarSection() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch("/api/entities?limit=200", {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        const [entitiesResponse, recentResponse] = await Promise.all([
+          fetch("/api/entities?limit=200", { signal: controller.signal }),
+          fetch("/api/entities?limit=5&sort=updated_desc", {
+            signal: controller.signal,
+          }),
+        ]);
+
+        if (!entitiesResponse.ok) {
+          throw new Error(`HTTP ${entitiesResponse.status}`);
         }
-        const data = (await response.json()) as unknown;
-        setEntities(parseSidebarEntities(data));
+        if (!recentResponse.ok) {
+          throw new Error(`HTTP ${recentResponse.status}`);
+        }
+        const entitiesData = (await entitiesResponse.json()) as unknown;
+        const recentData = (await recentResponse.json()) as unknown;
+        setEntities(parseSidebarEntities(entitiesData));
+        setRecentEntities(parseSidebarEntities(recentData));
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : String(err));
@@ -162,6 +174,41 @@ export function EntitySidebarSection() {
         </p>
       ) : (
         <div className="space-y-4">
+          {query.trim().length === 0 && recentEntities.length > 0 && (
+            <div>
+              <div className="mb-1 flex items-center justify-between px-3">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  Modificate di recente
+                </h3>
+                <span className="text-[10px] tabular-nums text-zinc-400 dark:text-zinc-600">
+                  {recentEntities.length}
+                </span>
+              </div>
+              <ul className="space-y-0.5">
+                {recentEntities.map((entity) => (
+                  <li key={entity.id}>
+                    <Link
+                      href={`/campaigns/${entity.campaignId}?focus=${entity.id}`}
+                      className="flex min-w-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      <span
+                        className={`h-2 w-2 shrink-0 rounded-full ${VISIBILITY_DOT[entity.visibility]}`}
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1 truncate">{entity.name}</span>
+                      <span className="shrink-0 text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
+                        {new Date(entity.updatedAt).toLocaleDateString("it-IT", {
+                          day: "2-digit",
+                          month: "2-digit",
+                        })}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {groupedEntities.map((group) => (
             <div key={group.type}>
               <div className="mb-1 flex items-center justify-between px-3">
