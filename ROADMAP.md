@@ -277,7 +277,8 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
   - _Note implementative: aggiunto componente client `EntitySidebarSection` nella sidebar globale. Carica fino a 200 entità da `GET /api/entities`, le raggruppa per `type`, mostra conteggi e indicatore di `visibility`, e filtra istantaneamente per nome/type/tag. Finché la detail view non esiste, i link puntano alla campagna con query `focus=<entity_id>` per evitare 404 e restare agganciabili al task successivo._
 - [x] Entity list view: filtri (type, tag, search), card o tabella
   - _Note implementative: lista entita' nella detail view campagna (`/campaigns/[id]`) come tabella server-rendered con filtri GET per `type`, `tag`, `search`; badge visibilita', tag cliccabili, stato vuoto e reset filtri. Verificata manualmente su `http://127.0.0.1:3000/campaigns/0614eb59-a2f3-45cf-ae1b-2d32586340d4`._
-- [ ] Entity detail view: tabs per "Verità GM", "Versione pubblica", "Properties" (form JSONB), "Identità", "Segreti", "Links", "Backlinks", "Hooks PG"
+- [x] Entity detail view: tabs per "Verità GM", "Versione pubblica", "Properties" (form JSONB), "Identità", "Segreti", "Links", "Backlinks", "Hooks PG"
+  - _Note implementative: detail view integrata in `/campaigns/[id]` con selezione via `focus=<entity_id>` e tab via `detail_tab`. Mostra Verita' GM, versione pubblica, JSONB properties read-only, identita', segreti stratificati, links in uscita, backlinks e hooks PG recuperati dal DB. I pannelli sono volutamente read-only: editor/manager dedicati restano nei task successivi. Verificata manualmente su tab `properties` con HTTP 200._
 - [ ] Markdown editor (TipTap o Lexical) con custom node `[[wikilink]]`
 - [ ] Autocomplete su `[[`: suggerisce entità esistenti, "Crea [name]" se non esiste
 - [ ] Render markdown: wikilinks come link interni, hover preview
