@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { entityType } from "@/db/schema";
 
+import { boolish } from "./_shared";
+
 // Schema per input HTTP delle entities. SEPARATI dai properties schemas
 // (npc/pc/location/...): qui si validano i campi di "alto livello"
 // (name, description, type, ecc.); le `properties` JSONB type-specific
@@ -69,7 +71,7 @@ export const listEntitiesQuerySchema = z
     search: z.string().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(200).default(50),
     offset: z.coerce.number().int().min(0).default(0),
-    include_embedding: z.coerce.boolean().default(false),
+    include_embedding: boolish.optional().default(false),
   })
   .strict();
 

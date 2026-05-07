@@ -12,12 +12,13 @@ import {
 import { fail, noContent, ok } from "@/lib/api/respond";
 import { updateEntityInputSchema } from "@/lib/validation/entity-input";
 import { validateEntityProperties } from "@/lib/validation";
+import { boolish } from "@/lib/validation/_shared";
 
 const idParamSchema = z.object({ id: z.uuid() });
 
 const detailQuerySchema = z
   .object({
-    include_embedding: z.coerce.boolean().default(false),
+    include_embedding: boolish.optional().default(false),
   })
   .strict();
 

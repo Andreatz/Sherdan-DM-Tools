@@ -47,3 +47,17 @@ export const extraField = z
 
 // Helper per non ripetere il `default([])` su array opzionali con default vuoto.
 export const stringArray = z.array(z.string()).default([]);
+
+// `z.coerce.boolean()` ha un bug noto: la stringa "false" e' truthy
+// (length > 0) quindi viene coercita a `true`. Per parametri di query
+// string vogliamo accettare letteralmente "true"/"false". Booleani
+// gia' tipizzati passano invariati.
+export const boolish = z.preprocess((val) => {
+  if (typeof val === "boolean") return val;
+  if (typeof val === "string") {
+    const v = val.toLowerCase();
+    if (v === "true") return true;
+    if (v === "false") return false;
+  }
+  return val;
+}, z.boolean());
