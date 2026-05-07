@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
@@ -64,6 +65,11 @@ interface WikiLinkTrigger {
   anchorKey: string;
   startOffset: number;
   endOffset: number;
+}
+
+interface QuickCreateRequest {
+  name: string;
+  trigger: WikiLinkTrigger;
 }
 
 type SerializedWikiLinkNode = Spread<
@@ -349,10 +355,14 @@ function WikiLinkAutocompletePlugin({
   campaignId: string;
   onStatus: (status: string | null) => void;
 }) {
+  const router = useRouter();
   const [editor] = useLexicalComposerContext();
   const [trigger, setTrigger] = useState<WikiLinkTrigger | null>(null);
   const [suggestions, setSuggestions] = useState<EntitySuggestion[]>([]);
   const [createType, setCreateType] = useState<EntityType>("npc");
+  const [quickCreate, setQuickCreate] = useState<QuickCreateRequest | null>(
+    null,
+  );
   const [isCreating, startCreateTransition] = useTransition();
 
   useEffect(
@@ -423,24 +433,28 @@ function WikiLinkAutocompletePlugin({
     return () => controller.abort();
   }, [campaignId, trigger]);
 
-  function replaceTrigger(name: string) {
-    if (!trigger) return;
-
+  function replaceTrigger(target: WikiLinkTrigger, name: string) {
     editor.update(() => {
       const selection = $createRangeSelection();
-      selection.anchor.set(trigger.anchorKey, trigger.startOffset, "text");
-      selection.focus.set(trigger.anchorKey, trigger.endOffset, "text");
+      selection.anchor.set(target.anchorKey, target.startOffset, "text");
+      selection.focus.set(target.anchorKey, target.endOffset, "text");
       $setSelection(selection);
       selection.insertText(`[[${name}]]`);
     });
     setTrigger(null);
   }
 
-  function createAndInsert() {
+  function openQuickCreate() {
     if (!trigger) return;
 
     const name = trigger.query.trim();
     if (!name) return;
+
+    setQuickCreate({ name, trigger });
+  }
+
+  function createAndInsert() {
+    if (!quickCreate) return;
 
     onStatus(null);
     startCreateTransition(async () => {
@@ -450,7 +464,7 @@ function WikiLinkAutocompletePlugin({
         body: JSON.stringify({
           campaignId,
           type: createType,
-          name,
+          name: quickCreate.name,
           properties: getStubProperties(createType),
           tags: [],
           visibility: "dm_only",
@@ -462,70 +476,132 @@ function WikiLinkAutocompletePlugin({
         return;
       }
 
-      replaceTrigger(name);
-      onStatus(`Creata entita' "${name}"`);
+      replaceTrigger(quickCreate.trigger, quickCreate.name);
+      setQuickCreate(null);
+      router.refresh();
+      onStatus(`Creata entita' "${quickCreate.name}"`);
     });
   }
 
-  if (!trigger) return null;
+  if (!trigger && !quickCreate) return null;
 
-  const query = trigger.query.trim();
-  const exactMatch = suggestions.some(
-    (suggestion) =>
-      suggestion.name.toLocaleLowerCase("it-IT") ===
-      query.toLocaleLowerCase("it-IT"),
-  );
+  const query = trigger?.query.trim() ?? "";
+  const exactMatch = trigger
+    ? suggestions.some(
+        (suggestion) =>
+          suggestion.name.toLocaleLowerCase("it-IT") ===
+          query.toLocaleLowerCase("it-IT"),
+      )
+    : false;
 
   return (
     <div className="border-t border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          Wikilink
-        </p>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-          {query ? `[[${query}]]` : "digita un nome"}
-        </span>
-      </div>
+      {trigger && (
+        <>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Wikilink
+            </p>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              {query ? `[[${query}]]` : "digita un nome"}
+            </span>
+          </div>
 
-      {suggestions.length > 0 && (
-        <div className="mb-3 grid gap-1">
-          {suggestions.map((suggestion) => (
-            <button
-              key={suggestion.id}
-              type="button"
-              onClick={() => replaceTrigger(suggestion.name)}
-              className="flex items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-800 transition-colors hover:bg-white dark:text-zinc-100 dark:hover:bg-zinc-800"
-            >
-              <span className="font-medium">{suggestion.name}</span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                {TYPE_LABELS[suggestion.type]}
+          {suggestions.length > 0 && (
+            <div className="mb-3 grid gap-1">
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion.id}
+                  type="button"
+                  onClick={() => replaceTrigger(trigger, suggestion.name)}
+                  className="flex items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-800 transition-colors hover:bg-white dark:text-zinc-100 dark:hover:bg-zinc-800"
+                >
+                  <span className="font-medium">{suggestion.name}</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {TYPE_LABELS[suggestion.type]}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {query && !exactMatch && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-zinc-600 dark:text-zinc-300">
+                Nessuna entita&apos; esatta.
               </span>
-            </button>
-          ))}
-        </div>
+              <button
+                type="button"
+                onClick={openQuickCreate}
+                className="h-9 rounded-md bg-zinc-900 px-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-300 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
+              >
+                Crea &quot;{query}&quot;
+              </button>
+            </div>
+          )}
+        </>
       )}
 
-      {query && !exactMatch && (
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={createType}
-            onChange={(event) => setCreateType(event.target.value as EntityType)}
-            className="h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-900 outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-          >
-            {CREATE_TYPE_OPTIONS.map((type) => (
-              <option key={type} value={type}>
-                {TYPE_LABELS[type]}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={createAndInsert}
-            disabled={isCreating}
-            className="h-9 rounded-md bg-zinc-900 px-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-300 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
-          >
-            {isCreating ? "Creo..." : `Crea "${query}"`}
-          </button>
+      {quickCreate && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="quick-create-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 p-4"
+        >
+          <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
+              <h3
+                id="quick-create-title"
+                className="text-base font-semibold text-zinc-950 dark:text-zinc-50"
+              >
+                Che tipo e&apos;?
+              </h3>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                {quickCreate.name}
+              </p>
+            </div>
+
+            <div className="space-y-3 p-4">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Tipo
+                </span>
+                <select
+                  value={createType}
+                  onChange={(event) =>
+                    setCreateType(event.target.value as EntityType)
+                  }
+                  className="h-10 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-900 outline-none transition-colors focus:border-zinc-400 focus:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-600"
+                >
+                  {CREATE_TYPE_OPTIONS.map((type) => (
+                    <option key={type} value={type}>
+                      {TYPE_LABELS[type]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-zinc-200 p-4 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setQuickCreate(null)}
+                disabled={isCreating}
+                className="h-10 rounded-md border border-zinc-200 px-3 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={createAndInsert}
+                disabled={isCreating}
+                className="h-10 rounded-md bg-zinc-900 px-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-300 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
+              >
+                {isCreating ? "Creo..." : "Crea stub"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

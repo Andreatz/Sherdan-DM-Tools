@@ -295,7 +295,8 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
   - _Note implementative: aggiunto `PcHookMatrix` client-side nella tab Hooks PG. Recupera tutti i `pc_hooks` della campagna e li mostra come matrice PG × NPC, con righe `type='pc'` e colonne `type='npc'`. Ogni cella può contenere più hook, crearne di nuovi e modificare/cancellare quelli esistenti via API; campi gestiti: `hook_description`, `potential_arc`, `status` (`available`/`in_progress`/`resolved`) e `used_in_session`. La riga/colonna dell'entità selezionata viene evidenziata._
 - [x] Tag system: input chip-style con autocomplete su tag esistenti
   - _Note implementative: aggiunto `EntityTagEditor` nel detail header dell'entità. I tag sono chip removibili, l'input accetta Enter/virgola, suggerisce i tag già presenti nella campagna e consente creazione inline di tag nuovi; il salvataggio usa `PATCH /api/entities/:id` aggiornando solo `tags`._
-- [ ] Quick-create flow: da `[[NewEntity]]` → modal "che tipo è?" → crea stub
+- [x] Quick-create flow: da `[[NewEntity]]` → modal "che tipo è?" → crea stub
+  - _Note implementative: completato il flusso nel `WikiMarkdownEditor`: quando un wikilink non risolve a un'entità esistente, il pannello autocomplete apre un modal "Che tipo è?", crea uno stub type-specific via `POST /api/entities`, inserisce il token `[[Nome]]` nel punto del trigger Lexical e chiama `router.refresh()` per aggiornare lista/preview della campagna._
 
 **QoL**
 - [ ] Vista grafo: D3 force-directed o vis-network, nodi colorati per type, opzione "mostra solo links pubblici"
