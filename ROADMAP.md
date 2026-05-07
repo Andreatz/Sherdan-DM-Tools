@@ -291,7 +291,8 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
   - _Note implementative: aggiunto `EntityIdentityManager` client-side nella tab Identita'. Supporta creazione/modifica/cancellazione identità, campi appearance/voice/mannerisms/notes, visibility, sessione "attiva da" e "attiva fino a" tramite select sulle sessioni della campagna. Il toggle "vera identità" mantiene la mutua esclusività lato UI: quando un'identità viene marcata true, le altre identità true della stessa entity vengono demarcate via API._
 - [x] Secrets panel: tre colonne (surface/intermediate/deep), ognuna espandibile, status "discovered" toggleable
   - _Note implementative: aggiunto `EntitySecretManager` client-side nella tab Segreti. Render a tre colonne espandibili per layer `surface`/`intermediate`/`deep`, con creazione/modifica/cancellazione segreti, campi `content`, `exploit_hint`, `discovery_notes`, e toggle "Scoperto dal party". Lo stato discovered usa `discovered_at_session`: toggle on valorizza una sessione selezionata (o l'ultima disponibile), toggle off salva `null`; se non esistono sessioni, il pannello permette comunque gestire i segreti ma richiede una sessione per marcarli scoperti._
-- [ ] PC Hooks panel: matrice PG × NPC con descrizione hook
+- [x] PC Hooks panel: matrice PG × NPC con descrizione hook
+  - _Note implementative: aggiunto `PcHookMatrix` client-side nella tab Hooks PG. Recupera tutti i `pc_hooks` della campagna e li mostra come matrice PG × NPC, con righe `type='pc'` e colonne `type='npc'`. Ogni cella può contenere più hook, crearne di nuovi e modificare/cancellare quelli esistenti via API; campi gestiti: `hook_description`, `potential_arc`, `status` (`available`/`in_progress`/`resolved`) e `used_in_session`. La riga/colonna dell'entità selezionata viene evidenziata._
 - [ ] Tag system: input chip-style con autocomplete su tag esistenti
 - [ ] Quick-create flow: da `[[NewEntity]]` → modal "che tipo è?" → crea stub
 

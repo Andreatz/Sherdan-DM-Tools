@@ -18,6 +18,7 @@ import { getLogger } from "@/lib/logger";
 import { EntityLinkEditor } from "@/components/entity-link-editor";
 import { EntityIdentityManager } from "@/components/entity-identity-manager";
 import { EntitySecretManager } from "@/components/entity-secret-manager";
+import { PcHookMatrix } from "@/components/pc-hook-matrix";
 import { WikiMarkdownEditor } from "@/components/wiki-markdown-editor";
 
 const log = getLogger("page.campaign-detail");
@@ -112,6 +113,7 @@ interface PcHookRow {
   targetEntityId: string;
   hookDescription: string;
   potentialArc: string | null;
+  usedInSession: string | null;
   status: string;
 }
 
@@ -290,6 +292,22 @@ async function fetchCampaignSessionOptions(
     .orderBy(asc(sessions.number));
 }
 
+async function fetchCampaignPcHooks(campaignId: string): Promise<PcHookRow[]> {
+  return db
+    .select({
+      id: pcHooks.id,
+      pcEntityId: pcHooks.pcEntityId,
+      targetEntityId: pcHooks.targetEntityId,
+      hookDescription: pcHooks.hookDescription,
+      potentialArc: pcHooks.potentialArc,
+      usedInSession: pcHooks.usedInSession,
+      status: pcHooks.status,
+    })
+    .from(pcHooks)
+    .where(eq(pcHooks.campaignId, campaignId))
+    .orderBy(asc(pcHooks.createdAt));
+}
+
 async function fetchEntityDetail(
   campaignId: string,
   entityId: string,
@@ -373,6 +391,7 @@ async function fetchEntityDetail(
         targetEntityId: pcHooks.targetEntityId,
         hookDescription: pcHooks.hookDescription,
         potentialArc: pcHooks.potentialArc,
+        usedInSession: pcHooks.usedInSession,
         status: pcHooks.status,
       })
       .from(pcHooks)
@@ -409,6 +428,7 @@ export default async function CampaignDetailPage({
   let campaignEntities: CampaignEntityRow[] = [];
   let campaignEntityNames: EntityName[] = [];
   let campaignSessions: CampaignSessionOption[] = [];
+  let campaignPcHooks: PcHookRow[] = [];
   let allTags: string[] = [];
   let detailData: EntityDetailData | undefined;
 
@@ -425,11 +445,17 @@ export default async function CampaignDetailPage({
     campaign = rows[0];
 
     if (campaign) {
-      [campaignEntities, campaignEntityNames, campaignSessions, allTags] =
-        await Promise.all([
+      [
+        campaignEntities,
+        campaignEntityNames,
+        campaignSessions,
+        campaignPcHooks,
+        allTags,
+      ] = await Promise.all([
           fetchCampaignEntities(id, filters),
           fetchCampaignEntityNames(id),
           fetchCampaignSessionOptions(id),
+          fetchCampaignPcHooks(id),
           fetchCampaignTags(id),
         ]);
 
@@ -479,6 +505,7 @@ export default async function CampaignDetailPage({
         detailData={detailData}
         entityNames={campaignEntityNames}
         sessions={campaignSessions}
+        pcHooks={campaignPcHooks}
       />
       <PlaceholderSection title="Sessioni" comingIn="Fase 6" />
       <PlaceholderSection title="Plot Threads" comingIn="Fase 6" />
@@ -497,6 +524,7 @@ function EntityListSection({
   detailData,
   entityNames,
   sessions: campaignSessions,
+  pcHooks: campaignPcHooks,
 }: {
   campaignId: string;
   entities: CampaignEntityRow[];
@@ -507,6 +535,7 @@ function EntityListSection({
   detailData?: EntityDetailData;
   entityNames: EntityName[];
   sessions: CampaignSessionOption[];
+  pcHooks: PcHookRow[];
 }) {
   const hasActiveFilters = Boolean(filters.type || filters.tag || filters.search);
   const entityNameById = new Map(entityNames.map((entity) => [entity.id, entity]));
@@ -690,6 +719,7 @@ function EntityListSection({
           data={detailData}
           entityNameById={entityNameById}
           sessions={campaignSessions}
+          pcHooks={campaignPcHooks}
         />
       ) : rows.length > 0 ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
@@ -708,6 +738,7 @@ function EntityDetailPanel({
   data,
   entityNameById,
   sessions: campaignSessions,
+  pcHooks: campaignPcHooks,
 }: {
   campaignId: string;
   filters: EntityListFilters;
@@ -715,6 +746,7 @@ function EntityDetailPanel({
   data: EntityDetailData;
   entityNameById: Map<string, EntityName>;
   sessions: CampaignSessionOption[];
+  pcHooks: PcHookRow[];
 }) {
   const { entity } = data;
 
@@ -844,12 +876,12 @@ function EntityDetailPanel({
           />
         )}
         {activeTab === "pc-hooks" && (
-          <PcHooksPanel
+          <PcHookMatrix
             campaignId={campaignId}
-            filters={filters}
-            activeTab={activeTab}
-            hooks={data.pcHooks}
-            entityNameById={entityNameById}
+            hooks={campaignPcHooks}
+            entities={Array.from(entityNameById.values())}
+            sessions={campaignSessions}
+            selectedEntityId={entity.id}
           />
         )}
       </div>
@@ -953,64 +985,6 @@ function LinksPanel({
               </p>
             )}
             <DetailField label="Note" value={link.description} />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function PcHooksPanel({
-  campaignId,
-  filters,
-  activeTab,
-  hooks,
-  entityNameById,
-}: {
-  campaignId: string;
-  filters: EntityListFilters;
-  activeTab: DetailTab;
-  hooks: PcHookRow[];
-  entityNameById: Map<string, EntityName>;
-}) {
-  if (hooks.length === 0) {
-    return <EmptyDetailState>Nessun hook PG registrato.</EmptyDetailState>;
-  }
-
-  return (
-    <div className="grid gap-3">
-      {hooks.map((hook) => {
-        const pc = entityNameById.get(hook.pcEntityId);
-        const target = entityNameById.get(hook.targetEntityId);
-        return (
-          <div
-            key={hook.id}
-            className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800"
-          >
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <EntityInlineLink
-                campaignId={campaignId}
-                filters={filters}
-                tab={activeTab}
-                entity={pc}
-                fallbackId={hook.pcEntityId}
-              />
-              <span className="text-zinc-400">-&gt;</span>
-              <EntityInlineLink
-                campaignId={campaignId}
-                filters={filters}
-                tab={activeTab}
-                entity={target}
-                fallbackId={hook.targetEntityId}
-              />
-              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                {hook.status}
-              </span>
-            </div>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-800 dark:text-zinc-200">
-              {hook.hookDescription}
-            </p>
-            <DetailField label="Arco potenziale" value={hook.potentialArc} />
           </div>
         );
       })}
