@@ -12,9 +12,11 @@ import {
   entitySecrets,
   entityType,
   pcHooks,
+  sessions,
 } from "@/db/schema";
 import { getLogger } from "@/lib/logger";
 import { EntityLinkEditor } from "@/components/entity-link-editor";
+import { EntityIdentityManager } from "@/components/entity-identity-manager";
 import { WikiMarkdownEditor } from "@/components/wiki-markdown-editor";
 
 const log = getLogger("page.campaign-detail");
@@ -77,6 +79,8 @@ interface EntityIdentityRow {
   appearance: string | null;
   voice: string | null;
   mannerisms: unknown;
+  activeFromSession: string | null;
+  activeUntilSession: string | null;
   visibility: Visibility;
   notes: string | null;
 }
@@ -108,6 +112,13 @@ interface PcHookRow {
   hookDescription: string;
   potentialArc: string | null;
   status: string;
+}
+
+interface CampaignSessionOption {
+  id: string;
+  number: number;
+  title: string | null;
+  date: string | null;
 }
 
 interface EntityDetailData {
@@ -263,6 +274,21 @@ async function fetchCampaignEntityNames(campaignId: string): Promise<EntityName[
     .orderBy(asc(entities.name));
 }
 
+async function fetchCampaignSessionOptions(
+  campaignId: string,
+): Promise<CampaignSessionOption[]> {
+  return db
+    .select({
+      id: sessions.id,
+      number: sessions.number,
+      title: sessions.title,
+      date: sessions.date,
+    })
+    .from(sessions)
+    .where(eq(sessions.campaignId, campaignId))
+    .orderBy(asc(sessions.number));
+}
+
 async function fetchEntityDetail(
   campaignId: string,
   entityId: string,
@@ -297,6 +323,8 @@ async function fetchEntityDetail(
         appearance: entityIdentities.appearance,
         voice: entityIdentities.voice,
         mannerisms: entityIdentities.mannerisms,
+        activeFromSession: entityIdentities.activeFromSession,
+        activeUntilSession: entityIdentities.activeUntilSession,
         visibility: entityIdentities.visibility,
         notes: entityIdentities.notes,
       })
@@ -379,6 +407,7 @@ export default async function CampaignDetailPage({
   let campaign: { id: string; name: string; description: string | null } | undefined;
   let campaignEntities: CampaignEntityRow[] = [];
   let campaignEntityNames: EntityName[] = [];
+  let campaignSessions: CampaignSessionOption[] = [];
   let allTags: string[] = [];
   let detailData: EntityDetailData | undefined;
 
@@ -395,11 +424,13 @@ export default async function CampaignDetailPage({
     campaign = rows[0];
 
     if (campaign) {
-      [campaignEntities, campaignEntityNames, allTags] = await Promise.all([
-        fetchCampaignEntities(id, filters),
-        fetchCampaignEntityNames(id),
-        fetchCampaignTags(id),
-      ]);
+      [campaignEntities, campaignEntityNames, campaignSessions, allTags] =
+        await Promise.all([
+          fetchCampaignEntities(id, filters),
+          fetchCampaignEntityNames(id),
+          fetchCampaignSessionOptions(id),
+          fetchCampaignTags(id),
+        ]);
 
       const focusId = requestedFocus ?? campaignEntities[0]?.id;
       if (focusId) {
@@ -446,6 +477,7 @@ export default async function CampaignDetailPage({
         detailTab={detailTab}
         detailData={detailData}
         entityNames={campaignEntityNames}
+        sessions={campaignSessions}
       />
       <PlaceholderSection title="Sessioni" comingIn="Fase 6" />
       <PlaceholderSection title="Plot Threads" comingIn="Fase 6" />
@@ -463,6 +495,7 @@ function EntityListSection({
   detailTab,
   detailData,
   entityNames,
+  sessions: campaignSessions,
 }: {
   campaignId: string;
   entities: CampaignEntityRow[];
@@ -472,6 +505,7 @@ function EntityListSection({
   detailTab: DetailTab;
   detailData?: EntityDetailData;
   entityNames: EntityName[];
+  sessions: CampaignSessionOption[];
 }) {
   const hasActiveFilters = Boolean(filters.type || filters.tag || filters.search);
   const entityNameById = new Map(entityNames.map((entity) => [entity.id, entity]));
@@ -654,6 +688,7 @@ function EntityListSection({
           activeTab={detailTab}
           data={detailData}
           entityNameById={entityNameById}
+          sessions={campaignSessions}
         />
       ) : rows.length > 0 ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
@@ -671,12 +706,14 @@ function EntityDetailPanel({
   activeTab,
   data,
   entityNameById,
+  sessions: campaignSessions,
 }: {
   campaignId: string;
   filters: EntityListFilters;
   activeTab: DetailTab;
   data: EntityDetailData;
   entityNameById: Map<string, EntityName>;
+  sessions: CampaignSessionOption[];
 }) {
   const { entity } = data;
 
@@ -770,7 +807,11 @@ function EntityDetailPanel({
           <PropertiesPanel properties={entity.properties} />
         )}
         {activeTab === "identities" && (
-          <IdentitiesPanel identities={data.identities} />
+          <EntityIdentityManager
+            entityId={entity.id}
+            identities={data.identities}
+            sessions={campaignSessions}
+          />
         )}
         {activeTab === "secrets" && <SecretsPanel secrets={data.secrets} />}
         {activeTab === "links" && (
@@ -820,44 +861,6 @@ function PropertiesPanel({ properties }: { properties: unknown }) {
       <pre className="max-h-[520px] overflow-auto rounded-md border border-zinc-200 bg-zinc-50 p-4 text-xs leading-6 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
         {JSON.stringify(properties, null, 2)}
       </pre>
-    </div>
-  );
-}
-
-function IdentitiesPanel({ identities }: { identities: EntityIdentityRow[] }) {
-  if (identities.length === 0) {
-    return <EmptyDetailState>Nessuna identita&apos; registrata.</EmptyDetailState>;
-  }
-
-  return (
-    <div className="grid gap-3">
-      {identities.map((identity) => (
-        <div
-          key={identity.id}
-          className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="font-medium">{identity.name}</h4>
-            {identity.isTrueIdentity && (
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
-                vera identita&apos;
-              </span>
-            )}
-            <span
-              className={`rounded-full border px-2 py-0.5 text-xs font-medium ${VISIBILITY_CLASSES[identity.visibility]}`}
-            >
-              {VISIBILITY_LABELS[identity.visibility]}
-            </span>
-          </div>
-          <DetailField label="Aspetto" value={identity.appearance} />
-          <DetailField label="Voce" value={identity.voice} />
-          <DetailField
-            label="Mannerisms"
-            value={formatUnknownList(identity.mannerisms)}
-          />
-          <DetailField label="Note" value={identity.notes} />
-        </div>
-      ))}
     </div>
   );
 }
@@ -1108,11 +1111,6 @@ function EmptyDetailState({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   );
-}
-
-function formatUnknownList(value: unknown): string | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
-  return value.map((item) => String(item)).join(", ");
 }
 
 function PlaceholderSection({
