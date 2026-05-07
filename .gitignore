@@ -34,6 +34,10 @@ yarn-error.log*
 .env*
 !.env.example
 
+# export di conversazioni Claude Code (puo' contenere API key, prompt
+# privati, lore della campagna). Mai committare.
+conversation-export*.md
+
 # vercel
 .vercel
 
