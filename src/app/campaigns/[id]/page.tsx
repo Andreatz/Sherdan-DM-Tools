@@ -18,6 +18,7 @@ import { getLogger } from "@/lib/logger";
 import { EntityLinkEditor } from "@/components/entity-link-editor";
 import { EntityIdentityManager } from "@/components/entity-identity-manager";
 import { EntitySecretManager } from "@/components/entity-secret-manager";
+import { EntityTagEditor } from "@/components/entity-tag-editor";
 import { PcHookMatrix } from "@/components/pc-hook-matrix";
 import { WikiMarkdownEditor } from "@/components/wiki-markdown-editor";
 
@@ -720,6 +721,7 @@ function EntityListSection({
           entityNameById={entityNameById}
           sessions={campaignSessions}
           pcHooks={campaignPcHooks}
+          allTags={allTags}
         />
       ) : rows.length > 0 ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
@@ -739,6 +741,7 @@ function EntityDetailPanel({
   entityNameById,
   sessions: campaignSessions,
   pcHooks: campaignPcHooks,
+  allTags,
 }: {
   campaignId: string;
   filters: EntityListFilters;
@@ -747,6 +750,7 @@ function EntityDetailPanel({
   entityNameById: Map<string, EntityName>;
   sessions: CampaignSessionOption[];
   pcHooks: PcHookRow[];
+  allTags: string[];
 }) {
   const { entity } = data;
 
@@ -773,23 +777,11 @@ function EntityDetailPanel({
               aggiornata il {entity.updatedAt.toLocaleDateString("it-IT")}
             </p>
           </div>
-          {entity.tags.length > 0 && (
-            <div className="flex max-w-md flex-wrap justify-end gap-1.5">
-              {entity.tags.map((tag) => (
-                <Link
-                  key={tag}
-                  href={buildCampaignHref(
-                    campaignId,
-                    { ...filters, tag },
-                    { focus: entity.id, tab: activeTab },
-                  )}
-                  className="rounded-md bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                >
-                  {tag}
-                </Link>
-              ))}
-            </div>
-          )}
+          <EntityTagEditor
+            entityId={entity.id}
+            initialTags={entity.tags}
+            allTags={allTags}
+          />
         </div>
       </header>
 

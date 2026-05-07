@@ -293,7 +293,8 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
   - _Note implementative: aggiunto `EntitySecretManager` client-side nella tab Segreti. Render a tre colonne espandibili per layer `surface`/`intermediate`/`deep`, con creazione/modifica/cancellazione segreti, campi `content`, `exploit_hint`, `discovery_notes`, e toggle "Scoperto dal party". Lo stato discovered usa `discovered_at_session`: toggle on valorizza una sessione selezionata (o l'ultima disponibile), toggle off salva `null`; se non esistono sessioni, il pannello permette comunque gestire i segreti ma richiede una sessione per marcarli scoperti._
 - [x] PC Hooks panel: matrice PG × NPC con descrizione hook
   - _Note implementative: aggiunto `PcHookMatrix` client-side nella tab Hooks PG. Recupera tutti i `pc_hooks` della campagna e li mostra come matrice PG × NPC, con righe `type='pc'` e colonne `type='npc'`. Ogni cella può contenere più hook, crearne di nuovi e modificare/cancellare quelli esistenti via API; campi gestiti: `hook_description`, `potential_arc`, `status` (`available`/`in_progress`/`resolved`) e `used_in_session`. La riga/colonna dell'entità selezionata viene evidenziata._
-- [ ] Tag system: input chip-style con autocomplete su tag esistenti
+- [x] Tag system: input chip-style con autocomplete su tag esistenti
+  - _Note implementative: aggiunto `EntityTagEditor` nel detail header dell'entità. I tag sono chip removibili, l'input accetta Enter/virgola, suggerisce i tag già presenti nella campagna e consente creazione inline di tag nuovi; il salvataggio usa `PATCH /api/entities/:id` aggiornando solo `tags`._
 - [ ] Quick-create flow: da `[[NewEntity]]` → modal "che tipo è?" → crea stub
 
 **QoL**
