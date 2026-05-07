@@ -17,6 +17,7 @@ import {
 import { getLogger } from "@/lib/logger";
 import { EntityLinkEditor } from "@/components/entity-link-editor";
 import { EntityIdentityManager } from "@/components/entity-identity-manager";
+import { EntityGraphView } from "@/components/entity-graph-view";
 import { EntitySecretManager } from "@/components/entity-secret-manager";
 import { EntityTagEditor } from "@/components/entity-tag-editor";
 import { PcHookMatrix } from "@/components/pc-hook-matrix";
@@ -105,6 +106,16 @@ interface EntityLinkRow {
   publicRelationType: string | null;
   strength: number | null;
   description: string | null;
+  visibility: Visibility;
+}
+
+interface CampaignGraphLink {
+  id: string;
+  sourceEntityId: string;
+  targetEntityId: string;
+  relationType: string;
+  publicRelationType: string | null;
+  strength: number | null;
   visibility: Visibility;
 }
 
@@ -278,6 +289,24 @@ async function fetchCampaignEntityNames(campaignId: string): Promise<EntityName[
     .orderBy(asc(entities.name));
 }
 
+async function fetchCampaignGraphLinks(
+  campaignId: string,
+): Promise<CampaignGraphLink[]> {
+  return db
+    .select({
+      id: entityLinks.id,
+      sourceEntityId: entityLinks.sourceEntityId,
+      targetEntityId: entityLinks.targetEntityId,
+      relationType: entityLinks.relationType,
+      publicRelationType: entityLinks.publicRelationType,
+      strength: entityLinks.strength,
+      visibility: entityLinks.visibility,
+    })
+    .from(entityLinks)
+    .where(eq(entityLinks.campaignId, campaignId))
+    .orderBy(asc(entityLinks.createdAt));
+}
+
 async function fetchCampaignSessionOptions(
   campaignId: string,
 ): Promise<CampaignSessionOption[]> {
@@ -428,6 +457,7 @@ export default async function CampaignDetailPage({
   let campaign: { id: string; name: string; description: string | null } | undefined;
   let campaignEntities: CampaignEntityRow[] = [];
   let campaignEntityNames: EntityName[] = [];
+  let campaignGraphLinks: CampaignGraphLink[] = [];
   let campaignSessions: CampaignSessionOption[] = [];
   let campaignPcHooks: PcHookRow[] = [];
   let allTags: string[] = [];
@@ -449,16 +479,18 @@ export default async function CampaignDetailPage({
       [
         campaignEntities,
         campaignEntityNames,
+        campaignGraphLinks,
         campaignSessions,
         campaignPcHooks,
         allTags,
       ] = await Promise.all([
-          fetchCampaignEntities(id, filters),
-          fetchCampaignEntityNames(id),
-          fetchCampaignSessionOptions(id),
-          fetchCampaignPcHooks(id),
-          fetchCampaignTags(id),
-        ]);
+        fetchCampaignEntities(id, filters),
+        fetchCampaignEntityNames(id),
+        fetchCampaignGraphLinks(id),
+        fetchCampaignSessionOptions(id),
+        fetchCampaignPcHooks(id),
+        fetchCampaignTags(id),
+      ]);
 
       const focusId = requestedFocus ?? campaignEntities[0]?.id;
       if (focusId) {
@@ -505,6 +537,7 @@ export default async function CampaignDetailPage({
         detailTab={detailTab}
         detailData={detailData}
         entityNames={campaignEntityNames}
+        graphLinks={campaignGraphLinks}
         sessions={campaignSessions}
         pcHooks={campaignPcHooks}
       />
@@ -524,6 +557,7 @@ function EntityListSection({
   detailTab,
   detailData,
   entityNames,
+  graphLinks,
   sessions: campaignSessions,
   pcHooks: campaignPcHooks,
 }: {
@@ -535,6 +569,7 @@ function EntityListSection({
   detailTab: DetailTab;
   detailData?: EntityDetailData;
   entityNames: EntityName[];
+  graphLinks: CampaignGraphLink[];
   sessions: CampaignSessionOption[];
   pcHooks: PcHookRow[];
 }) {
@@ -711,6 +746,13 @@ function EntityListSection({
           </table>
         </div>
       )}
+
+      <EntityGraphView
+        campaignId={campaignId}
+        entities={entityNames}
+        links={graphLinks}
+        selectedEntityId={selectedEntityId}
+      />
 
       {detailData ? (
         <EntityDetailPanel

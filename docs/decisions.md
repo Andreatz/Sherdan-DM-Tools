@@ -275,3 +275,18 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - Salvataggio conservativo: i campi `entities.description` e `entities.public_description` restano markdown puro nel DB. Nessuna migrazione e nessun formato serializzato editor-specifico.
 
 **Scope intenzionale.** Questo task introduce editing e tokenizzazione dei wikilink. Autocomplete su `[[`, render markdown navigabile e hover preview restano task separati in ROADMAP.md.
+
+---
+
+## 2026-05-08 — Vista grafo wiki: D3
+
+**Contesto.** Task Fase 1 "Vista grafo: D3 force-directed o vis-network, nodi colorati per type, opzione mostra solo links pubblici". Entrambe le librerie richiedono una nuova dipendenza; l'utente ha autorizzato esplicitamente l'installazione.
+
+**Scelta.** **D3 7.9** (`d3`, `@types/d3`).
+
+**Motivazione.**
+- Il grafo del wiki crescerà con filtri narrativi specifici di Sherdan (verità GM vs link pubblici, type, centralità di una entity selezionata), quindi è meglio avere controllo diretto sul layout e sul rendering.
+- Usiamo D3 per la simulazione force-directed (`d3-force`) e lasciamo il rendering a React/SVG. Questo evita un componente esterno molto opinato e mantiene link interni, toggle e styling nel sistema UI esistente.
+- `vis-network` sarebbe più rapido per una vista pronta, ma meno flessibile quando serviranno filtri e affordance specifiche della campagna.
+
+**Scope intenzionale.** La prima versione mostra tutte le entity della campagna, link direzionali da `entity_links`, nodi colorati per `entity.type`, highlight dell'entity selezionata e toggle "solo links pubblici" basato su `entity_links.visibility = 'public'`. Zoom/pan, clustering e filtri avanzati restano futuri polish se serviranno.

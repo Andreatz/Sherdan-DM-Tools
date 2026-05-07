@@ -299,7 +299,8 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
   - _Note implementative: completato il flusso nel `WikiMarkdownEditor`: quando un wikilink non risolve a un'entità esistente, il pannello autocomplete apre un modal "Che tipo è?", crea uno stub type-specific via `POST /api/entities`, inserisce il token `[[Nome]]` nel punto del trigger Lexical e chiama `router.refresh()` per aggiornare lista/preview della campagna._
 
 **QoL**
-- [ ] Vista grafo: D3 force-directed o vis-network, nodi colorati per type, opzione "mostra solo links pubblici"
+- [x] Vista grafo: D3 force-directed o vis-network, nodi colorati per type, opzione "mostra solo links pubblici"
+  - _Note implementative: aggiunto `EntityGraphView` con D3 force-directed (`d3-force`) e rendering React/SVG. La pagina campagna carica tutte le entity e tutti gli `entity_links` della campagna; il grafo mostra nodi colorati per `entity.type`, link direzionali con label, highlight dell'entità selezionata e toggle client-side "Mostra solo links pubblici" basato su `entity_links.visibility = 'public'`. Aggiunte dipendenze `d3` e `@types/d3`; scelta documentata in `docs/decisions.md`._
 - [ ] "Recently edited" nella sidebar
 - [ ] Keyboard shortcut Cmd-K per quick switch entità
 - [ ] Visibility toggle nell'editor (dm_only / discovered / public)
