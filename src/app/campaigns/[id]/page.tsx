@@ -852,21 +852,25 @@ function EntityDetailPanel({
       <div className="p-5">
         {activeTab === "gm" && (
           <WikiMarkdownEditor
+            key={`${entity.id}-description`}
             campaignId={campaignId}
             entityId={entity.id}
             field="description"
             label="Verita' GM"
             initialMarkdown={entity.description}
+            initialVisibility={entity.visibility}
             entityPreviews={Array.from(entityNameById.values())}
           />
         )}
         {activeTab === "public" && (
           <WikiMarkdownEditor
+            key={`${entity.id}-public-description`}
             campaignId={campaignId}
             entityId={entity.id}
             field="publicDescription"
             label="Versione pubblica"
             initialMarkdown={entity.publicDescription}
+            initialVisibility={entity.visibility}
             entityPreviews={Array.from(entityNameById.values())}
           />
         )}

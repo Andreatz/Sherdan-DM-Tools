@@ -240,9 +240,9 @@ Esegui `pnpm dev`, vedi la home, hai una campagna seed nel DB (Sherdan vuota, co
 
 ---
 
-## Fase 1 — Wiki minimale (Campaign Wiki)
+## Fase 1 — Wiki minimale (Campaign Wiki) ✅
 
-**Durata**: 12-16 giorni · **Tool sbloccato**: ✅ Campaign Wiki
+**Durata**: 12-16 giorni · **Tool sbloccato**: ✅ Campaign Wiki · **Chiusa il 2026-05-08**
 
 ### Goal
 CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Supporto fin da subito a identità multiple, segreti stratificati, propaganda vs verità. Da qui in poi tutti i tool successivi scriveranno qui.
@@ -305,7 +305,8 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
   - _Note implementative: aggiunta sezione "Modificate di recente" in `EntitySidebarSection`, con gli ultimi 5 record ordinati per `entities.updated_at` e link diretto alla detail view. Estesa `GET /api/entities` con query `sort=name_asc|updated_desc` (default `name_asc`) per non dipendere dal sort client-side quando il dataset crescerà._
 - [x] Keyboard shortcut Cmd-K per quick switch entità
   - _Note implementative: aggiunto `EntityQuickSwitch` globale nell'`AppShell`. `Cmd+K`/`Ctrl+K` apre una palette modal, carica le entità via `GET /api/entities`, filtra localmente per nome/type/tag/`public_description`, supporta frecce su/giù + Invio + Escape e naviga a `/campaigns/[campaign_id]?focus=[entity_id]`._
-- [ ] Visibility toggle nell'editor (dm_only / discovered / public)
+- [x] Visibility toggle nell'editor (dm_only / discovered / public)
+  - _Note implementative: il `WikiMarkdownEditor` ora include un controllo segmentato DM/Scoperta/Pubblica, salva `visibility` insieme al markdown via `PATCH /api/entities/:id` e chiama `router.refresh()` per aggiornare badge, lista e sidebar. I due editor dell'entita' sono keyati per `entity.id` + campo, cosi' cambio focus e cambio tab non riusano stato client obsoleto._
 
 ### Definition of done
 Hai 30+ entità di test (anche fittizie va bene per ora), link tra loro, navighi il grafo cliccando wikilinks, ricerca FTS funzionante, vedi backlinks, gestisci almeno un'entità con identità multiple e una con segreti su tutti e tre i layer.

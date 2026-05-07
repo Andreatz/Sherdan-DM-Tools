@@ -31,6 +31,7 @@ import {
 } from "lexical";
 
 type MarkdownField = "description" | "publicDescription";
+type Visibility = "dm_only" | "discovered" | "public";
 type EntityType =
   | "npc"
   | "pc"
@@ -47,6 +48,7 @@ interface WikiMarkdownEditorProps {
   field: MarkdownField;
   label: string;
   initialMarkdown: string | null;
+  initialVisibility: Visibility;
   entityPreviews: EntityPreview[];
 }
 
@@ -104,6 +106,12 @@ const CREATE_TYPE_OPTIONS: EntityType[] = [
   "pc",
   "deity",
   "monster",
+];
+
+const VISIBILITY_OPTIONS: Array<{ value: Visibility; label: string }> = [
+  { value: "dm_only", label: "DM" },
+  { value: "discovered", label: "Scoperta" },
+  { value: "public", label: "Pubblica" },
 ];
 
 function getStubProperties(type: EntityType): Record<string, unknown> {
@@ -820,10 +828,14 @@ export function WikiMarkdownEditor({
   field,
   label,
   initialMarkdown,
+  initialVisibility,
   entityPreviews,
 }: WikiMarkdownEditorProps) {
+  const router = useRouter();
   const [markdown, setMarkdown] = useState(initialMarkdown ?? "");
   const [savedMarkdown, setSavedMarkdown] = useState(initialMarkdown ?? "");
+  const [visibility, setVisibility] = useState(initialVisibility);
+  const [savedVisibility, setSavedVisibility] = useState(initialVisibility);
   const [status, setStatus] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -844,7 +856,7 @@ export function WikiMarkdownEditor({
     [entityId, field, initialMarkdown],
   );
 
-  const isDirty = markdown !== savedMarkdown;
+  const isDirty = markdown !== savedMarkdown || visibility !== savedVisibility;
 
   function save() {
     setStatus(null);
@@ -852,7 +864,7 @@ export function WikiMarkdownEditor({
       const response = await fetch(`/api/entities/${entityId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: markdown }),
+        body: JSON.stringify({ [field]: markdown, visibility }),
       });
 
       if (!response.ok) {
@@ -861,7 +873,9 @@ export function WikiMarkdownEditor({
       }
 
       setSavedMarkdown(markdown);
+      setSavedVisibility(visibility);
       setStatus("Salvato");
+      router.refresh();
     });
   }
 
@@ -875,14 +889,45 @@ export function WikiMarkdownEditor({
             testo.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={save}
-          disabled={!isDirty || isPending}
-          className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-300 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
-        >
-          {isPending ? "Salvo..." : "Salva"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="grid h-10 grid-cols-3 overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+            role="radiogroup"
+            aria-label="Visibilita'"
+          >
+            {VISIBILITY_OPTIONS.map((option) => {
+              const isSelected = visibility === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  disabled={isPending}
+                  onClick={() => {
+                    setStatus(null);
+                    setVisibility(option.value);
+                  }}
+                  className={`min-w-20 px-3 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isSelected
+                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
+                      : "text-zinc-600 hover:bg-white dark:text-zinc-300 dark:hover:bg-zinc-900"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={save}
+            disabled={!isDirty || isPending}
+            className="h-10 rounded-md bg-zinc-900 px-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-300 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
+          >
+            {isPending ? "Salvo..." : "Salva"}
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
