@@ -281,7 +281,8 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
   - _Note implementative: detail view integrata in `/campaigns/[id]` con selezione via `focus=<entity_id>` e tab via `detail_tab`. Mostra Verita' GM, versione pubblica, JSONB properties read-only, identita', segreti stratificati, links in uscita, backlinks e hooks PG recuperati dal DB. I pannelli sono volutamente read-only: editor/manager dedicati restano nei task successivi. Verificata manualmente su tab `properties` con HTTP 200._
 - [x] Markdown editor (TipTap o Lexical) con custom node `[[wikilink]]`
   - _Note implementative: scelto Lexical 0.44 (autorizzato dall'utente, documentato in `docs/decisions.md`). Aggiunto `WikiMarkdownEditor` client nei tab Verita' GM e Versione pubblica: salva via PATCH su `entities.description` / `entities.public_description`, preserva markdown puro nel DB e tokenizza `[[Nome Entita']]` tramite `WikiLinkNode` custom. Autocomplete/render/hover restano nei task successivi._
-- [ ] Autocomplete su `[[`: suggerisce entità esistenti, "Crea [name]" se non esiste
+- [x] Autocomplete su `[[`: suggerisce entità esistenti, "Crea [name]" se non esiste
+  - _Note implementative: `WikiMarkdownEditor` rileva wikilink aperti (`[[query`) e mostra un pannello suggerimenti sotto l'editor, caricato da `GET /api/entities?campaign_id=...&search=...`. Click su un'entita' sostituisce il testo parziale con `[[Nome]]`. Se non esiste un match esatto, il pannello permette creazione inline di uno stub con tipo selezionabile e properties minime valide, poi inserisce il wikilink. Il quick-create modal completo resta nel task dedicato._
 - [ ] Render markdown: wikilinks come link interni, hover preview
 - [ ] EntityLink editor: search + select target, relation_type (dropdown), strength slider, public_relation_type opzionale
 - [ ] Identity manager: lista identità di una entity, toggle "true identity", date di attivazione

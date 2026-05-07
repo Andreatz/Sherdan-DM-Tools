@@ -745,6 +745,7 @@ function EntityDetailPanel({
       <div className="p-5">
         {activeTab === "gm" && (
           <WikiMarkdownEditor
+            campaignId={campaignId}
             entityId={entity.id}
             field="description"
             label="Verita' GM"
@@ -753,6 +754,7 @@ function EntityDetailPanel({
         )}
         {activeTab === "public" && (
           <WikiMarkdownEditor
+            campaignId={campaignId}
             entityId={entity.id}
             field="publicDescription"
             label="Versione pubblica"
