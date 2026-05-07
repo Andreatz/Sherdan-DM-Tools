@@ -260,3 +260,18 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
   - Parser Sherdan (Fase 1.5): non scritta ancora.
   - Migrations: aggiungeremo un test della forma post-migration (lista tabelle, indici, vincoli) quando arrivera' la prima ALTER non triviale.
   - LLM provider: difficile testare senza mock dei modelli; i sanity script (`db-ping`, `llm-ping`) coprono il lato infrastrutturale.
+
+---
+
+## 2026-05-07 — Markdown editor wiki: Lexical
+
+**Contesto.** Task Fase 1 "Markdown editor (TipTap o Lexical) con custom node `[[wikilink]]`". Entrambe le opzioni richiedono nuove dipendenze non presenti nello stack iniziale; l'utente ha autorizzato esplicitamente l'installazione.
+
+**Scelta.** **Lexical 0.44** (`lexical`, `@lexical/react`, `@lexical/rich-text`, `@lexical/history`, `@lexical/utils`).
+
+**Motivazione.**
+- API modulare e adatta a un editor wiki embedded nella detail view, senza introdurre un framework editor troppo opinato.
+- Custom node leggero: `WikiLinkNode` estende `TextNode`, mantiene il markdown salvato come testo `[[Nome Entita']]`, ma lo visualizza come token nell'editor.
+- Salvataggio conservativo: i campi `entities.description` e `entities.public_description` restano markdown puro nel DB. Nessuna migrazione e nessun formato serializzato editor-specifico.
+
+**Scope intenzionale.** Questo task introduce editing e tokenizzazione dei wikilink. Autocomplete su `[[`, render markdown navigabile e hover preview restano task separati in ROADMAP.md.

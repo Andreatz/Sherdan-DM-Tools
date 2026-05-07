@@ -279,7 +279,8 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
   - _Note implementative: lista entita' nella detail view campagna (`/campaigns/[id]`) come tabella server-rendered con filtri GET per `type`, `tag`, `search`; badge visibilita', tag cliccabili, stato vuoto e reset filtri. Verificata manualmente su `http://127.0.0.1:3000/campaigns/0614eb59-a2f3-45cf-ae1b-2d32586340d4`._
 - [x] Entity detail view: tabs per "Verità GM", "Versione pubblica", "Properties" (form JSONB), "Identità", "Segreti", "Links", "Backlinks", "Hooks PG"
   - _Note implementative: detail view integrata in `/campaigns/[id]` con selezione via `focus=<entity_id>` e tab via `detail_tab`. Mostra Verita' GM, versione pubblica, JSONB properties read-only, identita', segreti stratificati, links in uscita, backlinks e hooks PG recuperati dal DB. I pannelli sono volutamente read-only: editor/manager dedicati restano nei task successivi. Verificata manualmente su tab `properties` con HTTP 200._
-- [ ] Markdown editor (TipTap o Lexical) con custom node `[[wikilink]]`
+- [x] Markdown editor (TipTap o Lexical) con custom node `[[wikilink]]`
+  - _Note implementative: scelto Lexical 0.44 (autorizzato dall'utente, documentato in `docs/decisions.md`). Aggiunto `WikiMarkdownEditor` client nei tab Verita' GM e Versione pubblica: salva via PATCH su `entities.description` / `entities.public_description`, preserva markdown puro nel DB e tokenizza `[[Nome Entita']]` tramite `WikiLinkNode` custom. Autocomplete/render/hover restano nei task successivi._
 - [ ] Autocomplete su `[[`: suggerisce entità esistenti, "Crea [name]" se non esiste
 - [ ] Render markdown: wikilinks come link interni, hover preview
 - [ ] EntityLink editor: search + select target, relation_type (dropdown), strength slider, public_relation_type opzionale

@@ -14,6 +14,7 @@ import {
   pcHooks,
 } from "@/db/schema";
 import { getLogger } from "@/lib/logger";
+import { WikiMarkdownEditor } from "@/components/wiki-markdown-editor";
 
 const log = getLogger("page.campaign-detail");
 
@@ -743,15 +744,19 @@ function EntityDetailPanel({
 
       <div className="p-5">
         {activeTab === "gm" && (
-          <TextPanel
-            emptyText="Nessuna verita' GM ancora scritta."
-            text={entity.description}
+          <WikiMarkdownEditor
+            entityId={entity.id}
+            field="description"
+            label="Verita' GM"
+            initialMarkdown={entity.description}
           />
         )}
         {activeTab === "public" && (
-          <TextPanel
-            emptyText="Nessuna versione pubblica ancora scritta."
-            text={entity.publicDescription}
+          <WikiMarkdownEditor
+            entityId={entity.id}
+            field="publicDescription"
+            label="Versione pubblica"
+            initialMarkdown={entity.publicDescription}
           />
         )}
         {activeTab === "properties" && (
@@ -792,22 +797,6 @@ function EntityDetailPanel({
         )}
       </div>
     </article>
-  );
-}
-
-function TextPanel({
-  text,
-  emptyText,
-}: {
-  text: string | null;
-  emptyText: string;
-}) {
-  return text ? (
-    <div className="whitespace-pre-wrap text-sm leading-7 text-zinc-800 dark:text-zinc-200">
-      {text}
-    </div>
-  ) : (
-    <EmptyDetailState>{emptyText}</EmptyDetailState>
   );
 }
 
