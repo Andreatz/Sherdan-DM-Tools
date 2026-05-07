@@ -273,7 +273,8 @@ CRUD completo su entità con linking bidirezionale, ricerca, markdown editor. Su
   - _Note implementative: gia' coperta dai task CRUD entities (POST e PATCH). Il route handler `/api/entities` chiama `validateEntityProperties(type, properties)` (discriminator type-safe in `src/lib/validation/index.ts`) dopo il parse Zod del body. PATCH che cambia solo properties senza type fa lookup del type esistente per validare contro il type effettivo. Errori traducono in 400 ValidationFailedError con dettagli Zod._
 
 **Frontend**
-- [ ] Sidebar: lista entità raggruppate per type, ricerca rapida
+- [x] Sidebar: lista entità raggruppate per type, ricerca rapida
+  - _Note implementative: aggiunto componente client `EntitySidebarSection` nella sidebar globale. Carica fino a 200 entità da `GET /api/entities`, le raggruppa per `type`, mostra conteggi e indicatore di `visibility`, e filtra istantaneamente per nome/type/tag. Finché la detail view non esiste, i link puntano alla campagna con query `focus=<entity_id>` per evitare 404 e restare agganciabili al task successivo._
 - [ ] Entity list view: filtri (type, tag, search), card o tabella
 - [ ] Entity detail view: tabs per "Verità GM", "Versione pubblica", "Properties" (form JSONB), "Identità", "Segreti", "Links", "Backlinks", "Hooks PG"
 - [ ] Markdown editor (TipTap o Lexical) con custom node `[[wikilink]]`

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { EntitySidebarSection } from "@/components/entity-sidebar-section";
+
 interface NavItem {
   label: string;
   href?: string;
@@ -26,9 +28,7 @@ const NAV: NavGroup[] = [
   {
     title: "Wiki",
     items: [
-      { label: "Entita'", comingIn: "Fase 1" },
       { label: "Grafo", comingIn: "Fase 1" },
-      { label: "Ricerca", comingIn: "Fase 1" },
     ],
   },
   {
@@ -79,6 +79,8 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 pb-6">
+          <EntitySidebarSection />
+
           {NAV.map((group) => (
             <div key={group.title} className="mb-6">
               <h2 className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
