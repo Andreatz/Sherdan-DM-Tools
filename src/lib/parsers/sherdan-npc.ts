@@ -3,6 +3,9 @@ import { npcPropertiesSchema, type NpcProperties } from "@/lib/validation/npc";
 type SecretLayer = "surface" | "intermediate" | "deep";
 type Visibility = "dm_only" | "discovered" | "public";
 
+const LOCK_MARKER = "\u{1F512}";
+const GM_NOTE_MARKER = "\u{1F4A1}";
+
 interface SourceRef {
   file: string;
   heading: string;
@@ -485,17 +488,38 @@ function parseBulletList(content: string): string[] {
 }
 
 function firstMeaningfulParagraph(content: string): string | null {
-  const paragraph = content
-    .split(/\n{2,}/)
-    .map((part) => part.trim())
-    .find((part) => part && !part.startsWith("|") && !part.startsWith("---"));
+  const paragraph = firstMeaningfulRawParagraph(content);
   return paragraph ? stripMarkdown(paragraph) : null;
 }
 
-function buildPublicDescription(content: string): string {
-  const intro = firstMeaningfulParagraph(
-    content.replace(/###\s+Segret[\s\S]*$/i, ""),
+function firstMeaningfulRawParagraph(content: string): string | null {
+  return (
+    content
+      .split(/\n{2,}/)
+      .map((part) => part.trim())
+      .find((part) => part && !part.startsWith("|") && !part.startsWith("---")) ??
+    null
   );
+}
+
+function stripPrivateParagraphs(content: string): string {
+  return content
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter((part) => part && !hasPrivateMarker(part))
+    .join("\n\n");
+}
+
+function hasPrivateMarker(content: string): boolean {
+  return content.includes(LOCK_MARKER) || content.includes(GM_NOTE_MARKER);
+}
+
+function buildPublicDescription(content: string): string {
+  const withoutSecrets = content.replace(/###\s+Segret[\s\S]*$/i, "");
+  const rawIntro = firstMeaningfulRawParagraph(withoutSecrets);
+  if (rawIntro?.startsWith(LOCK_MARKER)) return "";
+
+  const intro = firstMeaningfulParagraph(stripPrivateParagraphs(withoutSecrets));
   return truncate(intro ?? firstMeaningfulParagraph(content) ?? "", 500);
 }
 

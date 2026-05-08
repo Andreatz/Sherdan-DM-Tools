@@ -10,7 +10,6 @@ import postgres from "postgres";
 import * as schema from "@/db/schema";
 import {
   buildSherdanBootstrapPlan,
-  normalizedLabel,
   type BootstrapEntity,
   type BootstrapEntityLink,
   type BootstrapIdentity,
@@ -21,6 +20,7 @@ import {
   type BootstrapSession,
   type SherdanBootstrapPlan,
 } from "@/lib/import/sherdan-bootstrap-plan";
+import { resolvePcHookEntityKeys } from "@/lib/import/sherdan-pc-hook-resolution";
 import { env } from "@/lib/env";
 
 const SHERDAN_NAME = "Sherdan";
@@ -93,14 +93,10 @@ async function importPlan(db: Db, plan: SherdanBootstrapPlan): Promise<ImportSta
 
   const campaignId = await ensureSherdanCampaign(db, stats);
   const entityIds = new Map<string, string>();
-  const pcIdsByName = new Map<string, string>();
 
   for (const entity of plan.entities.filter((entity) => !entity.parentKey)) {
     const entityId = await upsertEntity(db, campaignId, entity, null, stats);
     entityIds.set(entity.key, entityId);
-    if (entity.type === "pc") {
-      registerPcName(pcIdsByName, entity.name, entityId);
-    }
   }
 
   for (const entity of plan.entities.filter((entity) => entity.parentKey)) {
@@ -115,9 +111,6 @@ async function importPlan(db: Db, plan: SherdanBootstrapPlan): Promise<ImportSta
 
     for (const identity of entity.identities) {
       await upsertIdentity(db, entityId, identity, stats);
-      if (entity.type === "pc") {
-        registerPcName(pcIdsByName, identity.name, entityId);
-      }
     }
 
     for (const secret of entity.secrets) {
@@ -139,12 +132,19 @@ async function importPlan(db: Db, plan: SherdanBootstrapPlan): Promise<ImportSta
 
   for (const hook of plan.pcHooks) {
     const targetEntityId = entityIds.get(hook.targetEntityKey);
-    const pcEntityId = resolvePcId(pcIdsByName, hook.pcName);
-    if (!targetEntityId || !pcEntityId) {
+    const pcEntityKeys = resolvePcHookEntityKeys(plan.entities, hook.pcName);
+    if (!targetEntityId || pcEntityKeys.length === 0) {
       stats.pcHooksUnresolved += 1;
       continue;
     }
-    await ensurePcHook(db, campaignId, pcEntityId, targetEntityId, hook, stats);
+    for (const pcEntityKey of pcEntityKeys) {
+      const pcEntityId = entityIds.get(pcEntityKey);
+      if (!pcEntityId) {
+        stats.pcHooksUnresolved += 1;
+        continue;
+      }
+      await ensurePcHook(db, campaignId, pcEntityId, targetEntityId, hook, stats);
+    }
   }
 
   for (const link of plan.entityLinks) {
@@ -556,14 +556,6 @@ async function upsertEntityLink(
 
   await db.insert(schema.entityLinks).values(values);
   stats.entityLinksCreated += 1;
-}
-
-function registerPcName(map: Map<string, string>, name: string, id: string) {
-  map.set(normalizedLabel(name), id);
-}
-
-function resolvePcId(map: Map<string, string>, name: string): string | null {
-  return map.get(normalizedLabel(name)) ?? null;
 }
 
 main().catch((err) => {

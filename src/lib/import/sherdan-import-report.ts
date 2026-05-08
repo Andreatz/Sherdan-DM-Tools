@@ -1,10 +1,13 @@
 import {
   buildSherdanBootstrapPlan,
-  normalizedLabel,
   type BootstrapEntity,
   type SherdanBootstrapPlan,
   type SherdanBootstrapSources,
 } from "@/lib/import/sherdan-bootstrap-plan";
+import {
+  countResolvedPcHookAssignments,
+  resolvePcHookEntityKeys,
+} from "@/lib/import/sherdan-pc-hook-resolution";
 import { parseSherdanCampaignMarkdown } from "@/lib/parsers/sherdan-campaign";
 import { parseSherdanFactionsMarkdown } from "@/lib/parsers/sherdan-factions";
 import { parseSherdanLoreMarkdown } from "@/lib/parsers/sherdan-lore";
@@ -60,6 +63,7 @@ export interface SherdanImportReport {
   plannedEntitiesByType: Record<string, number>;
   duplicateEntityRows: DuplicateEntityPlanRow[];
   parserWarnings: ImportWarning[];
+  plannedPcHookAssignments: number;
   unresolvedPcHooks: UnresolvedPcHook[];
   db: SherdanImportDbSnapshot | null;
 }
@@ -80,6 +84,7 @@ export function buildSherdanImportReport(
     plannedEntitiesByType: countBy(plan.entities, (entity) => entity.type),
     duplicateEntityRows: findDuplicateEntityRows(plan.entities),
     parserWarnings: collectParserWarnings(sources),
+    plannedPcHookAssignments: countResolvedPcHookAssignments(plan),
     unresolvedPcHooks: findUnresolvedPcHooks(plan),
     db: options.db ?? null,
   };
@@ -116,7 +121,11 @@ export function renderSherdanImportReportMarkdown(
       ],
       ["Identities", String(identityCount), dbValue(report.db?.identities)],
       ["Secrets", String(secretCount), dbValue(report.db?.secrets)],
-      ["PC hooks", String(plan.pcHooks.length), dbValue(report.db?.pcHooks)],
+      [
+        "PC hooks",
+        `${plan.pcHooks.length} rows / ${report.plannedPcHookAssignments} assignments`,
+        dbValue(report.db?.pcHooks),
+      ],
       ["Entity links", String(plan.entityLinks.length), dbValue(report.db?.entityLinks)],
       ["Sessions", String(plan.sessions.length), dbValue(report.db?.sessions)],
       ["Plot threads", String(plan.plotThreads.length), dbValue(report.db?.plotThreads)],
@@ -281,20 +290,12 @@ function findDuplicateEntityRows(
 }
 
 function findUnresolvedPcHooks(plan: SherdanBootstrapPlan): UnresolvedPcHook[] {
-  const pcNames = new Set<string>();
   const entityKeys = new Set(plan.entities.map((entity) => entity.key));
-  for (const entity of plan.entities) {
-    if (entity.type !== "pc") continue;
-    pcNames.add(normalizedLabel(entity.name));
-    for (const alias of entity.aliases) {
-      pcNames.add(normalizedLabel(alias));
-    }
-  }
 
   return plan.pcHooks
     .filter(
       (hook) =>
-        !pcNames.has(normalizedLabel(hook.pcName)) ||
+        resolvePcHookEntityKeys(plan.entities, hook.pcName).length === 0 ||
         !entityKeys.has(hook.targetEntityKey),
     )
     .map((hook) => ({

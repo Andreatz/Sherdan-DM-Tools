@@ -35,7 +35,8 @@ describe("Sherdan import report", () => {
     expect(report.uniqueEntityRecords).toBe(151);
     expect(report.duplicateEntityRows).toHaveLength(2);
     expect(report.plan.unresolvedLinks).toHaveLength(3);
-    expect(report.unresolvedPcHooks).toHaveLength(32);
+    expect(report.plannedPcHookAssignments).toBe(70);
+    expect(report.unresolvedPcHooks).toHaveLength(0);
     expect(report.parserWarnings.length).toBeGreaterThan(0);
   });
 

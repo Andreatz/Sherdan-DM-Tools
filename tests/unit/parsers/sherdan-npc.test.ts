@@ -75,4 +75,23 @@ describe("parseSherdanNpcMarkdown", () => {
       ]),
     );
   });
+
+  it("keeps private markers out of public NPC descriptions", () => {
+    const privateMarkers = ["\u{1F512}", "\u{1F4A1}", "GM-Only"];
+    const publicDescriptions = npcs.map((npc) => npc.publicDescription);
+
+    for (const description of publicDescriptions) {
+      for (const marker of privateMarkers) {
+        expect(description).not.toContain(marker);
+      }
+    }
+
+    expect(
+      npcs.find((npc) => npc.name === "Il Re d'Ombra")?.publicDescription,
+    ).toBe("");
+    expect(
+      npcs.find((npc) => npc.name === "Lama Tenzin / Lama Dorje")
+        ?.publicDescription,
+    ).toContain("Lama Tenzin");
+  });
 });
