@@ -2,6 +2,7 @@ export * from "./campaigns";
 export * from "./encounters";
 export * from "./entities";
 export * from "./enums";
+export * from "./generators";
 export * from "./loot";
 export * from "./plot";
 export * from "./rules";
