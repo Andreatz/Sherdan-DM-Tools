@@ -1,53 +1,53 @@
 # Sherdan DM Tools
 
-Personal Dungeon Master toolkit for the Sherdan D&D 5e campaign.
+Local-first Dungeon Master toolkit for the Sherdan D&D 5e campaign.
 
-Sherdan DM Tools is a local-first, single-user web app designed to turn the full Sherdan campaign material into a structured, searchable and AI-assisted DM workspace.
+Sherdan DM Tools turns the campaign markdown archive into a structured, searchable and AI-assisted DM workspace. The app is single-user for now, optimized for local development, and calibrated on the real Sherdan dataset: layered secrets, propaganda vs GM truth, multiple identities, PC hooks, factions, sessions and plot threads.
 
-The long-term goal is to provide one integrated platform for:
-
-- Campaign Wiki
-- Entity graph
-- NPC and faction management
-- Secrets and truth tracking
-- Session prep
-- Random tables
-- NPC generation
-- Loot generation
-- Encounter building
-- Procedural dungeon generation
-- Rules lookup
-- Player-safe dashboard
-
-> This project is built specifically for the Sherdan campaign, but the architecture is designed to become reusable for other narrative-heavy D&D campaigns.
+The architecture is Sherdan-first, but the long-term goal is to make the same foundation reusable for other narrative-heavy D&D campaigns.
 
 ---
 
 ## Current Status
 
-The project is currently in early MVP development.
+The project has completed the foundation, Campaign Wiki vertical slice and Sherdan content bootstrap validation. The next planned phase is the Random Tables Engine.
 
 | Area | Status |
 |---|---|
 | Project foundation | Done |
 | Next.js app shell | Done |
 | Postgres + pgvector setup | Done |
-| Drizzle schema | In progress |
-| Campaign Wiki | In progress |
-| Entity API | Partial |
-| Sherdan markdown parsers | Partial |
-| Idempotent import pipeline | Not complete |
-| Random Tables | Planned |
+| Drizzle schema v2 | Done |
+| Campaign Wiki | Done for Phase 1 |
+| Entity CRUD APIs | Done |
+| Identity / secrets / links / PC hooks UI | Done |
+| Sherdan markdown parsers | Done |
+| Idempotent Sherdan import pipeline | Done |
+| Sherdan import validation | Done |
+| Random Tables Engine | Next |
 | NPC Generator | Planned |
 | Player Dashboard | Planned |
 
-The repository is no longer only a setup scaffold: parser work for real Sherdan material has already started.
+Validated Sherdan import snapshot:
 
-However, the app is not yet a complete DM-facing product.
+| Metric | Count |
+|---|---:|
+| Imported entities | 151 |
+| Identities | 81 |
+| Secrets | 56 |
+| PC hook assignments | 70 |
+| Entity links | 45 |
+| Sessions | 6 |
+| Plot threads | 10 |
+| Rule documents | 47 |
+| Imported entity embeddings | 151 / 151 |
 
-For the full implementation plan, see [`ROADMAP.md`](./ROADMAP.md).
+Reports:
 
-For architecture decisions, see [`docs/decisions.md`](./docs/decisions.md).
+- [Sherdan import report](./docs/sherdan-import-report.md)
+- [Sherdan Phase 1.5 validation](./docs/sherdan-phase-1-5-validation.md)
+- [Roadmap](./ROADMAP.md)
+- [Architecture decisions](./docs/decisions.md)
 
 ---
 
@@ -55,17 +55,15 @@ For architecture decisions, see [`docs/decisions.md`](./docs/decisions.md).
 
 Sherdan campaign source files are currently stored in `public/`.
 
-This means they can be served as static files by Next.js during local development or deployment.
-
 This is acceptable only under the current assumptions:
 
 - single-user app;
 - local development;
 - private network or Tailscale access;
 - no public deployment;
-- no player-facing access to the raw app.
+- no player-facing access to raw app routes or static files.
 
-Before enabling a public or semi-public Player Dashboard, the campaign source files should be moved outside `public/`, for example:
+Before enabling a public or semi-public Player Dashboard, move the campaign source files outside `public/`, for example:
 
 ```txt
 data/sherdan/
@@ -90,10 +88,9 @@ Runtime access should then happen only through server-side code and player-safe 
 | Validation | Zod |
 | Testing | Vitest |
 | Logging | Pino |
-| LLM primary | Gemini API |
-| LLM local fallback | Ollama |
+| Primary chat LLM | Gemini API |
+| Local fallback / embeddings | Ollama |
 | Package manager | pnpm |
-| CI | GitHub Actions |
 
 ---
 
@@ -104,13 +101,14 @@ Runtime access should then happen only through server-side code and player-safe 
 | Node.js | 24+ |
 | pnpm | 10+ |
 | Docker Desktop | recent |
-| Ollama | optional |
+| Ollama | required for embeddings |
 
 Recommended local machine:
 
 - 16 GB RAM or more;
 - Docker available;
-- Ollama installed only if you want offline fallback and local embeddings.
+- Ollama installed with `mxbai-embed-large` for embeddings;
+- optional Gemini API key for primary chat/structured generation.
 
 ---
 
@@ -139,9 +137,33 @@ http://localhost:3000
 
 ---
 
-## Optional: Ollama Setup
+## Sherdan Import Pipeline
 
-Ollama is used for local fallback and embeddings.
+The bootstrap imports the real Sherdan markdown files from `public/` into the structured database.
+
+```bash
+pnpm db:bootstrap:sherdan
+pnpm db:embed:sherdan
+pnpm db:report:sherdan
+pnpm db:validate:sherdan
+```
+
+What it imports:
+
+- `NPC.md` -> NPC entities, identities, layered secrets, PC hooks and links;
+- `Fazioni.md` -> factions, lieutenants, faction secrets, PC hooks and links;
+- `Lore.md` -> locations, organizations and deities, split into public description vs GM truth;
+- `Campagna.md` -> plot threads and sessions with GM prep notes separated;
+- `Background Personaggi.md` -> PC entities and aliases/identities;
+- `Manuale del Giocatore.md` -> rule documents.
+
+The import is idempotent: rerunning it updates existing records instead of duplicating them.
+
+---
+
+## LLM And Embeddings Setup
+
+Embeddings always use Ollama so the vector space stays stable.
 
 ```bash
 ollama pull mxbai-embed-large
@@ -149,35 +171,27 @@ ollama pull qwen2.5:7b-instruct-q4_K_M
 pnpm llm:ping
 ```
 
-If you only want to use Gemini for chat features, Ollama is optional.
+Chat and structured generation can use Gemini as primary provider with Ollama fallback.
 
-Embedding features require a local embedding model unless another provider is configured.
-
----
-
-## Environment Variables
-
-Create `.env` from `.env.example`.
-
-```bash
-cp .env.example .env
-pnpm env:check
-```
-
-The `env:check` command verifies that:
-
-- `.env.example` is aligned with the Zod schema;
-- required variables are documented;
-- local configuration is valid.
-
-Main variables:
+Main environment variables:
 
 ```txt
 DATABASE_URL=
-LLM_PROVIDER=
+LLM_PROVIDER=gemini
 GOOGLE_AI_API_KEY=
-OLLAMA_BASE_URL=
+GEMINI_MODEL=gemini-3-flash-preview
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
+OLLAMA_EMBED_MODEL=mxbai-embed-large
 ```
+
+Run:
+
+```bash
+pnpm env:check
+```
+
+to verify `.env`, `.env.example` and `src/lib/env.ts` stay aligned.
 
 ---
 
@@ -211,6 +225,15 @@ pnpm db:ping
 pnpm db:seed
 ```
 
+### Sherdan Dataset
+
+```bash
+pnpm db:bootstrap:sherdan
+pnpm db:embed:sherdan
+pnpm db:report:sherdan
+pnpm db:validate:sherdan
+```
+
 ### Docker
 
 ```bash
@@ -233,32 +256,33 @@ deletes the local Postgres volume and all local campaign data.
 
 ```txt
 sherdan-dm-tools/
-├── README.md
-├── ROADMAP.md
-├── CLAUDE.md
-├── docker-compose.yml
-├── docs/
-│   └── decisions.md
-├── public/
-│   └── *.md
-├── scripts/
-├── src/
-│   ├── app/
-│   ├── components/
-│   ├── db/
-│   │   ├── client.ts
-│   │   ├── migrate.ts
-│   │   ├── migrations/
-│   │   └── schema/
-│   ├── lib/
-│   │   ├── env.ts
-│   │   ├── logger.ts
-│   │   ├── llm/
-│   │   ├── parsers/
-│   │   └── validation/
-│   └── ...
-└── tests/
-    └── unit/
+|-- README.md
+|-- ROADMAP.md
+|-- CLAUDE.md
+|-- docker-compose.yml
+|-- docs/
+|   |-- decisions.md
+|   |-- sherdan-import-report.md
+|   `-- sherdan-phase-1-5-validation.md
+|-- public/
+|   `-- *.md
+|-- scripts/
+|   |-- bootstrap-sherdan.ts
+|   |-- embed-sherdan-entities.ts
+|   |-- report-sherdan-import.ts
+|   `-- validate-sherdan-phase-1-5.ts
+|-- src/
+|   |-- app/
+|   |-- components/
+|   |-- db/
+|   |-- lib/
+|   |   |-- import/
+|   |   |-- llm/
+|   |   |-- parsers/
+|   |   `-- validation/
+|   `-- ...
+`-- tests/
+    `-- unit/
 ```
 
 ---
@@ -270,26 +294,33 @@ The app is built around a structured campaign database.
 Core ideas:
 
 - every important campaign object becomes an entity;
-- entities can represent NPCs, factions, locations, deities, items, events, sessions and plot threads;
-- entities can have public descriptions and DM-only descriptions;
-- secrets are modeled as layered information;
-- relationships between entities are first-class data;
-- future AI tools should use the campaign database as context, not generic prompts.
+- entities can represent NPCs, PCs, factions, locations, deities, items, monsters and organizations;
+- entities have separate public descriptions and DM-only descriptions;
+- secrets are modeled as layered information: `surface`, `intermediate`, `deep`;
+- identities are first-class records, so Malakor/Dante and Noel/Yancarlos/Lust can be modeled cleanly;
+- relationships and backlinks are first-class data;
+- PC hooks are separate from in-fiction relationships because they describe narrative potential;
+- AI tools should use the campaign database as context, not generic prompts.
 
-The intended flow is:
+The import flow is:
 
 ```txt
 Sherdan markdown files
-        ↓
+        |
+        v
 Parsers
-        ↓
-Import plans
-        ↓
+        |
+        v
+Bootstrap plan
+        |
+        v
 Idempotent import pipeline
-        ↓
-Postgres entities
-        ↓
-Campaign Wiki / Search / Graph / Generators
+        |
+        v
+Postgres entities, secrets, hooks, links, sessions and rules
+        |
+        v
+Campaign Wiki / Search / Graph / Future generators
 ```
 
 ---
@@ -298,10 +329,10 @@ Campaign Wiki / Search / Graph / Generators
 
 | Phase | Feature | Status |
 |---|---|---|
-| 0 | Setup and infrastructure | Mostly done |
-| 1 | Campaign Wiki | In progress |
-| 1.5 | Sherdan content import | In progress |
-| 2 | Random Tables Engine | Planned |
+| 0 | Setup and infrastructure | Done |
+| 1 | Campaign Wiki | Done |
+| 1.5 | Sherdan content import | Done |
+| 2 | Random Tables Engine | Next |
 | 3 | Generator Framework + NPC Generator | Planned |
 | 4 | Loot Generator | Planned |
 | 5 | Encounter Builder | Planned |
@@ -315,35 +346,35 @@ Campaign Wiki / Search / Graph / Generators
 
 ## Current Development Priority
 
-The next priority should be completing a full Campaign Wiki vertical slice:
+The next priority is Phase 2: the Random Tables Engine.
 
-1. list entities;
-2. open entity detail page;
-3. edit public and DM-only descriptions;
-4. display secrets;
-5. display relationships;
-6. display PC hooks;
-7. search entities;
-8. import Sherdan markdown without duplicates.
+Phase 2 should deliver:
 
-New generators should wait until the Wiki and import pipeline are stable.
+- a reusable roller library with weighted and uniform rolls;
+- nested table resolution with trace output;
+- template interpolation such as `Taverniere {name}, {attitude}`;
+- CRUD for `random_tables`;
+- `POST /tables/:id/roll`;
+- a table editor and library view;
+- seed tables, including Sherdan-style sensory details, NPC tics, accents, secrets and narrative hooks.
+
+Generators should still wait until the table engine is stable.
 
 ---
 
 ## Known Limitations
 
-- Most sidebar tools are still placeholders.
-- The Campaign Wiki is not yet feature-complete.
-- The import pipeline is not fully idempotent yet.
-- CI currently focuses on unit-level validation and does not yet run full Postgres integration tests.
-- Sherdan source markdown files are currently inside `public/`.
-- Player-facing features are not safe until visibility filtering is complete.
+- Most sidebar tools beyond the Campaign Wiki are still placeholders.
+- `public/*.md` contains raw campaign material and is not player-safe.
+- Visibility filtering is not sufficient for a public Player Dashboard yet.
+- Full Postgres integration tests are not automated in CI yet.
+- The Random Tables Engine has not been implemented yet.
 
 ---
 
 ## Testing
 
-Run:
+Run unit tests:
 
 ```bash
 pnpm test
@@ -359,11 +390,19 @@ pnpm test
 pnpm build
 ```
 
-Before merging major schema or parser changes, also verify:
+Before major schema or parser work, also verify:
 
 ```bash
 pnpm db:migrate
 pnpm db:ping
+```
+
+For Sherdan import work, verify:
+
+```bash
+pnpm db:bootstrap:sherdan
+pnpm db:report:sherdan
+pnpm db:validate:sherdan
 ```
 
 ---
@@ -387,15 +426,12 @@ Update both before continuing.
 
 ### `pnpm llm:ping` fails for Ollama
 
-Make sure Ollama is running.
+Make sure Ollama is running and the configured models are pulled.
 
 ```bash
 ollama serve
-```
-
-Then retry:
-
-```bash
+ollama pull mxbai-embed-large
+ollama pull qwen2.5:7b-instruct-q4_K_M
 pnpm llm:ping
 ```
 
