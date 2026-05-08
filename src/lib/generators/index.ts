@@ -2,6 +2,7 @@ export * from "./context-retriever";
 export * from "./errors";
 export * from "./npc-context";
 export * from "./npc-input";
+export * from "./npc-prompt";
 export * from "./prompt-builder";
 export * from "./run";
 export * from "./style-calibrator";
