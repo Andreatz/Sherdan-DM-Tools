@@ -1,0 +1,502 @@
+import "dotenv/config";
+
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import { and, eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+
+import * as schema from "@/db/schema";
+import {
+  buildSherdanBootstrapPlan,
+  normalizedLabel,
+  type BootstrapEntity,
+  type BootstrapIdentity,
+  type BootstrapPcHook,
+  type BootstrapPlotThread,
+  type BootstrapRuleDocument,
+  type BootstrapSecret,
+  type BootstrapSession,
+  type SherdanBootstrapPlan,
+} from "@/lib/import/sherdan-bootstrap-plan";
+import { env } from "@/lib/env";
+
+const SHERDAN_NAME = "Sherdan";
+
+type Db = ReturnType<typeof drizzle<typeof schema>>;
+
+interface ImportStats {
+  campaignsCreated: number;
+  campaignsUpdated: number;
+  entitiesCreated: number;
+  entitiesUpdated: number;
+  identitiesCreated: number;
+  identitiesUpdated: number;
+  secretsCreated: number;
+  secretsSkipped: number;
+  sessionsCreated: number;
+  sessionsUpdated: number;
+  plotThreadsCreated: number;
+  plotThreadsUpdated: number;
+  ruleDocumentsCreated: number;
+  ruleDocumentsUpdated: number;
+  pcHooksCreated: number;
+  pcHooksExisting: number;
+  pcHooksUnresolved: number;
+  deferredLinks: number;
+}
+
+async function main() {
+  const sql = postgres(env.DATABASE_URL, { max: 1 });
+  const db = drizzle(sql, { schema });
+
+  try {
+    const plan = buildSherdanBootstrapPlan(readSherdanSources());
+    const stats = await importPlan(db, plan);
+
+    console.log("[ok] Bootstrap Sherdan completato");
+    console.log(JSON.stringify(stats, null, 2));
+  } finally {
+    await sql.end();
+  }
+}
+
+async function importPlan(db: Db, plan: SherdanBootstrapPlan): Promise<ImportStats> {
+  const stats: ImportStats = {
+    campaignsCreated: 0,
+    campaignsUpdated: 0,
+    entitiesCreated: 0,
+    entitiesUpdated: 0,
+    identitiesCreated: 0,
+    identitiesUpdated: 0,
+    secretsCreated: 0,
+    secretsSkipped: 0,
+    sessionsCreated: 0,
+    sessionsUpdated: 0,
+    plotThreadsCreated: 0,
+    plotThreadsUpdated: 0,
+    ruleDocumentsCreated: 0,
+    ruleDocumentsUpdated: 0,
+    pcHooksCreated: 0,
+    pcHooksExisting: 0,
+    pcHooksUnresolved: 0,
+    deferredLinks: plan.deferredLinks.length,
+  };
+
+  const campaignId = await ensureSherdanCampaign(db, stats);
+  const entityIds = new Map<string, string>();
+  const pcIdsByName = new Map<string, string>();
+
+  for (const entity of plan.entities.filter((entity) => !entity.parentKey)) {
+    const entityId = await upsertEntity(db, campaignId, entity, null, stats);
+    entityIds.set(entity.key, entityId);
+    if (entity.type === "pc") {
+      registerPcName(pcIdsByName, entity.name, entityId);
+    }
+  }
+
+  for (const entity of plan.entities.filter((entity) => entity.parentKey)) {
+    const parentId = entity.parentKey ? entityIds.get(entity.parentKey) : null;
+    const entityId = await upsertEntity(db, campaignId, entity, parentId ?? null, stats);
+    entityIds.set(entity.key, entityId);
+  }
+
+  for (const entity of plan.entities) {
+    const entityId = entityIds.get(entity.key);
+    if (!entityId) continue;
+
+    for (const identity of entity.identities) {
+      await upsertIdentity(db, entityId, identity, stats);
+      if (entity.type === "pc") {
+        registerPcName(pcIdsByName, identity.name, entityId);
+      }
+    }
+
+    for (const secret of entity.secrets) {
+      await ensureSecret(db, campaignId, entityId, secret, stats);
+    }
+  }
+
+  for (const session of plan.sessions) {
+    await upsertSession(db, campaignId, session, stats);
+  }
+
+  for (const thread of plan.plotThreads) {
+    await upsertPlotThread(db, campaignId, thread, stats);
+  }
+
+  for (const document of plan.ruleDocuments) {
+    await upsertRuleDocument(db, document, stats);
+  }
+
+  for (const hook of plan.pcHooks) {
+    const targetEntityId = entityIds.get(hook.targetEntityKey);
+    const pcEntityId = resolvePcId(pcIdsByName, hook.pcName);
+    if (!targetEntityId || !pcEntityId) {
+      stats.pcHooksUnresolved += 1;
+      continue;
+    }
+    await ensurePcHook(db, campaignId, pcEntityId, targetEntityId, hook, stats);
+  }
+
+  return stats;
+}
+
+function readSherdanSources() {
+  const publicDir = path.join(process.cwd(), "public");
+  return {
+    npc: readFileSync(path.join(publicDir, "NPC.md"), "utf8"),
+    factions: readFileSync(path.join(publicDir, "Fazioni.md"), "utf8"),
+    lore: readFileSync(path.join(publicDir, "Lore.md"), "utf8"),
+    campaign: readFileSync(path.join(publicDir, "Campagna.md"), "utf8"),
+    backgrounds: readFileSync(
+      path.join(publicDir, "Background Personaggi.md"),
+      "utf8",
+    ),
+    playerManual: readFileSync(
+      path.join(publicDir, "Manuale del Giocatore.md"),
+      "utf8",
+    ),
+  };
+}
+
+async function ensureSherdanCampaign(db: Db, stats: ImportStats): Promise<string> {
+  const existing = await db
+    .select({ id: schema.campaigns.id })
+    .from(schema.campaigns)
+    .where(eq(schema.campaigns.name, SHERDAN_NAME))
+    .limit(1);
+
+  const settings = {
+    system: "D&D 5e",
+    language: "it",
+    tone: "dark fantasy con tratti grimdark",
+    bootstrap: {
+      source: "public/*.md",
+      importer: "scripts/bootstrap-sherdan.ts",
+    },
+  };
+
+  if (existing[0]) {
+    await db
+      .update(schema.campaigns)
+      .set({
+        description:
+          "Campagna principale Sherdan, popolata dai sorgenti markdown in public/ tramite bootstrap idempotente.",
+        settings,
+      })
+      .where(eq(schema.campaigns.id, existing[0].id));
+    stats.campaignsUpdated += 1;
+    return existing[0].id;
+  }
+
+  const [created] = await db
+    .insert(schema.campaigns)
+    .values({
+      name: SHERDAN_NAME,
+      description:
+        "Campagna principale Sherdan, popolata dai sorgenti markdown in public/ tramite bootstrap idempotente.",
+      settings,
+    })
+    .returning({ id: schema.campaigns.id });
+
+  if (!created) throw new Error("Creazione campagna Sherdan fallita");
+  stats.campaignsCreated += 1;
+  return created.id;
+}
+
+async function upsertEntity(
+  db: Db,
+  campaignId: string,
+  entity: BootstrapEntity,
+  parentId: string | null,
+  stats: ImportStats,
+): Promise<string> {
+  const existing = await db
+    .select({ id: schema.entities.id })
+    .from(schema.entities)
+    .where(
+      and(
+        eq(schema.entities.campaignId, campaignId),
+        eq(schema.entities.type, entity.type),
+        eq(schema.entities.name, entity.name),
+      ),
+    )
+    .limit(1);
+
+  const values = {
+    campaignId,
+    type: entity.type,
+    name: entity.name,
+    description: entity.description,
+    publicDescription: entity.publicDescription,
+    properties: entity.properties,
+    tags: entity.tags,
+    parentId,
+    visibility: entity.visibility,
+  };
+
+  if (existing[0]) {
+    await db
+      .update(schema.entities)
+      .set(values)
+      .where(eq(schema.entities.id, existing[0].id));
+    stats.entitiesUpdated += 1;
+    return existing[0].id;
+  }
+
+  const [created] = await db
+    .insert(schema.entities)
+    .values(values)
+    .returning({ id: schema.entities.id });
+
+  if (!created) throw new Error(`Creazione entity fallita: ${entity.name}`);
+  stats.entitiesCreated += 1;
+  return created.id;
+}
+
+async function upsertIdentity(
+  db: Db,
+  entityId: string,
+  identity: BootstrapIdentity,
+  stats: ImportStats,
+) {
+  const existing = await db
+    .select({ id: schema.entityIdentities.id })
+    .from(schema.entityIdentities)
+    .where(
+      and(
+        eq(schema.entityIdentities.entityId, entityId),
+        eq(schema.entityIdentities.name, identity.name),
+      ),
+    )
+    .limit(1);
+
+  const values = {
+    entityId,
+    name: identity.name,
+    isTrueIdentity: identity.isTrueIdentity,
+    appearance: identity.appearance,
+    voice: identity.voice,
+    mannerisms: identity.mannerisms,
+    visibility: identity.visibility,
+    notes: identity.notes,
+  };
+
+  if (existing[0]) {
+    await db
+      .update(schema.entityIdentities)
+      .set(values)
+      .where(eq(schema.entityIdentities.id, existing[0].id));
+    stats.identitiesUpdated += 1;
+    return;
+  }
+
+  await db.insert(schema.entityIdentities).values(values);
+  stats.identitiesCreated += 1;
+}
+
+async function ensureSecret(
+  db: Db,
+  campaignId: string,
+  entityId: string,
+  secret: BootstrapSecret,
+  stats: ImportStats,
+) {
+  const existing = await db
+    .select({ id: schema.entitySecrets.id })
+    .from(schema.entitySecrets)
+    .where(
+      and(
+        eq(schema.entitySecrets.campaignId, campaignId),
+        eq(schema.entitySecrets.entityId, entityId),
+        eq(schema.entitySecrets.layer, secret.layer),
+        eq(schema.entitySecrets.content, secret.content),
+      ),
+    )
+    .limit(1);
+
+  if (existing[0]) {
+    stats.secretsSkipped += 1;
+    return;
+  }
+
+  await db.insert(schema.entitySecrets).values({
+    campaignId,
+    entityId,
+    layer: secret.layer,
+    content: secret.content,
+    exploitHint: secret.exploitHint,
+  });
+  stats.secretsCreated += 1;
+}
+
+async function upsertSession(
+  db: Db,
+  campaignId: string,
+  session: BootstrapSession,
+  stats: ImportStats,
+) {
+  const existing = await db
+    .select({ id: schema.sessions.id })
+    .from(schema.sessions)
+    .where(
+      and(
+        eq(schema.sessions.campaignId, campaignId),
+        eq(schema.sessions.number, session.number),
+      ),
+    )
+    .limit(1);
+
+  const values = {
+    campaignId,
+    number: session.number,
+    title: session.title,
+    date: session.date,
+    recap: session.recap,
+    prepNotes: session.prepNotes,
+  };
+
+  if (existing[0]) {
+    await db
+      .update(schema.sessions)
+      .set(values)
+      .where(eq(schema.sessions.id, existing[0].id));
+    stats.sessionsUpdated += 1;
+    return;
+  }
+
+  await db.insert(schema.sessions).values(values);
+  stats.sessionsCreated += 1;
+}
+
+async function upsertPlotThread(
+  db: Db,
+  campaignId: string,
+  thread: BootstrapPlotThread,
+  stats: ImportStats,
+) {
+  const existing = await db
+    .select({ id: schema.plotThreads.id })
+    .from(schema.plotThreads)
+    .where(
+      and(
+        eq(schema.plotThreads.campaignId, campaignId),
+        eq(schema.plotThreads.title, thread.title),
+      ),
+    )
+    .limit(1);
+
+  const values = {
+    campaignId,
+    title: thread.title,
+    description: thread.description,
+    publicDescription: thread.publicDescription,
+    status: thread.status,
+    priority: thread.priority,
+    visibility: thread.visibility,
+  };
+
+  if (existing[0]) {
+    await db
+      .update(schema.plotThreads)
+      .set(values)
+      .where(eq(schema.plotThreads.id, existing[0].id));
+    stats.plotThreadsUpdated += 1;
+    return;
+  }
+
+  await db.insert(schema.plotThreads).values(values);
+  stats.plotThreadsCreated += 1;
+}
+
+async function upsertRuleDocument(
+  db: Db,
+  document: BootstrapRuleDocument,
+  stats: ImportStats,
+) {
+  const existing = await db
+    .select({ id: schema.ruleDocuments.id })
+    .from(schema.ruleDocuments)
+    .where(
+      and(
+        eq(schema.ruleDocuments.source, document.source),
+        eq(schema.ruleDocuments.title, document.title),
+        eq(schema.ruleDocuments.section, document.section),
+        eq(schema.ruleDocuments.chunkIndex, document.chunkIndex),
+      ),
+    )
+    .limit(1);
+
+  const values = {
+    source: document.source,
+    title: document.title,
+    section: document.section,
+    content: document.content,
+    chunkIndex: document.chunkIndex,
+    metadata: document.metadata,
+  };
+
+  if (existing[0]) {
+    await db
+      .update(schema.ruleDocuments)
+      .set(values)
+      .where(eq(schema.ruleDocuments.id, existing[0].id));
+    stats.ruleDocumentsUpdated += 1;
+    return;
+  }
+
+  await db.insert(schema.ruleDocuments).values(values);
+  stats.ruleDocumentsCreated += 1;
+}
+
+async function ensurePcHook(
+  db: Db,
+  campaignId: string,
+  pcEntityId: string,
+  targetEntityId: string,
+  hook: BootstrapPcHook,
+  stats: ImportStats,
+) {
+  const existing = await db
+    .select({ id: schema.pcHooks.id })
+    .from(schema.pcHooks)
+    .where(
+      and(
+        eq(schema.pcHooks.campaignId, campaignId),
+        eq(schema.pcHooks.pcEntityId, pcEntityId),
+        eq(schema.pcHooks.targetEntityId, targetEntityId),
+        eq(schema.pcHooks.hookDescription, hook.hookDescription),
+      ),
+    )
+    .limit(1);
+
+  if (existing[0]) {
+    stats.pcHooksExisting += 1;
+    return;
+  }
+
+  await db.insert(schema.pcHooks).values({
+    campaignId,
+    pcEntityId,
+    targetEntityId,
+    hookDescription: hook.hookDescription,
+    potentialArc: hook.potentialArc,
+    status: hook.status,
+  });
+  stats.pcHooksCreated += 1;
+}
+
+function registerPcName(map: Map<string, string>, name: string, id: string) {
+  map.set(normalizedLabel(name), id);
+}
+
+function resolvePcId(map: Map<string, string>, name: string): string | null {
+  return map.get(normalizedLabel(name)) ?? null;
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
