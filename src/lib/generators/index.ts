@@ -4,4 +4,5 @@ export * from "./prompt-builder";
 export * from "./run";
 export * from "./style-calibrator";
 export * from "./structured-output";
+export * from "./streaming";
 export * from "./types";
