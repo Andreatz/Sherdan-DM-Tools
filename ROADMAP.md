@@ -342,7 +342,6 @@ I .md di Sherdan hanno una struttura regolare. Ogni tipo di documento ha un temp
 - [x] Parser per `Background Personaggi.md` → `entities` (type=pc) con properties popolate
   - _Note implementative: aggiunto parser puro `parseSherdanPcMarkdown` in `src/lib/parsers/sherdan-pc.ts`, come import-plan per la pipeline idempotente. Su `public/Background Personaggi.md` produce 7 entita' `pc` con properties validate da Zod (`race`, `class`, `subclass`, `level`, `age`, `backstory`, `arc_personale`, tratti, legami, difetti, motivazioni, goals, voce/frasi tipiche e appearance dove disponibili). Estrae 15 identita'/alias totali, inclusi `Alyne` per Althea, `Uomo di ferro` per Axton e le identita' preferite di Noel/Yancarlos. Il livello non e' presente nel sorgente: viene inferito a 1 e segnalato come warning per ciascun PG. Test unitari su materiale reale verificano Althea, Axton, Noel, Azazel e Bellamy._
 - [ ] Parser per `Manuale del Giocatore.md` → contenuto a parte (probabilmente regole homebrew → `rule_documents` con source='custom')
-- [ ] Parser per `La Forgia di Sherdan - Sistema di Crafting.md` → idem, contenuto homebrew
 
 **Pipeline**
 - [ ] Script di import idempotente: posso rieseguirlo e aggiorna invece di duplicare
