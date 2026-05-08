@@ -379,7 +379,8 @@ Motore generale per random tables con supporto nesting, riusato da tutti i gener
 ### Task
 
 **Logic core**
-- [ ] Roller library: parsing entries JSONB, weighted/uniform roll, nested sub-roll resolution
+- [x] Roller library: parsing entries JSONB, weighted/uniform roll, nested sub-roll resolution
+  - _Note implementative: aggiunta libreria pura `src/lib/random-tables/roller.ts` (barrel `src/lib/random-tables/index.ts`). `randomTableEntriesSchema` valida il JSONB `entries` con Zod, normalizza `weight` mancante a 1, supporta `subTableId`/`sub_table_id` e conserva `templateVars` per il task successivo. `rollRandomTable` usa RNG iniettato per test deterministici, produce `trace` completo (`threshold`, `totalWeight`, entry scelta, nested trace), risolve sub-table via callback async, rileva circular refs e applica depth limit. Test unitari coprono uniform, weighted, nested, shape invalide, RNG fuori range, circular refs e depth limit._
 - [ ] Template interpolation: `"Taverniere {name}, {attitude}"` → roll su sub-tables → substitute
 - [ ] Test coverage approfondita (logica nidificata = circular refs, depth limit, edge case sui weights)
 
