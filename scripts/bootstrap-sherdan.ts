@@ -12,6 +12,7 @@ import {
   buildSherdanBootstrapPlan,
   normalizedLabel,
   type BootstrapEntity,
+  type BootstrapEntityLink,
   type BootstrapIdentity,
   type BootstrapPcHook,
   type BootstrapPlotThread,
@@ -45,6 +46,9 @@ interface ImportStats {
   pcHooksExisting: number;
   pcHooksUnresolved: number;
   deferredLinks: number;
+  entityLinksCreated: number;
+  entityLinksUpdated: number;
+  entityLinksUnresolved: number;
 }
 
 async function main() {
@@ -82,6 +86,9 @@ async function importPlan(db: Db, plan: SherdanBootstrapPlan): Promise<ImportSta
     pcHooksExisting: 0,
     pcHooksUnresolved: 0,
     deferredLinks: plan.deferredLinks.length,
+    entityLinksCreated: 0,
+    entityLinksUpdated: 0,
+    entityLinksUnresolved: plan.unresolvedLinks.length,
   };
 
   const campaignId = await ensureSherdanCampaign(db, stats);
@@ -138,6 +145,23 @@ async function importPlan(db: Db, plan: SherdanBootstrapPlan): Promise<ImportSta
       continue;
     }
     await ensurePcHook(db, campaignId, pcEntityId, targetEntityId, hook, stats);
+  }
+
+  for (const link of plan.entityLinks) {
+    const sourceEntityId = entityIds.get(link.sourceEntityKey);
+    const targetEntityId = entityIds.get(link.targetEntityKey);
+    if (!sourceEntityId || !targetEntityId) {
+      stats.entityLinksUnresolved += 1;
+      continue;
+    }
+    await upsertEntityLink(
+      db,
+      campaignId,
+      sourceEntityId,
+      targetEntityId,
+      link,
+      stats,
+    );
   }
 
   return stats;
@@ -486,6 +510,52 @@ async function ensurePcHook(
     status: hook.status,
   });
   stats.pcHooksCreated += 1;
+}
+
+async function upsertEntityLink(
+  db: Db,
+  campaignId: string,
+  sourceEntityId: string,
+  targetEntityId: string,
+  link: BootstrapEntityLink,
+  stats: ImportStats,
+) {
+  const existing = await db
+    .select({ id: schema.entityLinks.id })
+    .from(schema.entityLinks)
+    .where(
+      and(
+        eq(schema.entityLinks.campaignId, campaignId),
+        eq(schema.entityLinks.sourceEntityId, sourceEntityId),
+        eq(schema.entityLinks.targetEntityId, targetEntityId),
+        eq(schema.entityLinks.relationType, link.relationType),
+        eq(schema.entityLinks.description, link.description),
+      ),
+    )
+    .limit(1);
+
+  const values = {
+    campaignId,
+    sourceEntityId,
+    targetEntityId,
+    relationType: link.relationType,
+    publicRelationType: link.publicRelationType,
+    strength: link.strength,
+    description: link.description,
+    visibility: link.visibility,
+  };
+
+  if (existing[0]) {
+    await db
+      .update(schema.entityLinks)
+      .set(values)
+      .where(eq(schema.entityLinks.id, existing[0].id));
+    stats.entityLinksUpdated += 1;
+    return;
+  }
+
+  await db.insert(schema.entityLinks).values(values);
+  stats.entityLinksCreated += 1;
 }
 
 function registerPcName(map: Map<string, string>, name: string, id: string) {

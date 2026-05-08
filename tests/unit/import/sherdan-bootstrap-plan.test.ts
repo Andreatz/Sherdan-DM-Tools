@@ -30,6 +30,8 @@ describe("buildSherdanBootstrapPlan", () => {
     expect(plan.ruleDocuments).toHaveLength(47);
     expect(plan.pcHooks).toHaveLength(58);
     expect(plan.deferredLinks).toHaveLength(45);
+    expect(plan.entityLinks).toHaveLength(45);
+    expect(plan.unresolvedLinks).toHaveLength(3);
   });
 
   it("preserves typed entity distribution and parent-child imports", () => {
@@ -71,5 +73,30 @@ describe("buildSherdanBootstrapPlan", () => {
       title: "Manuale del Giocatore",
       chunkIndex: 0,
     });
+  });
+
+  it("resolves table links and section references into entity link imports", () => {
+    expect(plan.entityLinks).toContainEqual(
+      expect.objectContaining({
+        sourceEntityKey: 'npc:malakor "lo sfregiato"',
+        targetEntityKey: "faction:l'eclissi",
+        relationType: "related_to",
+        source: "parser-table",
+      }),
+    );
+    expect(plan.entityLinks).toContainEqual(
+      expect.objectContaining({
+        sourceEntityKey: "organization:l'esplosione della brass raven — anno 197 (2 anni fa)",
+        targetEntityKey: 'npc:"chiave rotta" / darian vex',
+        relationType: "references",
+        source: "section-ref",
+      }),
+    );
+    expect(plan.unresolvedLinks).toContainEqual(
+      expect.objectContaining({
+        targetName: "NPC.md §60",
+        reason: "unknown-target",
+      }),
+    );
   });
 });
