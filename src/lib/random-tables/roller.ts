@@ -7,11 +7,11 @@ const rawTemplateVarsSchema = z.record(z.string(), z.string());
 
 const rawEntrySchema = z
   .object({
-    label: z.string().trim().min(1).optional(),
+    label: z.string().trim().min(1).nullable().optional(),
     value: z.unknown().optional(),
     weight: z.number().finite().positive().optional(),
-    subTableId: z.string().trim().min(1).optional(),
-    sub_table_id: z.string().trim().min(1).optional(),
+    subTableId: z.string().trim().min(1).nullable().optional(),
+    sub_table_id: z.string().trim().min(1).nullable().optional(),
     templateVars: rawTemplateVarsSchema.optional(),
     template_vars: rawTemplateVarsSchema.optional(),
   })

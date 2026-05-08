@@ -46,3 +46,11 @@ export const listRandomTablesQuerySchema = z
 export type ListRandomTablesQuery = z.infer<
   typeof listRandomTablesQuerySchema
 >;
+
+export const rollRandomTableInputSchema = z
+  .object({
+    maxDepth: z.number().int().min(0).max(32).optional(),
+  })
+  .strict();
+
+export type RollRandomTableInput = z.infer<typeof rollRandomTableInputSchema>;

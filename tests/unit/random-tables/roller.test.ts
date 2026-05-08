@@ -33,6 +33,28 @@ describe("random table roller", () => {
     ]);
   });
 
+  it("accepts persisted normalized entries from the database", () => {
+    const entries = parseRandomTableEntries([
+      {
+        label: null,
+        value: "persisted",
+        weight: 1,
+        subTableId: null,
+        templateVars: {},
+      },
+    ]);
+
+    expect(entries).toEqual([
+      {
+        label: null,
+        value: "persisted",
+        weight: 1,
+        subTableId: null,
+        templateVars: {},
+      },
+    ]);
+  });
+
   it("rolls uniform entries deterministically", async () => {
     const table = tableDef("colors", [
       { value: "red" },

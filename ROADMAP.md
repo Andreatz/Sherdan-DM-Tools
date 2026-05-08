@@ -389,7 +389,8 @@ Motore generale per random tables con supporto nesting, riusato da tutti i gener
 **Backend**
 - [x] CRUD `random_tables`
   - _Note implementative: aggiunte route `GET/POST /api/random-tables` e `GET/PATCH/DELETE /api/random-tables/[id]`, con filtri `campaign_id`, `tag`, `search`, `sort=name_asc|updated_desc`, `limit`, `offset`. La validazione vive in `src/lib/validation/random-table-input.ts` e riusa `randomTableEntriesSchema` del roller, quindi il JSONB `entries` viene normalizzato allo stesso formato usato dal core. PATCH aggiorna solo i campi presenti (fix verificato: `tags` non defaulta a `[]` se assente). Smoke HTTP live su Next dev temporaneo `:3051`: create 201, list filtrata, get 200, patch 200 con tag preservati, delete 204._
-- [ ] Endpoint `POST /tables/:id/roll` → ritorna risultato + traccia dei sub-roll
+- [x] Endpoint `POST /tables/:id/roll` → ritorna risultato + traccia dei sub-roll
+  - _Note implementative: aggiunto `POST /api/random-tables/[id]/roll` con body opzionale `{ maxDepth }` validato da `rollRandomTableInputSchema`. L'endpoint carica la tabella root dal DB, risolve sub-table/template vars via lookup async su `random_tables.id`, ritorna `RandomTableRollResult` completo (`value` + trace nested/template) e converte `RandomTableRollError` in 400 con `rollErrorCode`. Fix emerso da smoke: `randomTableEntriesSchema` ora accetta anche la forma normalizzata persistita (`label: null`, `subTableId: null`) oltre alla forma raw. Smoke HTTP live su Next dev temporaneo `:3052`: create sub-table + root template, `POST /roll` 200 con `Taverniere Mara, guardinga`, trace template e cleanup delete 204._
 - [ ] Schema validation degli `entries` JSONB
 
 **Frontend**

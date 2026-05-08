@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import {
   createRandomTableInputSchema,
   listRandomTablesQuerySchema,
+  rollRandomTableInputSchema,
   updateRandomTableInputSchema,
 } from "@/lib/validation/random-table-input";
 
@@ -78,5 +79,18 @@ describe("random table input validation", () => {
       limit: 10,
       offset: 5,
     });
+  });
+
+  it("validates roll input", () => {
+    expect(rollRandomTableInputSchema.parse({})).toEqual({});
+    expect(rollRandomTableInputSchema.parse({ maxDepth: 0 })).toEqual({
+      maxDepth: 0,
+    });
+    expect(() => rollRandomTableInputSchema.parse({ maxDepth: -1 })).toThrow(
+      ZodError,
+    );
+    expect(() => rollRandomTableInputSchema.parse({ rng: 0.5 })).toThrow(
+      ZodError,
+    );
   });
 });
