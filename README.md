@@ -1,184 +1,445 @@
 # Sherdan DM Tools
 
-Piattaforma personale per il DM della campagna **Sherdan** (D&D 5e). Web app
-unificata con 10 tool integrati: Campaign Wiki, Random Tables, NPC Generator,
-Loot Generator, Encounter Builder, Plot Thread + Truth Clue Tracker, Session
-Prep Assistant, Procedural Dungeon Generator, Rules Lookup, Player Dashboard.
+Personal Dungeon Master toolkit for the Sherdan D&D 5e campaign.
 
-Single-user (single-tenant), Postgres + pgvector come backbone, Next.js full-stack,
-LLM via Gemini (free tier) + Ollama come fallback offline.
+Sherdan DM Tools is a local-first, single-user web app designed to turn the full Sherdan campaign material into a structured, searchable and AI-assisted DM workspace.
 
-> Per la roadmap completa e lo stato di avanzamento: [`ROADMAP.md`](./ROADMAP.md).
-> Per le decisioni architetturali datate: [`docs/decisions.md`](./docs/decisions.md).
-> Per il workflow Claude Code (questo file ha la precedenza per l'agente): [`CLAUDE.md`](./CLAUDE.md).
+The long-term goal is to provide one integrated platform for:
 
----
+- Campaign Wiki
+- Entity graph
+- NPC and faction management
+- Secrets and truth tracking
+- Session prep
+- Random tables
+- NPC generation
+- Loot generation
+- Encounter building
+- Procedural dungeon generation
+- Rules lookup
+- Player-safe dashboard
 
-## Pre-requisiti
-
-| Tool | Versione | Note |
-|------|----------|------|
-| Node.js | 24+ | `node --version` |
-| pnpm | 10+ | `npm i -g pnpm` se manca |
-| Docker Desktop | recente | per Postgres locale |
-| Ollama | recente | opzionale: solo per fallback offline + embedding |
-
-Hardware testato: i7-12700H, 16 GB RAM, RTX 3050 4 GB VRAM (Windows 11).
+> This project is built specifically for the Sherdan campaign, but the architecture is designed to become reusable for other narrative-heavy D&D campaigns.
 
 ---
 
-## Setup (prima volta)
+## Current Status
 
-```powershell
-# 1. Clone
+The project is currently in early MVP development.
+
+| Area | Status |
+|---|---|
+| Project foundation | Done |
+| Next.js app shell | Done |
+| Postgres + pgvector setup | Done |
+| Drizzle schema | In progress |
+| Campaign Wiki | In progress |
+| Entity API | Partial |
+| Sherdan markdown parsers | Partial |
+| Idempotent import pipeline | Not complete |
+| Random Tables | Planned |
+| NPC Generator | Planned |
+| Player Dashboard | Planned |
+
+The repository is no longer only a setup scaffold: parser work for real Sherdan material has already started.
+
+However, the app is not yet a complete DM-facing product.
+
+For the full implementation plan, see [`ROADMAP.md`](./ROADMAP.md).
+
+For architecture decisions, see [`docs/decisions.md`](./docs/decisions.md).
+
+---
+
+## Important Privacy Notice
+
+Sherdan campaign source files are currently stored in `public/`.
+
+This means they can be served as static files by Next.js during local development or deployment.
+
+This is acceptable only under the current assumptions:
+
+- single-user app;
+- local development;
+- private network or Tailscale access;
+- no public deployment;
+- no player-facing access to the raw app.
+
+Before enabling a public or semi-public Player Dashboard, the campaign source files should be moved outside `public/`, for example:
+
+```txt
+data/sherdan/
+content/sherdan/
+```
+
+Runtime access should then happen only through server-side code and player-safe API routes.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| App | Next.js 16 App Router |
+| Language | TypeScript strict mode |
+| UI | React 19 |
+| Database | PostgreSQL 16 |
+| Vector search | pgvector |
+| Fuzzy search | pg_trgm |
+| ORM | Drizzle |
+| Validation | Zod |
+| Testing | Vitest |
+| Logging | Pino |
+| LLM primary | Gemini API |
+| LLM local fallback | Ollama |
+| Package manager | pnpm |
+| CI | GitHub Actions |
+
+---
+
+## Requirements
+
+| Tool | Version |
+|---|---|
+| Node.js | 24+ |
+| pnpm | 10+ |
+| Docker Desktop | recent |
+| Ollama | optional |
+
+Recommended local machine:
+
+- 16 GB RAM or more;
+- Docker available;
+- Ollama installed only if you want offline fallback and local embeddings.
+
+---
+
+## Quick Start
+
+```bash
 git clone <repo-url> sherdan-dm-tools
 cd sherdan-dm-tools
 
-# 2. Dipendenze
 pnpm install
+cp .env.example .env
+pnpm env:check
 
-# 3. Variabili d'ambiente
-Copy-Item .env.example .env
-# Edita .env e riempi:
-#   - GOOGLE_AI_API_KEY (gratis su https://ai.google.dev — vedi sotto)
-#   - le credenziali Postgres se vuoi cambiare i default
-pnpm env:check  # verifica sync .env <-> .env.example <-> schema Zod
-
-# 4. Postgres locale (con pgvector + pg_trgm)
 docker compose up -d
-pnpm db:migrate          # applica le migration Drizzle
-pnpm db:ping             # sanity check: deve elencare PostgreSQL 16 + estensioni
+pnpm db:migrate
+pnpm db:ping
 
-# 5. Ollama (opzionale, per fallback offline + embedding)
-# Scarica e installa da https://ollama.com
-ollama pull mxbai-embed-large            # ~670 MB, embedding 1024-dim
-ollama pull qwen2.5:7b-instruct-q4_K_M   # ~4.7 GB, fallback chat (opzionale)
-pnpm llm:ping            # verifica end-to-end Gemini + Ollama
-
-# 6. Dev server
-pnpm dev                 # http://localhost:3000
+pnpm dev
 ```
 
-### Ottenere una Gemini API key (free tier)
+The app runs at:
 
-1. Vai su https://ai.google.dev
-2. "Get API key" → crea un nuovo progetto Google Cloud (**senza** abilitare il
-   billing, cosi' sei hard-capped al free tier e non rischi addebiti).
-3. Copia la key in `.env` come `GOOGLE_AI_API_KEY=...`.
-4. Modello di default: `gemini-3-flash-preview` (free tier, qualita' decente
-   in italiano). Vedi [`docs/decisions.md`](./docs/decisions.md) per
-   l'inventario dei modelli free disponibili.
-
-> ⚠️ **Privacy free tier**: Google puo' usare i tuoi input/output per migliorare
-> i loro modelli. Se vuoi privacy assoluta, setta `LLM_PROVIDER=ollama` in `.env`
-> e usa solo Ollama locale.
+```txt
+http://localhost:3000
+```
 
 ---
 
-## Comandi quotidiani
+## Optional: Ollama Setup
 
-### Sviluppo
-```powershell
-pnpm dev                 # avvia il dev server (http://localhost:3000)
-pnpm db:studio           # GUI Drizzle per ispezionare il DB
-pnpm llm:ping            # verifica salute LLM (Gemini + Ollama)
+Ollama is used for local fallback and embeddings.
+
+```bash
+ollama pull mxbai-embed-large
+ollama pull qwen2.5:7b-instruct-q4_K_M
+pnpm llm:ping
 ```
 
-### Quality gate (eseguito anche da CI)
-```powershell
-pnpm env:check           # sync .env / schema Zod
-pnpm lint                # ESLint
-pnpm typecheck           # tsc --noEmit
-pnpm test                # vitest run
-pnpm build               # next build
+If you only want to use Gemini for chat features, Ollama is optional.
+
+Embedding features require a local embedding model unless another provider is configured.
+
+---
+
+## Environment Variables
+
+Create `.env` from `.env.example`.
+
+```bash
+cp .env.example .env
+pnpm env:check
+```
+
+The `env:check` command verifies that:
+
+- `.env.example` is aligned with the Zod schema;
+- required variables are documented;
+- local configuration is valid.
+
+Main variables:
+
+```txt
+DATABASE_URL=
+LLM_PROVIDER=
+GOOGLE_AI_API_KEY=
+OLLAMA_BASE_URL=
+```
+
+---
+
+## Common Commands
+
+### Development
+
+```bash
+pnpm dev
+pnpm db:studio
+pnpm llm:ping
+```
+
+### Quality Gate
+
+```bash
+pnpm env:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
 ### Database
-```powershell
-pnpm db:generate         # genera nuova migration dopo modifica schema
-pnpm db:migrate          # applica migration al DB locale
-pnpm db:push             # alternative: push diretto (solo dev/prototipi)
-docker compose down      # ferma Postgres
-docker compose down -v   # distrugge il volume (CANCELLA TUTTI I DATI)
+
+```bash
+pnpm db:generate
+pnpm db:migrate
+pnpm db:push
+pnpm db:ping
+pnpm db:seed
 ```
+
+### Docker
+
+```bash
+docker compose up -d
+docker compose down
+docker compose down -v
+```
+
+Warning:
+
+```bash
+docker compose down -v
+```
+
+deletes the local Postgres volume and all local campaign data.
 
 ---
 
-## Struttura
+## Project Structure
 
-```
+```txt
 sherdan-dm-tools/
-├── ROADMAP.md             # ⭐ master plan delle 11 fasi
-├── CLAUDE.md              # workflow per Claude Code (precedenza assoluta)
-├── README.md              # questo file
-├── docker-compose.yml     # Postgres 16 + pgvector + pg_trgm
+├── README.md
+├── ROADMAP.md
+├── CLAUDE.md
+├── docker-compose.yml
 ├── docs/
-│   └── decisions.md       # decision log datato (append-only)
-├── public/                # sorgenti markdown campagna Sherdan (READ-ONLY)
+│   └── decisions.md
+├── public/
+│   └── *.md
+├── scripts/
 ├── src/
-│   ├── app/               # Next.js App Router (pages + future API routes)
-│   ├── components/        # componenti React riusabili
+│   ├── app/
+│   ├── components/
 │   ├── db/
-│   │   ├── client.ts      # Drizzle + postgres.js
-│   │   ├── schema/        # schema split per dominio
-│   │   └── migrations/    # migration generate da drizzle-kit
+│   │   ├── client.ts
+│   │   ├── migrate.ts
+│   │   ├── migrations/
+│   │   └── schema/
 │   ├── lib/
-│   │   ├── env.ts         # config tipizzata (Zod)
-│   │   ├── logger.ts      # pino strutturato + redaction
-│   │   ├── llm/           # provider abstraction (Gemini + Ollama + Router)
-│   │   └── validation/    # Zod schemas per properties JSONB
+│   │   ├── env.ts
+│   │   ├── logger.ts
+│   │   ├── llm/
+│   │   ├── parsers/
+│   │   └── validation/
 │   └── ...
-├── scripts/               # script CLI (db-ping, llm-ping, env-check, ...)
 └── tests/
-    └── unit/              # test vitest
+    └── unit/
 ```
 
 ---
 
-## Stack
+## Architecture Overview
 
-- **Frontend + Backend**: Next.js 16 (App Router), TypeScript strict mode
-- **DB**: Postgres 16 + `pgvector` (1024-dim) + `pg_trgm`
-- **ORM**: Drizzle + driver `postgres.js`
-- **Validation**: Zod 4
-- **LLM**: Gemini API primario + Ollama fallback (provider abstraction in `src/lib/llm/`)
-- **Logging**: pino + pino-pretty
-- **Test**: Vitest 4
-- **Lint/format**: ESLint 9 + Prettier
-- **CI**: GitHub Actions (lint + typecheck + test + build)
-- **Deploy**: localhost + Tailscale (Fase 10)
+The app is built around a structured campaign database.
+
+Core ideas:
+
+- every important campaign object becomes an entity;
+- entities can represent NPCs, factions, locations, deities, items, events, sessions and plot threads;
+- entities can have public descriptions and DM-only descriptions;
+- secrets are modeled as layered information;
+- relationships between entities are first-class data;
+- future AI tools should use the campaign database as context, not generic prompts.
+
+The intended flow is:
+
+```txt
+Sherdan markdown files
+        ↓
+Parsers
+        ↓
+Import plans
+        ↓
+Idempotent import pipeline
+        ↓
+Postgres entities
+        ↓
+Campaign Wiki / Search / Graph / Generators
+```
 
 ---
 
-## Stato del progetto
+## Roadmap Summary
 
-In **Fase 0** (Setup & infrastruttura). I tool nella sidebar dell'app sono
-quasi tutti placeholder etichettati con la fase che li sblocca. Il primo tool
-reale (Campaign Wiki) arriva in Fase 1.
+| Phase | Feature | Status |
+|---|---|---|
+| 0 | Setup and infrastructure | Mostly done |
+| 1 | Campaign Wiki | In progress |
+| 1.5 | Sherdan content import | In progress |
+| 2 | Random Tables Engine | Planned |
+| 3 | Generator Framework + NPC Generator | Planned |
+| 4 | Loot Generator | Planned |
+| 5 | Encounter Builder | Planned |
+| 6 | Plot Thread + Truth Clue Tracker | Planned |
+| 7 | Session Prep Assistant | Planned |
+| 8 | Procedural Dungeon Generator | Planned |
+| 9 | Rules Lookup | Planned |
+| 10 | Player Dashboard | Planned |
 
-Per la lista task aperti e la prossima azione, vedi [`ROADMAP.md`](./ROADMAP.md).
+---
+
+## Current Development Priority
+
+The next priority should be completing a full Campaign Wiki vertical slice:
+
+1. list entities;
+2. open entity detail page;
+3. edit public and DM-only descriptions;
+4. display secrets;
+5. display relationships;
+6. display PC hooks;
+7. search entities;
+8. import Sherdan markdown without duplicates.
+
+New generators should wait until the Wiki and import pipeline are stable.
+
+---
+
+## Known Limitations
+
+- Most sidebar tools are still placeholders.
+- The Campaign Wiki is not yet feature-complete.
+- The import pipeline is not fully idempotent yet.
+- CI currently focuses on unit-level validation and does not yet run full Postgres integration tests.
+- Sherdan source markdown files are currently inside `public/`.
+- Player-facing features are not safe until visibility filtering is complete.
+
+---
+
+## Testing
+
+Run:
+
+```bash
+pnpm test
+```
+
+Run the full local quality gate:
+
+```bash
+pnpm env:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+Before merging major schema or parser changes, also verify:
+
+```bash
+pnpm db:migrate
+pnpm db:ping
+```
 
 ---
 
 ## Troubleshooting
 
-**`pnpm db:ping` fallisce con "ECONNREFUSED"**
-→ Container Postgres non in esecuzione. `docker compose up -d` e attendi 5s.
+### `pnpm db:ping` fails with `ECONNREFUSED`
 
-**`pnpm llm:ping` fallisce con "Gemini HTTP 429 ... limit: 0"**
-→ Hai impostato un modello Pro nel `.env` (`gemini-3.1-pro-preview`,
-`gemini-2.5-pro`, ecc.). I Pro non hanno free tier: passa a un Flash
-(`gemini-3-flash-preview` consigliato).
+Postgres is probably not running.
 
-**`pnpm llm:ping` fallisce con "Ollama unreachable"**
-→ Il servizio Ollama non gira. Avvia l'app desktop o `ollama serve`. Se non
-hai Ollama installato e usi solo Gemini, ignora il fail su Ollama embed (la
-chat funziona comunque, ma gli embedding richiedono Ollama).
+```bash
+docker compose up -d
+pnpm db:ping
+```
 
-**Build di `next` fallisce con errori sulla connessione DB**
-→ Una pagina e' marcata come static ma fa query al DB. Aggiungi
-`export const dynamic = "force-dynamic"` alla pagina.
+### `pnpm env:check` reports drift
 
-**`pnpm env:check` segnala drift**
-→ Hai aggiunto una var in `.env.example` ma non in `src/lib/env.ts`
-(o viceversa). Il messaggio dice quale. Allinea i due e ri-lancia.
+The environment schema and `.env.example` are out of sync.
+
+Update both before continuing.
+
+### `pnpm llm:ping` fails for Ollama
+
+Make sure Ollama is running.
+
+```bash
+ollama serve
+```
+
+Then retry:
+
+```bash
+pnpm llm:ping
+```
+
+### Next.js build fails because of database access
+
+A page may be treated as static while querying the database.
+
+Mark it as dynamic:
+
+```ts
+export const dynamic = "force-dynamic";
+```
+
+---
+
+## Recommended GitHub Repository Metadata
+
+Suggested description:
+
+```txt
+Local-first DM toolkit for the Sherdan D&D 5e campaign: campaign wiki, entity graph, secrets, session prep and AI-assisted generators.
+```
+
+Suggested topics:
+
+```txt
+dnd
+dnd5e
+nextjs
+typescript
+postgres
+pgvector
+drizzle
+ollama
+gemini
+campaign-management
+ttrpg
+dm-tools
+```
+
+---
+
+## License
+
+Private/personal campaign project unless a license is added.
+
+Do not redistribute campaign content without permission.
