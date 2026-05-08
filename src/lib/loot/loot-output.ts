@@ -14,6 +14,25 @@ import type { LootGeneratorInput } from "./loot-input";
 const requiredText = z.string().trim().min(1);
 const generatedStringArray = z.array(requiredText).default([]);
 
+export const dmgBaseGoldResultSchema = z
+  .object({
+    tier: z.enum(["0-4", "5-10", "11-16", "17+"]),
+    mode: z.enum(["individual", "hoard"]),
+    quantity: z.number().int().min(1),
+    gpPerUnit: z.number().nonnegative(),
+    totalGp: z.number().nonnegative(),
+    averageCoinsPerUnit: z
+      .object({
+        cp: z.number().nonnegative().optional(),
+        sp: z.number().nonnegative().optional(),
+        ep: z.number().nonnegative().optional(),
+        gp: z.number().nonnegative().optional(),
+        pp: z.number().nonnegative().optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
 export const lootLoreReferenceSchema = z
   .object({
     entity_id: z.uuid().optional(),
@@ -48,6 +67,29 @@ export const lootGeneratorLLMOutputSchema = z
     gm_notes: requiredText.optional(),
     hooks: generatedStringArray,
     items: z.array(lootGeneratorItemSchema).min(1).max(8),
+  })
+  .strict();
+
+export const lootGeneratorOutputMetadataSchema = z
+  .object({
+    campaignId: z.uuid(),
+    source: requiredText,
+    anchorEntityId: z.uuid().nullable(),
+    partyLevel: z.number().int().min(1).max(20),
+    narrativeDensity: z.enum(["sobrio", "ricco"]),
+    contextEntitiesUsed: z.number().int().min(0),
+  })
+  .strict();
+
+export const lootGeneratorOutputSchema = z
+  .object({
+    baseGold: dmgBaseGoldResultSchema,
+    narrativeSummary: requiredText,
+    gmNotes: requiredText.nullable(),
+    hooks: generatedStringArray,
+    items: z.array(lootGeneratorItemSchema).min(1).max(8),
+    totalEstimatedValueGp: z.number().nonnegative(),
+    metadata: lootGeneratorOutputMetadataSchema,
   })
   .strict();
 
