@@ -387,7 +387,8 @@ Motore generale per random tables con supporto nesting, riusato da tutti i gener
   - _Note implementative: ampliata `tests/unit/random-tables/roller.test.ts` a 18 casi sul core: pesi frazionari, boundary esatto su soglie cumulative, pesi 0/negativi/NaN, entry con chiavi extra, sub-table senza resolver, sub-table mancante, resolver async, cicli diretti e cicli lunghi (`a -> b -> c -> a`), depth limit su sub-roll diretto e via template. La suite random tables resta deterministica tramite RNG iniettato._
 
 **Backend**
-- [ ] CRUD `random_tables`
+- [x] CRUD `random_tables`
+  - _Note implementative: aggiunte route `GET/POST /api/random-tables` e `GET/PATCH/DELETE /api/random-tables/[id]`, con filtri `campaign_id`, `tag`, `search`, `sort=name_asc|updated_desc`, `limit`, `offset`. La validazione vive in `src/lib/validation/random-table-input.ts` e riusa `randomTableEntriesSchema` del roller, quindi il JSONB `entries` viene normalizzato allo stesso formato usato dal core. PATCH aggiorna solo i campi presenti (fix verificato: `tags` non defaulta a `[]` se assente). Smoke HTTP live su Next dev temporaneo `:3051`: create 201, list filtrata, get 200, patch 200 con tag preservati, delete 204._
 - [ ] Endpoint `POST /tables/:id/roll` → ritorna risultato + traccia dei sub-roll
 - [ ] Schema validation degli `entries` JSONB
 
