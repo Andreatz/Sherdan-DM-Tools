@@ -35,9 +35,7 @@ export default function HomePage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Stato del progetto</h2>
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          Sei in <strong>Fase 0</strong>. La maggior parte dei tool nella
-          sidebar e&apos; ancora un placeholder — cliccarli non fa nulla.
-          L&apos;ordine di sblocco e&apos; in <code>ROADMAP.md</code>.
+          Sei in <strong>Fase 3</strong>. Wiki, grafo entità e generator framework sono in avanzamento.
         </div>
       </section>
     </div>

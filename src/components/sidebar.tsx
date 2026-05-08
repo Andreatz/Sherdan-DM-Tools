@@ -28,7 +28,7 @@ const NAV: NavGroup[] = [
   {
     title: "Wiki",
     items: [
-      { label: "Grafo", comingIn: "Fase 1" },
+      { label: "Campagne / Grafo entità", href: "/campaigns" },
     ],
   },
   {
