@@ -29,6 +29,12 @@ interface LocationRow {
   campaignId: string | null;
 }
 
+interface NpcRow {
+  id: string;
+  name: string;
+  campaignId: string | null;
+}
+
 interface SavedNpcResponse {
   entity: {
     id: string;
@@ -47,6 +53,7 @@ interface SavedNpcResponse {
 interface DraftState {
   campaignId: string;
   locationId: string;
+  styleEntityId: string;
   npcType: string;
   partyLevel: string;
   tone: NpcGeneratorTone;
@@ -56,6 +63,7 @@ interface DraftState {
 const EMPTY_DRAFT: DraftState = {
   campaignId: "",
   locationId: "",
+  styleEntityId: "",
   npcType: "taverniere",
   partyLevel: "5",
   tone: "cupo",
@@ -65,6 +73,7 @@ const EMPTY_DRAFT: DraftState = {
 const FIELD_LABELS: Record<string, string> = {
   campaignId: "Campagna",
   locationId: "Location",
+  styleEntityId: "In stile",
   npcType: "Tipo",
   partyLevel: "Livello party",
   tone: "Tono",
@@ -74,6 +83,7 @@ const FIELD_LABELS: Record<string, string> = {
 export function NpcGeneratorWorkbench() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [locations, setLocations] = useState<LocationRow[]>([]);
+  const [npcs, setNpcs] = useState<NpcRow[]>([]);
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
   const [validatedInput, setValidatedInput] =
     useState<NpcGeneratorInput | null>(null);
@@ -82,6 +92,7 @@ export function NpcGeneratorWorkbench() {
     useState<NpcGeneratorPreviewContextSummary | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingLocations, setLoadingLocations] = useState(false);
+  const [loadingNpcs, setLoadingNpcs] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [rerollingField, setRerollingField] =
     useState<NpcRerollField | null>(null);
@@ -162,6 +173,50 @@ export function NpcGeneratorWorkbench() {
     };
   }, [draft.campaignId]);
 
+  useEffect(() => {
+    if (!draft.campaignId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadNpcs() {
+      setLoadingNpcs(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          type: "npc",
+          campaign_id: draft.campaignId,
+          sort: "name_asc",
+          limit: "200",
+        });
+        const rows = await apiFetch<NpcRow[]>(
+          `/api/entities?${params.toString()}`,
+        );
+        if (cancelled) return;
+        setNpcs(rows);
+        setDraft((current) => {
+          const currentStillValid = rows.some(
+            (npc) => npc.id === current.styleEntityId,
+          );
+          return {
+            ...current,
+            styleEntityId: currentStillValid ? current.styleEntityId : "",
+          };
+        });
+      } catch (err) {
+        if (!cancelled) setError(messageForError(err));
+      } finally {
+        if (!cancelled) setLoadingNpcs(false);
+      }
+    }
+
+    void loadNpcs();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.campaignId]);
+
   const selectedCampaign = useMemo(
     () => campaigns.find((campaign) => campaign.id === draft.campaignId),
     [campaigns, draft.campaignId],
@@ -169,6 +224,10 @@ export function NpcGeneratorWorkbench() {
   const selectedLocation = useMemo(
     () => locations.find((location) => location.id === draft.locationId),
     [locations, draft.locationId],
+  );
+  const selectedStyleNpc = useMemo(
+    () => npcs.find((npc) => npc.id === draft.styleEntityId),
+    [npcs, draft.styleEntityId],
   );
 
   function updateDraft<K extends keyof DraftState>(
@@ -321,6 +380,27 @@ export function NpcGeneratorWorkbench() {
 
             <label className="grid gap-1">
               <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                In stile
+              </span>
+              <select
+                value={draft.styleEntityId}
+                onChange={(event) =>
+                  updateDraft("styleEntityId", event.target.value)
+                }
+                disabled={!draft.campaignId || loadingNpcs}
+                className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+              >
+                <option value="">Stile campagna</option>
+                {npcs.map((npc) => (
+                  <option key={npc.id} value={npc.id}>
+                    {npc.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
                 Location
               </span>
               <select
@@ -427,6 +507,10 @@ export function NpcGeneratorWorkbench() {
             <dl className="mt-4 grid gap-3 text-sm">
               <SummaryRow label="Campagna" value={selectedCampaign?.name ?? "-"} />
               <SummaryRow label="Location" value={selectedLocation?.name ?? "-"} />
+              <SummaryRow
+                label="In stile"
+                value={selectedStyleNpc?.name ?? "Stile campagna"}
+              />
               <SummaryRow label="Tipo" value={draft.npcType || "-"} />
               <SummaryRow label="Livello" value={draft.partyLevel || "-"} />
               <SummaryRow label="Tono" value={draft.tone} />
@@ -441,6 +525,10 @@ export function NpcGeneratorWorkbench() {
               </h2>
               <dl className="mt-4 grid gap-3 text-sm">
                 <SummaryRow label="Location" value={previewContext.location.name} />
+                <SummaryRow
+                  label="In stile"
+                  value={previewContext.styleReference?.name ?? "Stile campagna"}
+                />
                 <SummaryRow
                   label="Fazioni"
                   value={String(previewContext.nearbyFactions.length)}

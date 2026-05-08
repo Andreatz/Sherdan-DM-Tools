@@ -74,6 +74,7 @@ function contextFixture(): NpcGeneratorContext {
       identities: [],
       secrets: [],
     },
+    styleReference: null,
     nearbyFactions: [],
     nearbyNpcs: [],
     nearbyEntities: [],

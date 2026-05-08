@@ -87,6 +87,22 @@ function renderNpcRerollUserPrompt({
       2,
     ),
     "",
+    "# Style Reference NPC",
+    JSON.stringify(
+      context.styleReference
+        ? {
+            id: context.styleReference.id,
+            name: context.styleReference.name,
+            description: context.styleReference.description,
+            publicDescription: context.styleReference.publicDescription,
+            properties: context.styleReference.properties,
+            secrets: context.styleReference.secrets,
+          }
+        : null,
+      null,
+      2,
+    ),
+    "",
     "# Current NPC",
     JSON.stringify(slimOutput(output), null, 2),
     "",

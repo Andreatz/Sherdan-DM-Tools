@@ -11,6 +11,7 @@ export interface NpcGeneratorPromptOptions {
 
 const SECTION_LIMITS = {
   location: 5000,
+  styleReference: 4500,
   factions: 6000,
   nearbyNpcs: 7000,
   otherContext: 5000,
@@ -68,6 +69,9 @@ function renderNpcGeneratorUserPrompt(context: NpcGeneratorContext): string {
     "## Narrative Depth Rules",
     narrativeDepthInstructions(input.narrativeDepth),
     "",
+    "## Style Reference NPC",
+    renderStyleReference(context),
+    "",
     "## Location Anchor",
     truncateSection(
       renderEntityMarkdown(context.location, context.retrieved, {
@@ -101,9 +105,53 @@ function renderNpcGeneratorUserPrompt(context: NpcGeneratorContext): string {
     "- `goals` deve distinguere short_term, medium_term e long_term quando il livello narrativo lo consente.",
     "- `weaknesses` deve includere almeno un oggetto con `who_could_exploit`.",
     "- Usa `public_description` per cio' che il mondo/party potrebbe credere e `description` per la verita' GM.",
+    "- Se e' presente uno Style Reference NPC, imita pattern narrativi, postura morale, tipo di ferita/conflitto, ritmo della voce e densita' di segreti; non copiare nome, biografia, fazione o segreti specifici.",
   ];
 
   return lines.join("\n").trim();
+}
+
+function renderStyleReference(context: NpcGeneratorContext): string {
+  const entity = context.styleReference;
+  if (!entity) return "_Nessun NPC di riferimento specifico._";
+
+  const entitySecrets = entity.secrets ?? [];
+  const entityTags = entity.tags ?? [];
+  const secrets =
+    entitySecrets.length > 0
+      ? entitySecrets
+          .map((secret) => {
+            const exploit = secret.exploitHint
+              ? ` | exploit: ${secret.exploitHint}`
+              : "";
+            return `- ${secret.layer}: ${secret.content}${exploit}`;
+          })
+          .join("\n")
+      : "_Nessun segreto registrato._";
+
+  const rendered = [
+    `### ${entity.name}`,
+    `- id: ${entity.id}`,
+    `- type: ${entity.type}`,
+    entityTags.length > 0 ? `- tags: ${entityTags.join(", ")}` : null,
+    section("Public description", entity.publicDescription),
+    section("GM truth", entity.description),
+    section("Structured properties", JSON.stringify(entity.properties, null, 2)),
+    section("Layered secrets", secrets),
+    "",
+    "Style extraction instructions:",
+    "- Individua 3-5 pattern ricorrenti da emulare, non dettagli da copiare.",
+    "- Mantieni il nuovo NPC distinto dagli NPC esistenti e adatto alla location corrente.",
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+
+  return truncateSection(rendered, SECTION_LIMITS.styleReference);
+}
+
+function section(title: string, content: string | null | undefined): string | null {
+  const normalized = content?.trim();
+  return normalized ? `${title}:\n${normalized}` : null;
 }
 
 function withoutIds<T extends { id: string }>(items: T[], ids: Set<string>): T[] {
@@ -204,6 +252,7 @@ function outputContract(): string {
       "location_id": "uuid",
       "nearby_faction_ids": ["uuid"],
       "nearby_npc_ids": ["uuid"],
+      "style_reference_entity_id": "uuid optional",
       "plot_hooks": ["string"],
       "differentiation_note": "string"
     }

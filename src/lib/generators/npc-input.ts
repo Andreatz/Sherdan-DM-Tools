@@ -30,6 +30,12 @@ export const npcGeneratorInputSchema = z
   .object({
     campaignId: z.uuid(),
     locationId: z.uuid(),
+    styleEntityId: z
+      .preprocess(
+        (value) => (value === "" || value === null ? undefined : value),
+        z.uuid().optional(),
+      )
+      .optional(),
     npcType: z.string().trim().min(2).max(80),
     partyLevel: z.coerce.number().int().min(1).max(20),
     tone: z.enum(npcGeneratorToneOptions),

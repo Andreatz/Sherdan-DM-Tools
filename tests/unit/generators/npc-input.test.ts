@@ -9,6 +9,7 @@ import {
 
 const campaignId = "11111111-1111-4111-8111-111111111111";
 const locationId = "22222222-2222-4222-8222-222222222222";
+const styleEntityId = "33333333-3333-4333-8333-333333333333";
 
 describe("npcGeneratorInputSchema", () => {
   it("normalizes form input for the NPC generator", () => {
@@ -16,6 +17,7 @@ describe("npcGeneratorInputSchema", () => {
       campaignId,
       locationId,
       npcType: "  capitano  ",
+      styleEntityId: "",
       partyLevel: "7",
       tone: "cupo",
       narrativeDepth: "principale",
@@ -24,11 +26,26 @@ describe("npcGeneratorInputSchema", () => {
     expect(result).toEqual({
       campaignId,
       locationId,
+      styleEntityId: undefined,
       npcType: "capitano",
       partyLevel: 7,
       tone: "cupo",
       narrativeDepth: "principale",
     });
+  });
+
+  it("accepts an optional NPC style reference", () => {
+    const result = npcGeneratorInputSchema.parse({
+      campaignId,
+      locationId,
+      styleEntityId,
+      npcType: "guardia",
+      partyLevel: 5,
+      tone: "serio",
+      narrativeDepth: "secondario",
+    });
+
+    expect(result.styleEntityId).toBe(styleEntityId);
   });
 
   it("keeps explicit option lists for the UI", () => {

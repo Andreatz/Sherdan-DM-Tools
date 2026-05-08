@@ -30,6 +30,7 @@ export interface NpcGeneratorContextOptions {
 export interface NpcGeneratorContext {
   input: NpcGeneratorInput;
   location: ContextEntity;
+  styleReference: StyleCalibratorEntity | null;
   nearbyFactions: ContextEntity[];
   nearbyNpcs: ContextEntity[];
   nearbyEntities: ContextEntity[];
@@ -53,13 +54,20 @@ export interface NpcGeneratorContextStore {
     campaignId: string,
     limit: number,
   ): Promise<StyleCalibratorEntity[]>;
+  getStyleReferenceEntity(
+    campaignId: string,
+    entityId: string,
+  ): Promise<StyleCalibratorEntity | null>;
 }
 
 export class NpcGeneratorContextError extends Error {
   override readonly name = "NpcGeneratorContextError";
 
   constructor(
-    readonly code: "invalid_input" | "location_not_found",
+    readonly code:
+      | "invalid_input"
+      | "location_not_found"
+      | "style_reference_not_found",
     message: string,
     readonly cause?: unknown,
   ) {
@@ -128,11 +136,24 @@ export class NpcGeneratorContextRetriever {
       input.campaignId,
       maxStyleEntities,
     );
+    const styleReference = input.styleEntityId
+      ? await this.store.getStyleReferenceEntity(
+          input.campaignId,
+          input.styleEntityId,
+        )
+      : null;
+    if (input.styleEntityId && !styleReference) {
+      throw new NpcGeneratorContextError(
+        "style_reference_not_found",
+        "NPC di riferimento per lo stile non trovato nella campagna richiesta",
+      );
+    }
     const style = this.styleCalibrator.calibrate(styleEntities);
 
     return {
       input,
       location: retrieved.anchor,
+      styleReference,
       nearbyFactions,
       nearbyNpcs,
       nearbyEntities,
@@ -161,6 +182,7 @@ export class DrizzleNpcGeneratorContextStore
     const rows = await db
       .select({
         id: entities.id,
+        campaignId: entities.campaignId,
         type: entities.type,
         name: entities.name,
         description: entities.description,
@@ -190,6 +212,41 @@ export class DrizzleNpcGeneratorContextStore
       tags: row.tags,
       secrets: secretsByEntityId.get(row.id) ?? [],
     }));
+  }
+
+  async getStyleReferenceEntity(
+    campaignId: string,
+    entityId: string,
+  ): Promise<StyleCalibratorEntity | null> {
+    const [row] = await db
+      .select({
+        id: entities.id,
+        campaignId: entities.campaignId,
+        type: entities.type,
+        name: entities.name,
+        description: entities.description,
+        publicDescription: entities.publicDescription,
+        properties: entities.properties,
+        tags: entities.tags,
+      })
+      .from(entities)
+      .where(eq(entities.id, entityId))
+      .limit(1);
+
+    if (!row || row.type !== "npc") return null;
+    if (row.campaignId !== campaignId) return null;
+
+    const secrets = await getSecretsForEntities([row.id]);
+    return {
+      id: row.id,
+      type: row.type,
+      name: row.name,
+      description: row.description,
+      publicDescription: row.publicDescription,
+      properties: row.properties,
+      tags: row.tags,
+      secrets,
+    };
   }
 }
 

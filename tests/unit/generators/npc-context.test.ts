@@ -17,6 +17,7 @@ const locationId = "22222222-2222-4222-8222-222222222222";
 const factionId = "33333333-3333-4333-8333-333333333333";
 const npcId = "44444444-4444-4444-8444-444444444444";
 const similarNpcId = "55555555-5555-4555-8555-555555555555";
+const styleReferenceId = "66666666-6666-4666-8666-666666666666";
 
 const input: NpcGeneratorInput = {
   campaignId,
@@ -78,6 +79,44 @@ describe("NpcGeneratorContextRetriever", () => {
       styleEntitiesAnalyzed: 3,
       similaritySkipped: false,
     });
+  });
+
+  it("loads an optional NPC style reference from the same campaign", async () => {
+    const contextRetriever = new FakeContextRetriever(contextFixture());
+    const store = new FakeNpcContextStore(styleEntities());
+
+    const context = await new NpcGeneratorContextRetriever(
+      contextRetriever,
+      store,
+    ).retrieve({
+      ...input,
+      styleEntityId: styleReferenceId,
+    });
+
+    expect(store.referenceCalls).toEqual([
+      { campaignId, entityId: styleReferenceId },
+    ]);
+    expect(context.input.styleEntityId).toBe(styleReferenceId);
+    expect(context.styleReference).toMatchObject({
+      id: styleReferenceId,
+      name: "Lunacupa",
+      type: "npc",
+    });
+  });
+
+  it("rejects a missing style reference", async () => {
+    const contextRetriever = new FakeContextRetriever(contextFixture());
+    const store = new FakeNpcContextStore(styleEntities());
+
+    await expect(
+      new NpcGeneratorContextRetriever(contextRetriever, store).retrieve({
+        ...input,
+        styleEntityId: "99999999-9999-4999-8999-999999999999",
+      }),
+    ).rejects.toMatchObject({
+      name: "NpcGeneratorContextError",
+      code: "style_reference_not_found",
+    } satisfies Partial<NpcGeneratorContextError>);
   });
 
   it("validates input before retrieving context", async () => {
@@ -150,6 +189,7 @@ class FakeContextRetriever implements NpcGeneratorContextRetrieverLike {
 
 class FakeNpcContextStore implements NpcGeneratorContextStore {
   readonly calls: Array<{ campaignId: string; limit: number }> = [];
+  readonly referenceCalls: Array<{ campaignId: string; entityId: string }> = [];
 
   constructor(private readonly entities: StyleCalibratorEntity[]) {}
 
@@ -159,6 +199,15 @@ class FakeNpcContextStore implements NpcGeneratorContextStore {
   ): Promise<StyleCalibratorEntity[]> {
     this.calls.push({ campaignId, limit });
     return this.entities.slice(0, limit);
+  }
+
+  async getStyleReferenceEntity(
+    campaignId: string,
+    entityId: string,
+  ): Promise<StyleCalibratorEntity | null> {
+    this.referenceCalls.push({ campaignId, entityId });
+    const entity = this.entities.find((item) => item.id === entityId);
+    return entity?.type === "npc" ? entity : null;
   }
 }
 
@@ -226,7 +275,7 @@ function entity(
 function styleEntities(): StyleCalibratorEntity[] {
   return [
     {
-      id: "66666666-6666-4666-8666-666666666666",
+      id: styleReferenceId,
       type: "npc",
       name: "Lunacupa",
       description:

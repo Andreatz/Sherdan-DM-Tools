@@ -59,6 +59,20 @@ describe("buildNpcGeneratorPrompt", () => {
     expect(user).toContain("surface, intermediate e deep");
   });
 
+  it("injects a specific style reference without asking to copy details", () => {
+    const prompt = buildNpcGeneratorPrompt(
+      contextFixture({ styleEntityId: "55555555-5555-4555-8555-555555555555" }),
+    );
+    const user = userContent(prompt);
+
+    expect(user).toContain("## Style Reference NPC");
+    expect(user).toContain("Lunacupa");
+    expect(user).toContain("Layered secrets:");
+    expect(user).toContain("pattern ricorrenti da emulare");
+    expect(user).toContain("non copiare nome, biografia, fazione o segreti");
+    expect(user).toContain("style_reference_entity_id");
+  });
+
   it("keeps cameo prompts lighter and allows option overrides", () => {
     const prompt = buildNpcGeneratorPrompt(
       contextFixture({ narrativeDepth: "comparsa" }),
@@ -128,6 +142,34 @@ function contextFixture(
       ...overrides,
     },
     location,
+    styleReference: overrides.styleEntityId
+      ? {
+          id: overrides.styleEntityId,
+          type: "npc",
+          name: "Lunacupa",
+          description:
+            "Ferita carismatica con codice morale rigido e segreto familiare.",
+          publicDescription: "Una capitana che non perdona i debiti.",
+          properties: {
+            voice: {
+              tone: "fredda",
+              speech_patterns: ["frasi brevi"],
+            },
+          },
+          tags: ["domus-nova"],
+          secrets: [
+            {
+              id: "66666666-6666-4666-8666-666666666666",
+              entityId: overrides.styleEntityId,
+              layer: "deep",
+              content: "Protegge un parente creduto morto.",
+              exploitHint: "Chi conosce il nome del parente puo' spezzarla.",
+              discoveredAtSession: null,
+              discoveryNotes: null,
+            },
+          ],
+        }
+      : null,
     nearbyFactions: [faction],
     nearbyNpcs: [npc],
     nearbyEntities: [faction, npc],

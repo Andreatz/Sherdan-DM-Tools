@@ -18,6 +18,7 @@ describe("NPC preview utilities", () => {
 
     expect(summary).toEqual({
       location: { id: locationId, name: "Arborea" },
+      styleReference: null,
       nearbyFactions: [{ id: "faction-1", name: "Synapse" }],
       nearbyNpcs: [{ id: "npc-1", name: "Ivar" }],
       styleEntitiesAnalyzed: 12,
@@ -97,6 +98,7 @@ function contextFixture(): NpcGeneratorContext {
       narrativeDepth: "secondario",
     },
     location,
+    styleReference: null,
     nearbyFactions: [faction],
     nearbyNpcs: [npc],
     nearbyEntities: [faction, npc],

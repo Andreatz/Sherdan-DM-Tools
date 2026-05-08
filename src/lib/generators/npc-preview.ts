@@ -58,6 +58,10 @@ export interface NpcGeneratorPreviewContextSummary {
     id: string;
     name: string;
   };
+  styleReference: {
+    id: string;
+    name: string;
+  } | null;
   nearbyFactions: Array<{
     id: string;
     name: string;
@@ -84,6 +88,12 @@ export function summarizeNpcGeneratorContext(
       id: context.location.id,
       name: context.location.name,
     },
+    styleReference: context.styleReference
+      ? {
+          id: context.styleReference.id,
+          name: context.styleReference.name,
+        }
+      : null,
     nearbyFactions: context.nearbyFactions.map((entity) => ({
       id: entity.id,
       name: entity.name,
