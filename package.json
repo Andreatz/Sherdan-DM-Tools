@@ -19,6 +19,7 @@
     "db:seed": "tsx scripts/db-seed.ts",
     "db:bootstrap:sherdan": "tsx scripts/bootstrap-sherdan.ts",
     "db:embed:sherdan": "tsx scripts/embed-sherdan-entities.ts",
+    "db:report:sherdan": "tsx scripts/report-sherdan-import.ts",
     "llm:ping": "tsx scripts/llm-ping.ts",
     "env:check": "tsx scripts/env-check.ts"
   },
