@@ -290,9 +290,7 @@ describe("random table roller", () => {
         rng: () => 0,
         resolveTable: () => null,
       }),
-    ).rejects.toMatchObject({
-      code: "missing_template_var",
-    } satisfies Partial<RandomTableRollError>);
+    ).rejects.toThrow(ZodError);
   });
 
   it("rejects direct sub-tables without a resolver", async () => {

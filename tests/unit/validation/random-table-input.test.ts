@@ -62,6 +62,42 @@ describe("random table input validation", () => {
     ).toThrow(ZodError);
   });
 
+  it("rejects templates with unmapped placeholders", () => {
+    expect(() =>
+      createRandomTableInputSchema.parse({
+        name: "Broken template",
+        entries: [{ value: "Taverniere {name}" }],
+      }),
+    ).toThrow(ZodError);
+  });
+
+  it("rejects conflicting alias fields inside entries", () => {
+    expect(() =>
+      createRandomTableInputSchema.parse({
+        name: "Broken alias",
+        entries: [
+          {
+            value: "nested",
+            subTableId: "one",
+            sub_table_id: "two",
+          },
+        ],
+      }),
+    ).toThrow(ZodError);
+    expect(() =>
+      createRandomTableInputSchema.parse({
+        name: "Broken template alias",
+        entries: [
+          {
+            value: "{name}",
+            templateVars: { name: "one" },
+            template_vars: { name: "two" },
+          },
+        ],
+      }),
+    ).toThrow(ZodError);
+  });
+
   it("parses list query defaults", () => {
     expect(listRandomTablesQuerySchema.parse({})).toEqual({
       sort: "name_asc",

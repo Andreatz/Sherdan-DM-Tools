@@ -3,15 +3,16 @@ import { z } from "zod";
 const DEFAULT_MAX_DEPTH = 8;
 const TEMPLATE_VAR_RE = /\{([a-zA-Z_][a-zA-Z0-9_-]*)\}/g;
 
-const rawTemplateVarsSchema = z.record(z.string(), z.string());
+const tableRefSchema = z.string().trim().min(1);
+const rawTemplateVarsSchema = z.record(z.string().min(1), tableRefSchema);
 
 const rawEntrySchema = z
   .object({
     label: z.string().trim().min(1).nullable().optional(),
     value: z.unknown().optional(),
     weight: z.number().finite().positive().optional(),
-    subTableId: z.string().trim().min(1).nullable().optional(),
-    sub_table_id: z.string().trim().min(1).nullable().optional(),
+    subTableId: tableRefSchema.nullable().optional(),
+    sub_table_id: tableRefSchema.nullable().optional(),
     templateVars: rawTemplateVarsSchema.optional(),
     template_vars: rawTemplateVarsSchema.optional(),
   })
@@ -19,11 +20,45 @@ const rawEntrySchema = z
   .superRefine((entry, ctx) => {
     const hasValue = Object.prototype.hasOwnProperty.call(entry, "value");
     const subTableId = entry.subTableId ?? entry.sub_table_id;
+    if (
+      entry.subTableId &&
+      entry.sub_table_id &&
+      entry.subTableId !== entry.sub_table_id
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["sub_table_id"],
+        message: "subTableId and sub_table_id must reference the same table.",
+      });
+    }
+    if (
+      entry.templateVars &&
+      entry.template_vars &&
+      !sameTemplateVars(entry.templateVars, entry.template_vars)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["template_vars"],
+        message: "templateVars and template_vars must define the same mappings.",
+      });
+    }
     if (!hasValue && !subTableId) {
       ctx.addIssue({
         code: "custom",
         message: "Entry must define value or subTableId.",
       });
+    }
+    if (typeof entry.value === "string") {
+      const templateVars = entry.templateVars ?? entry.template_vars ?? {};
+      for (const name of extractTemplateVariableNames(entry.value)) {
+        if (!templateVars[name]) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["templateVars", name],
+            message: `Template variable {${name}} must be mapped in templateVars.`,
+          });
+        }
+      }
     }
   });
 
@@ -226,11 +261,7 @@ async function renderTemplate(
   depth: number,
   tableId: string,
 ): Promise<RandomTableTemplateTrace | null> {
-  const variableNames = unique(
-    Array.from(value.matchAll(TEMPLATE_VAR_RE), (match) => match[1]).filter(
-      isNonEmptyString,
-    ),
-  );
+  const variableNames = extractTemplateVariableNames(value);
   if (variableNames.length === 0) return null;
 
   if (!context.resolveTable) {
@@ -317,4 +348,23 @@ function unique<T>(items: T[]): T[] {
 
 function isNonEmptyString(value: string | undefined): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+function extractTemplateVariableNames(value: string): string[] {
+  return unique(
+    Array.from(value.matchAll(TEMPLATE_VAR_RE), (match) => match[1]).filter(
+      isNonEmptyString,
+    ),
+  );
+}
+
+function sameTemplateVars(
+  left: Record<string, string>,
+  right: Record<string, string>,
+): boolean {
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  for (const key of keys) {
+    if (left[key] !== right[key]) return false;
+  }
+  return true;
 }
