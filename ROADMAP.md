@@ -477,7 +477,8 @@ Generi un NPC contestuale a Sherdan, lo confronti con quelli che hai scritto a m
 Riusare il generator framework per produrre loot bundles narrativamente coerenti.
 
 ### Task
-- [ ] Tabelle DMG per gold base (per CR / livello)
+- [x] Tabelle DMG per gold base (per CR / livello)
+  - _Note implementative: aggiunto modulo `src/lib/loot/dmg-gold.ts` con tabelle coin-only DMG 2014 per treasure individuale e hoard, risoluzione tier da CR (`0-4`, `5-10`, `11-16`, `17+`) o party level (`1-4`, `5-10`, `11-16`, `17-20`), conversione cp/sp/ep/gp/pp in valore medio gp e supporto `quantity`. Esposto barrel `src/lib/loot/index.ts`. Test unitari coprono mapping CR/livello, valori medi deterministici, breakdown monete e input invalidi._
 - [ ] LootGenerator: input context (sorgente: bandit/dragon/merchant/setta/vincolatore/…), party_level, narrative_density (sobrio/ricco)
 - [ ] Algoritmo: gold deterministic da tabelle + items via LLM con context narrative — **inclusione di lore-references quando pertinente** (es. un cristallo di Obsidium grezzo da un agente di Tharros, una scheggia di pietra-Scissione da un membro dell'Eclissi)
 - [ ] Resolve items: cerca items esistenti per similarità, riusa o crea nuovi
