@@ -17,6 +17,7 @@
     "db:studio": "drizzle-kit studio",
     "db:ping": "tsx scripts/db-ping.ts",
     "db:seed": "tsx scripts/db-seed.ts",
+    "db:seed:tables": "tsx scripts/seed-random-tables.ts",
     "db:bootstrap:sherdan": "tsx scripts/bootstrap-sherdan.ts",
     "db:embed:sherdan": "tsx scripts/embed-sherdan-entities.ts",
     "db:report:sherdan": "tsx scripts/report-sherdan-import.ts",

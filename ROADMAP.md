@@ -369,9 +369,9 @@ Apri il Wiki, vedi la campagna Sherdan completa: NPC con tic/dettagli sensoriali
 
 ---
 
-## Fase 2 — Random Tables Engine
+## Fase 2 — Random Tables Engine ✅
 
-**Durata**: 5-7 giorni · **Tool sbloccato**: ✅ Random Tables Engine
+**Durata**: 5-7 giorni · **Tool sbloccato**: ✅ Random Tables Engine · **Chiusa il 2026-05-08**
 
 ### Goal
 Motore generale per random tables con supporto nesting, riusato da tutti i generators successivi.
@@ -405,13 +405,17 @@ Motore generale per random tables con supporto nesting, riusato da tutti i gener
   - _Note implementative: aggiunto parser puro `parseRandomTableImport` in `src/lib/random-tables/importer.ts`, esportato dal barrel random tables e coperto da test unitari. Supporta import JSON (array o oggetto `{ entries }`), Markdown con bullet/numbered list e pesi inline, CSV con header o colonne posizionali, valori quotati e `templateVars`. Il workbench `/random-tables` ora include un pannello Import con formato Auto/JSON/Markdown/CSV: l'import normalizza gli entries via lo stesso Zod schema del roller e aggiorna il draft JSON senza salvare automaticamente._
 - [x] Library view: tutte le tabelle filtrate per tag
   - _Note implementative: colonna sinistra con lista filtrata delle tabelle, selezione immediata, badge testuali dei tag e stato empty/loading. La selezione aggiorna il draft senza effect derivati, per rispettare lint React hooks._
+- [x] (scoperto durante completamento Fase 2) Salvataggio rapido del risultato roll come entity
+  - _Note implementative: il pannello History ora puo' salvare un roll come entity nella campagna selezionata. Supporta tipi rapidi `item`, `npc` e `location`, costruendo properties minime valide per gli Zod schema type-specific e conservando valore + trace in `properties.extra.random_table_roll`. Smoke API live: roll da `Sherdan - NPC Spark`, creazione entity temporanea e cleanup DELETE riusciti._
 
 **Seed data**
-- [ ] Importa tabelle public-domain: nomi (varie razze), atteggiamenti, taverne, eventi viaggio, complicazioni urbane
-- [ ] **Tabelle in stile Sherdan**: tic NPC, dettagli sensoriali (vista/odore/suono), accenti regionali, segreti di strato superficiale tipici, hook narrativi base. Estratti dal dataset di Bootstrap.
+- [x] Importa tabelle public-domain: nomi (varie razze), atteggiamenti, taverne, eventi viaggio, complicazioni urbane
+  - _Note implementative: aggiunte definizioni seed pure in `src/lib/random-tables/seed-data.ts` e script idempotente `pnpm db:seed:tables`. Seed globali public-domain: nomi umani/elfici/nanici/halfling, picker nested dei nomi, atteggiamenti NPC, nomi taverna via template, eventi viaggio, complicazioni urbane e meteo. Lo script usa due pass per risolvere `subTableId`/`templateVars` su UUID reali e aggiorna righe esistenti per nome+campagna senza creare duplicati._
+- [x] **Tabelle in stile Sherdan**: tic NPC, dettagli sensoriali (vista/odore/suono), accenti regionali, segreti di strato superficiale tipici, hook narrativi base. Estratti dal dataset di Bootstrap.
+  - _Note implementative: lo stesso seed include tabelle campaign-scoped su Sherdan per tic NPC, vista/odore/suono, accenti regionali, segreti surface, hook narrativi, presagi di Obsidium, pressioni di fazione, difetti tecnici tharrosiani, tensioni arboreane, complicazioni viaggio e due template pronti (`Sherdan - NPC Spark`, `Sherdan - Scene Spark`). Verificato live: `pnpm db:seed:tables` crea 26 tabelle al primo giro e al secondo resta idempotente (`0 create, 26 update`)._
 
 ### Definition of done
-Hai 20+ tabelle, tiri con nesting, salvi i risultati al volo come entità (es. "questo NPC tirato lo voglio salvare nel wiki").
+Hai 20+ tabelle, tiri con nesting, salvi i risultati al volo come entità (es. "questo NPC tirato lo voglio salvare nel wiki"). ✅
 
 ---
 

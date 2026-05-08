@@ -10,7 +10,7 @@ The architecture is Sherdan-first, but the long-term goal is to make the same fo
 
 ## Current Status
 
-The project has completed the foundation, Campaign Wiki vertical slice and Sherdan content bootstrap validation. The next planned phase is the Random Tables Engine.
+The project has completed the foundation, Campaign Wiki vertical slice, Sherdan content bootstrap validation and Random Tables Engine. The next planned phase is the Generator Framework + NPC Generator.
 
 | Area | Status |
 |---|---|
@@ -24,7 +24,7 @@ The project has completed the foundation, Campaign Wiki vertical slice and Sherd
 | Sherdan markdown parsers | Done |
 | Idempotent Sherdan import pipeline | Done |
 | Sherdan import validation | Done |
-| Random Tables Engine | Next |
+| Random Tables Engine | Done |
 | NPC Generator | Planned |
 | Player Dashboard | Planned |
 
@@ -161,6 +161,28 @@ The import is idempotent: rerunning it updates existing records instead of dupli
 
 ---
 
+## Random Tables Engine
+
+Phase 2 adds a reusable random table engine with:
+
+- weighted and uniform rolls;
+- nested sub-table resolution;
+- template interpolation such as `Taverniere {name}, {attitude}`;
+- CRUD API and `/random-tables` workbench;
+- CSV, Markdown bullet list and JSON import;
+- sticky roll history with quick save to Wiki entity;
+- seed tables for public-domain fantasy prompts and Sherdan-style sensory details, NPC tics, accents, surface secrets and hooks.
+
+Seed or refresh the table library with:
+
+```bash
+pnpm db:seed:tables
+```
+
+The seed is idempotent: rerunning it updates the 26 seeded tables instead of duplicating them.
+
+---
+
 ## LLM And Embeddings Setup
 
 Embeddings always use Ollama so the vector space stays stable.
@@ -223,6 +245,7 @@ pnpm db:migrate
 pnpm db:push
 pnpm db:ping
 pnpm db:seed
+pnpm db:seed:tables
 ```
 
 ### Sherdan Dataset
@@ -332,8 +355,8 @@ Campaign Wiki / Search / Graph / Future generators
 | 0 | Setup and infrastructure | Done |
 | 1 | Campaign Wiki | Done |
 | 1.5 | Sherdan content import | Done |
-| 2 | Random Tables Engine | Next |
-| 3 | Generator Framework + NPC Generator | Planned |
+| 2 | Random Tables Engine | Done |
+| 3 | Generator Framework + NPC Generator | Next |
 | 4 | Loot Generator | Planned |
 | 5 | Encounter Builder | Planned |
 | 6 | Plot Thread + Truth Clue Tracker | Planned |
@@ -346,29 +369,25 @@ Campaign Wiki / Search / Graph / Future generators
 
 ## Current Development Priority
 
-The next priority is Phase 2: the Random Tables Engine.
+The next priority is Phase 3: the Generator Framework + NPC Generator.
 
-Phase 2 should deliver:
+Phase 3 should deliver:
 
-- a reusable roller library with weighted and uniform rolls;
-- nested table resolution with trace output;
-- template interpolation such as `Taverniere {name}, {attitude}`;
-- CRUD for `random_tables`;
-- `POST /tables/:id/roll`;
-- a table editor and library view;
-- seed tables, including Sherdan-style sensory details, NPC tics, accents, secrets and narrative hooks.
-
-Generators should still wait until the table engine is stable.
+- reusable `Generator<Input, Output>` contracts;
+- context retrieval from Wiki entities, links, identities and secrets;
+- prompt building and structured LLM output;
+- generation logging and retry/fallback behavior;
+- first concrete implementation: NPC Generator calibrated on Sherdan style.
 
 ---
 
 ## Known Limitations
 
-- Most sidebar tools beyond the Campaign Wiki are still placeholders.
+- Most sidebar tools beyond the Campaign Wiki and Random Tables are still placeholders.
 - `public/*.md` contains raw campaign material and is not player-safe.
 - Visibility filtering is not sufficient for a public Player Dashboard yet.
 - Full Postgres integration tests are not automated in CI yet.
-- The Random Tables Engine has not been implemented yet.
+- Random Tables seed data is local DB state; run `pnpm db:seed:tables` after recreating the database.
 
 ---
 

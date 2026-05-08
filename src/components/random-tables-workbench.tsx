@@ -18,6 +18,16 @@ interface RandomTableRow {
   updatedAt: string;
 }
 
+interface CampaignRow {
+  id: string;
+  name: string;
+}
+
+interface EntityRow {
+  id: string;
+  name: string;
+}
+
 interface RollResult {
   tableId: string;
   tableName: string | null;
@@ -54,6 +64,8 @@ interface DraftState {
   entries: string;
 }
 
+type QuickEntityType = "npc" | "item" | "location";
+
 const EMPTY_DRAFT: DraftState = {
   id: null,
   name: "Nuova tabella",
@@ -64,6 +76,7 @@ const EMPTY_DRAFT: DraftState = {
 
 export function RandomTablesWorkbench() {
   const [tables, setTables] = useState<RandomTableRow[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
   const [search, setSearch] = useState("");
@@ -72,9 +85,13 @@ export function RandomTablesWorkbench() {
   const [importFormat, setImportFormat] =
     useState<RandomTableImportFormat>("auto");
   const [importText, setImportText] = useState("");
+  const [entityCampaignId, setEntityCampaignId] = useState("");
+  const [quickEntityType, setQuickEntityType] =
+    useState<QuickEntityType>("item");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [rolling, setRolling] = useState(false);
+  const [entitySavingKey, setEntitySavingKey] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rollHistory, setRollHistory] = useState<RollResult[]>([]);
@@ -83,6 +100,26 @@ export function RandomTablesWorkbench() {
     void loadTables();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, tag, sort]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCampaigns() {
+      try {
+        const rows = await apiFetch<CampaignRow[]>("/api/campaigns");
+        if (cancelled) return;
+        setCampaigns(rows);
+        setEntityCampaignId((current) => current || (rows[0]?.id ?? ""));
+      } catch (err) {
+        if (!cancelled) setError(messageForError(err));
+      }
+    }
+
+    void loadCampaigns();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function loadTables(nextSelectedId?: string) {
     setLoading(true);
@@ -215,6 +252,40 @@ export function RandomTablesWorkbench() {
       setMessage(`Importate ${entries.length} entries`);
     } catch (err) {
       setError(messageForError(err));
+    }
+  }
+
+  async function saveRollAsEntity(roll: RollResult, index: number) {
+    const campaignId = entityCampaignId || campaigns[0]?.id;
+    if (!campaignId) {
+      setError("Nessuna campagna disponibile per salvare l'entity");
+      return;
+    }
+
+    const key = `${roll.tableId}-${index}`;
+    const rollValue = formatValue(roll.value);
+    setEntitySavingKey(key);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const entity = await apiFetch<EntityRow>("/api/entities", {
+        method: "POST",
+        body: JSON.stringify({
+          campaignId,
+          type: quickEntityType,
+          name: entityNameFromRoll(rollValue),
+          description: entityDescriptionFromRoll(roll, rollValue),
+          properties: propertiesForQuickEntity(quickEntityType, roll, rollValue),
+          tags: ["random-table", "generated", quickEntityType],
+          visibility: "dm_only",
+        }),
+      });
+      setMessage(`Entity salvata: ${entity.name}`);
+    } catch (err) {
+      setError(messageForError(err));
+    } finally {
+      setEntitySavingKey(null);
     }
   }
 
@@ -432,6 +503,45 @@ export function RandomTablesWorkbench() {
         </section>
 
         <aside className="space-y-3 xl:sticky xl:top-8 xl:self-start">
+          <div className="grid gap-2 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                Campagna
+              </span>
+              <select
+                value={entityCampaignId}
+                onChange={(event) => setEntityCampaignId(event.target.value)}
+                className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+              >
+                {campaigns.length === 0 ? (
+                  <option value="">Nessuna campagna</option>
+                ) : (
+                  campaigns.map((campaign) => (
+                    <option key={campaign.id} value={campaign.id}>
+                      {campaign.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                Tipo entity
+              </span>
+              <select
+                value={quickEntityType}
+                onChange={(event) =>
+                  setQuickEntityType(event.target.value as QuickEntityType)
+                }
+                className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+              >
+                <option value="item">Item</option>
+                <option value="npc">NPC</option>
+                <option value="location">Location</option>
+              </select>
+            </label>
+          </div>
+
           <button
             type="button"
             onClick={rollSelected}
@@ -449,19 +559,30 @@ export function RandomTablesWorkbench() {
               {rollHistory.length === 0 ? (
                 <div className="px-3 py-4 text-sm text-zinc-500">Nessun tiro</div>
               ) : (
-                rollHistory.map((roll, index) => (
-                  <div
-                    key={`${roll.tableId}-${index}`}
-                    className="border-b border-zinc-100 px-3 py-3 last:border-b-0 dark:border-zinc-800"
-                  >
-                    <div className="break-words text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                      {formatValue(roll.value)}
+                rollHistory.map((roll, index) => {
+                  const key = `${roll.tableId}-${index}`;
+                  return (
+                    <div
+                      key={key}
+                      className="border-b border-zinc-100 px-3 py-3 last:border-b-0 dark:border-zinc-800"
+                    >
+                      <div className="break-words text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                        {formatValue(roll.value)}
+                      </div>
+                      <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                        {traceSummary(roll.trace)}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => saveRollAsEntity(roll, index)}
+                        disabled={!entityCampaignId || entitySavingKey === key}
+                        className="mt-3 h-8 rounded-md border border-zinc-300 px-3 text-xs font-medium transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      >
+                        {entitySavingKey === key ? "Salvo..." : "Salva entity"}
+                      </button>
                     </div>
-                    <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                      {traceSummary(roll.trace)}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -531,6 +652,70 @@ function messageForError(err: unknown): string {
 function formatValue(value: unknown): string {
   if (typeof value === "string") return value;
   return JSON.stringify(value);
+}
+
+function entityNameFromRoll(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 90) return normalized || "Risultato random table";
+  return `${normalized.slice(0, 87).trim()}...`;
+}
+
+function entityDescriptionFromRoll(roll: RollResult, value: string): string {
+  return [
+    `Generato da random table: ${roll.tableName ?? roll.tableId}.`,
+    "",
+    value,
+    "",
+    `Trace: ${traceSummary(roll.trace)}`,
+  ].join("\n");
+}
+
+function propertiesForQuickEntity(
+  type: QuickEntityType,
+  roll: RollResult,
+  value: string,
+): Record<string, unknown> {
+  const extra = {
+    random_table_roll: {
+      tableId: roll.tableId,
+      tableName: roll.tableName,
+      value: roll.value,
+      trace: roll.trace,
+    },
+  };
+
+  if (type === "npc") {
+    return {
+      race: "sconosciuta",
+      appearance_summary: value,
+      sensory_details: {},
+      voice: { speech_patterns: [] },
+      tics: [],
+      mannerisms: [],
+      motivations: [],
+      goals: {},
+      weaknesses: [],
+      extra,
+    };
+  }
+
+  if (type === "location") {
+    return {
+      kind: "settlement",
+      atmosphere: {},
+      notable_features: [value],
+      services: [],
+      extra,
+    };
+  }
+
+  return {
+    kind: "trinket",
+    attunement: false,
+    effects: [value],
+    crafted_from: [],
+    extra,
+  };
 }
 
 function traceSummary(trace: RollTrace): string {
