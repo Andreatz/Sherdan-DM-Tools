@@ -1,5 +1,6 @@
 export * from "./context-retriever";
 export * from "./errors";
+export * from "./npc-context";
 export * from "./npc-input";
 export * from "./prompt-builder";
 export * from "./run";
