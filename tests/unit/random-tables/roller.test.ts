@@ -93,8 +93,74 @@ describe("random table roller", () => {
         depth: 1,
         entryIndex: 1,
         entryValue: "curious",
+        template: null,
       },
     });
+  });
+
+  it("interpolates template variables from sub-table rolls", async () => {
+    const root = tableDef("tavern", [
+      {
+        value: "Taverniere {name}, {attitude}",
+        templateVars: {
+          name: "names",
+          attitude: "attitudes",
+        },
+      },
+    ]);
+    const names = tableDef("names", [{ value: "Mara" }, { value: "Otho" }]);
+    const attitudes = tableDef("attitudes", [
+      { value: "diffidente" },
+      { value: "troppo cordiale" },
+    ]);
+    const tables = new Map([
+      [root.id, root],
+      [names.id, names],
+      [attitudes.id, attitudes],
+    ]);
+
+    const result = await rollRandomTable(root, {
+      rng: sequence([0, 0.75, 0.25]),
+      resolveTable: (id) => tables.get(id),
+    });
+
+    expect(result.value).toBe("Taverniere Otho, diffidente");
+    expect(result.trace.template).toMatchObject({
+      template: "Taverniere {name}, {attitude}",
+      result: "Taverniere Otho, diffidente",
+      variables: [
+        {
+          name: "name",
+          tableId: "names",
+          value: "Otho",
+          trace: { tableId: "names", entryIndex: 1 },
+        },
+        {
+          name: "attitude",
+          tableId: "attitudes",
+          value: "diffidente",
+          trace: { tableId: "attitudes", entryIndex: 0 },
+        },
+      ],
+    });
+  });
+
+  it("rolls repeated template variables only once per result", async () => {
+    const root = tableDef("echo", [
+      {
+        value: "{name} guarda {name}",
+        template_vars: { name: "names" },
+      },
+    ]);
+    const names = tableDef("names", [{ value: "Lunacupa" }]);
+
+    const result = await rollRandomTable(root, {
+      rng: () => 0,
+      resolveTable: (id) => (id === "names" ? names : null),
+    });
+
+    expect(result.value).toBe("Lunacupa guarda Lunacupa");
+    expect(result.trace.template?.variables).toHaveLength(1);
   });
 
   it("rejects invalid entry shapes", () => {
@@ -120,6 +186,39 @@ describe("random table roller", () => {
       }),
     ).rejects.toMatchObject({
       code: "circular_reference",
+    } satisfies Partial<RandomTableRollError>);
+  });
+
+  it("detects circular template references", async () => {
+    const a = tableDef("a", [
+      { value: "A {b}", templateVars: { b: "b" } },
+    ]);
+    const b = tableDef("b", [
+      { value: "B {a}", templateVars: { a: "a" } },
+    ]);
+    const tables = new Map([
+      [a.id, a],
+      [b.id, b],
+    ]);
+
+    await expect(
+      rollRandomTable(a, {
+        rng: () => 0,
+        resolveTable: (id) => tables.get(id),
+      }),
+    ).rejects.toMatchObject({
+      code: "circular_reference",
+    } satisfies Partial<RandomTableRollError>);
+  });
+
+  it("rejects templates with unmapped variables", async () => {
+    await expect(
+      rollRandomTable(tableDef("bad-template", [{ value: "Hello {name}" }]), {
+        rng: () => 0,
+        resolveTable: () => null,
+      }),
+    ).rejects.toMatchObject({
+      code: "missing_template_var",
     } satisfies Partial<RandomTableRollError>);
   });
 

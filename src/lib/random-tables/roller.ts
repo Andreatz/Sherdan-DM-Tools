@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const DEFAULT_MAX_DEPTH = 8;
+const TEMPLATE_VAR_RE = /\{([a-zA-Z_][a-zA-Z0-9_-]*)\}/g;
 
 const rawTemplateVarsSchema = z.record(z.string(), z.string());
 
@@ -68,6 +69,20 @@ export interface RandomTableRollTrace {
   entryValue: unknown;
   subTableId: string | null;
   nested: RandomTableRollTrace | null;
+  template: RandomTableTemplateTrace | null;
+}
+
+export interface RandomTableTemplateTrace {
+  template: string;
+  result: string;
+  variables: RandomTableTemplateVariableTrace[];
+}
+
+export interface RandomTableTemplateVariableTrace {
+  name: string;
+  tableId: string;
+  value: string;
+  trace: RandomTableRollTrace;
 }
 
 export interface RandomTableRollResult {
@@ -81,6 +96,7 @@ type RandomTableRollErrorCode =
   | "circular_reference"
   | "depth_limit"
   | "invalid_rng"
+  | "missing_template_var"
   | "missing_subtable";
 
 export class RandomTableRollError extends Error {
@@ -144,6 +160,7 @@ async function rollTable(
   const threshold = random * totalWeight;
   const { entry, index } = selectEntry(entries, threshold);
   let nested: RandomTableRollTrace | null = null;
+  let template: RandomTableTemplateTrace | null = null;
   let value = entry.value;
 
   if (entry.subTableId) {
@@ -169,6 +186,14 @@ async function rollTable(
     value = nestedResult.value;
   }
 
+  if (typeof value === "string") {
+    const rendered = await renderTemplate(value, entry, context, depth, table.id);
+    if (rendered) {
+      value = rendered.result;
+      template = rendered;
+    }
+  }
+
   return {
     tableId: table.id,
     tableName: table.name ?? null,
@@ -186,7 +211,74 @@ async function rollTable(
       entryValue: entry.value,
       subTableId: entry.subTableId,
       nested,
+      template,
     },
+  };
+}
+
+async function renderTemplate(
+  value: string,
+  entry: RandomTableEntry,
+  context: Required<Pick<RandomTableRollOptions, "rng" | "maxDepth">> & {
+    resolveTable?: RandomTableRollOptions["resolveTable"];
+    path: string[];
+  },
+  depth: number,
+  tableId: string,
+): Promise<RandomTableTemplateTrace | null> {
+  const variableNames = unique(
+    Array.from(value.matchAll(TEMPLATE_VAR_RE), (match) => match[1]).filter(
+      isNonEmptyString,
+    ),
+  );
+  if (variableNames.length === 0) return null;
+
+  if (!context.resolveTable) {
+    throw new RandomTableRollError(
+      "missing_subtable",
+      "Template interpolation requires a table resolver.",
+    );
+  }
+
+  const variables: RandomTableTemplateVariableTrace[] = [];
+  let result = value;
+
+  for (const name of variableNames) {
+    const variableTableId = entry.templateVars[name];
+    if (!variableTableId) {
+      throw new RandomTableRollError(
+        "missing_template_var",
+        `Template variable {${name}} has no table mapping.`,
+      );
+    }
+
+    const variableTable = await context.resolveTable(variableTableId);
+    if (!variableTable) {
+      throw new RandomTableRollError(
+        "missing_subtable",
+        `Template variable {${name}} references missing table ${variableTableId}.`,
+      );
+    }
+
+    const variableRoll = await rollTable(
+      variableTable,
+      { ...context, path: [...context.path, tableId] },
+      depth + 1,
+    );
+    const renderedValue = stringifyTemplateValue(variableRoll.value);
+    result = result.replaceAll(`{${name}}`, renderedValue);
+    variables.push({
+      name,
+      tableId: variableTableId,
+      value: renderedValue,
+      trace: variableRoll.trace,
+    });
+  }
+
+  return {
+    template: value,
+    result,
+    variables,
   };
 }
 
@@ -210,4 +302,19 @@ function selectEntry(
     throw new Error("Random table has no selectable entries.");
   }
   return { entry: lastEntry, index: lastIndex };
+}
+
+function stringifyTemplateValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value === null || value === undefined) return "";
+  return JSON.stringify(value);
+}
+
+function unique<T>(items: T[]): T[] {
+  return Array.from(new Set(items));
+}
+
+function isNonEmptyString(value: string | undefined): value is string {
+  return typeof value === "string" && value.length > 0;
 }
