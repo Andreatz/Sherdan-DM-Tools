@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 
+import {
+  parseRandomTableImport,
+  type RandomTableImportFormat,
+} from "@/lib/random-tables";
+
 interface RandomTableRow {
   id: string;
   campaignId: string | null;
@@ -64,6 +69,9 @@ export function RandomTablesWorkbench() {
   const [search, setSearch] = useState("");
   const [tag, setTag] = useState("");
   const [sort, setSort] = useState<"name_asc" | "updated_desc">("name_asc");
+  const [importFormat, setImportFormat] =
+    useState<RandomTableImportFormat>("auto");
+  const [importText, setImportText] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [rolling, setRolling] = useState(false);
@@ -107,6 +115,7 @@ export function RandomTablesWorkbench() {
   function startNewTable() {
     setSelectedId(null);
     setDraft(EMPTY_DRAFT);
+    setImportText("");
     setMessage(null);
     setError(null);
   }
@@ -114,6 +123,7 @@ export function RandomTablesWorkbench() {
   function selectTable(table: RandomTableRow) {
     setSelectedId(table.id);
     setDraft(rowToDraft(table));
+    setImportText("");
     setMessage(null);
     setError(null);
   }
@@ -190,6 +200,21 @@ export function RandomTablesWorkbench() {
       setError(messageForError(err));
     } finally {
       setRolling(false);
+    }
+  }
+
+  function importEntries() {
+    setMessage(null);
+    setError(null);
+    try {
+      const entries = parseRandomTableImport(importText, { format: importFormat });
+      setDraft((current) => ({
+        ...current,
+        entries: JSON.stringify(entries, null, 2),
+      }));
+      setMessage(`Importate ${entries.length} entries`);
+    } catch (err) {
+      setError(messageForError(err));
     }
   }
 
@@ -316,6 +341,44 @@ export function RandomTablesWorkbench() {
                 className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
               />
             </label>
+
+            <div className="grid gap-2 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Import
+                </span>
+                <div className="flex gap-2">
+                  <select
+                    value={importFormat}
+                    onChange={(event) =>
+                      setImportFormat(
+                        event.target.value as RandomTableImportFormat,
+                      )
+                    }
+                    className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="json">JSON</option>
+                    <option value="markdown">Markdown</option>
+                    <option value="csv">CSV</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={importEntries}
+                    className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    Importa
+                  </button>
+                </div>
+              </div>
+              <textarea
+                value={importText}
+                onChange={(event) => setImportText(event.target.value)}
+                placeholder="Incolla entries"
+                spellCheck={false}
+                className="min-h-28 resize-y rounded-md border border-zinc-300 bg-white p-3 font-mono text-sm leading-6 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+              />
+            </div>
 
             <label className="grid gap-1">
               <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">

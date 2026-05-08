@@ -401,7 +401,8 @@ Motore generale per random tables con supporto nesting, riusato da tutti i gener
   - _Note implementative: il pannello destro della pagina Random Tables chiama `POST /api/random-tables/[id]/roll`, mostra il valore prodotto e mantiene history locale degli ultimi 12 risultati con sintesi della trace nested/template. Il pannello resta sticky su desktop._
 - [x] Filtro per tag
   - _Note implementative: la colonna library include filtri client-side-backed-by-API per `search`, `tag` e ordinamento `name_asc|updated_desc`, usando query params gia' supportati dal CRUD._
-- [ ] Import: CSV, Markdown bullet list, JSON
+- [x] Import: CSV, Markdown bullet list, JSON
+  - _Note implementative: aggiunto parser puro `parseRandomTableImport` in `src/lib/random-tables/importer.ts`, esportato dal barrel random tables e coperto da test unitari. Supporta import JSON (array o oggetto `{ entries }`), Markdown con bullet/numbered list e pesi inline, CSV con header o colonne posizionali, valori quotati e `templateVars`. Il workbench `/random-tables` ora include un pannello Import con formato Auto/JSON/Markdown/CSV: l'import normalizza gli entries via lo stesso Zod schema del roller e aggiorna il draft JSON senza salvare automaticamente._
 - [x] Library view: tutte le tabelle filtrate per tag
   - _Note implementative: colonna sinistra con lista filtrata delle tabelle, selezione immediata, badge testuali dei tag e stato empty/loading. La selezione aggiorna il draft senza effect derivati, per rispettare lint React hooks._
 
