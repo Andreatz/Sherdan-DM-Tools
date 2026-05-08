@@ -70,6 +70,27 @@ describe("random table roller", () => {
     });
   });
 
+  it("handles fractional weights and exact cumulative boundaries", async () => {
+    const table = tableDef("fractional", [
+      { value: "thin", weight: 0.5 },
+      { value: "middle", weight: 1.5 },
+      { value: "heavy", weight: 3 },
+    ]);
+
+    await expect(rollRandomTable(table, { rng: () => 0.099 })).resolves.toMatchObject({
+      value: "thin",
+      trace: { entryIndex: 0, threshold: 0.495, totalWeight: 5 },
+    });
+    await expect(rollRandomTable(table, { rng: () => 0.1 })).resolves.toMatchObject({
+      value: "middle",
+      trace: { entryIndex: 1, threshold: 0.5, totalWeight: 5 },
+    });
+    await expect(rollRandomTable(table, { rng: () => 0.4 })).resolves.toMatchObject({
+      value: "heavy",
+      trace: { entryIndex: 2, threshold: 2, totalWeight: 5 },
+    });
+  });
+
   it("resolves nested sub-rolls with trace", async () => {
     const root = tableDef("root", [{ label: "sub", subTableId: "moods" }]);
     const moods = tableDef("moods", [{ value: "guarded" }, { value: "curious" }]);
@@ -168,7 +189,16 @@ describe("random table roller", () => {
     expect(() => parseRandomTableEntries([{ value: "bad", weight: 0 }])).toThrow(
       ZodError,
     );
+    expect(() => parseRandomTableEntries([{ value: "bad", weight: -1 }])).toThrow(
+      ZodError,
+    );
+    expect(() =>
+      parseRandomTableEntries([{ value: "bad", weight: Number.NaN }]),
+    ).toThrow(ZodError);
     expect(() => parseRandomTableEntries([{ label: "empty" }])).toThrow(ZodError);
+    expect(() =>
+      parseRandomTableEntries([{ value: "extra", unknown: true }]),
+    ).toThrow(ZodError);
   });
 
   it("detects circular sub-table references", async () => {
@@ -186,6 +216,27 @@ describe("random table roller", () => {
       }),
     ).rejects.toMatchObject({
       code: "circular_reference",
+    } satisfies Partial<RandomTableRollError>);
+  });
+
+  it("detects longer circular sub-table chains", async () => {
+    const a = tableDef("a", [{ subTableId: "b" }]);
+    const b = tableDef("b", [{ subTableId: "c" }]);
+    const c = tableDef("c", [{ subTableId: "a" }]);
+    const tables = new Map([
+      [a.id, a],
+      [b.id, b],
+      [c.id, c],
+    ]);
+
+    await expect(
+      rollRandomTable(a, {
+        rng: () => 0,
+        resolveTable: (id) => tables.get(id),
+      }),
+    ).rejects.toMatchObject({
+      code: "circular_reference",
+      message: "Circular random table reference: a -> b -> c -> a.",
     } satisfies Partial<RandomTableRollError>);
   });
 
@@ -222,6 +273,45 @@ describe("random table roller", () => {
     } satisfies Partial<RandomTableRollError>);
   });
 
+  it("rejects direct sub-tables without a resolver", async () => {
+    await expect(
+      rollRandomTable(tableDef("root", [{ subTableId: "missing-resolver" }]), {
+        rng: () => 0,
+      }),
+    ).rejects.toMatchObject({
+      code: "missing_subtable",
+    } satisfies Partial<RandomTableRollError>);
+  });
+
+  it("rejects direct sub-tables when the resolver returns null", async () => {
+    await expect(
+      rollRandomTable(tableDef("root", [{ subTableId: "missing" }]), {
+        rng: () => 0,
+        resolveTable: () => null,
+      }),
+    ).rejects.toMatchObject({
+      code: "missing_subtable",
+      message: "Sub-table not found: missing.",
+    } satisfies Partial<RandomTableRollError>);
+  });
+
+  it("supports async sub-table resolution", async () => {
+    const root = tableDef("root", [{ subTableId: "async-child" }]);
+    const child = tableDef("async-child", [{ value: "resolved later" }]);
+
+    await expect(
+      rollRandomTable(root, {
+        rng: () => 0,
+        resolveTable: async (id) => (id === child.id ? child : null),
+      }),
+    ).resolves.toMatchObject({
+      value: "resolved later",
+      trace: {
+        nested: { tableId: "async-child", entryValue: "resolved later" },
+      },
+    });
+  });
+
   it("enforces the nesting depth limit", async () => {
     const root = tableDef("root", [{ subTableId: "child" }]);
     const child = tableDef("child", [{ value: "leaf" }]);
@@ -235,6 +325,23 @@ describe("random table roller", () => {
         rng: () => 0,
         maxDepth: 0,
         resolveTable: (id) => tables.get(id),
+      }),
+    ).rejects.toMatchObject({
+      code: "depth_limit",
+    } satisfies Partial<RandomTableRollError>);
+  });
+
+  it("enforces the nesting depth limit through template variables", async () => {
+    const root = tableDef("root", [
+      { value: "Root {child}", templateVars: { child: "child" } },
+    ]);
+    const child = tableDef("child", [{ value: "leaf" }]);
+
+    await expect(
+      rollRandomTable(root, {
+        rng: () => 0,
+        maxDepth: 0,
+        resolveTable: (id) => (id === child.id ? child : null),
       }),
     ).rejects.toMatchObject({
       code: "depth_limit",
