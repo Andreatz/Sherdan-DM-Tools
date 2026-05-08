@@ -6,6 +6,7 @@ export * from "./npc-output";
 export * from "./npc-preview";
 export * from "./npc-prompt";
 export * from "./npc-reroll";
+export * from "./npc-save";
 export * from "./prompt-builder";
 export * from "./run";
 export * from "./style-calibrator";

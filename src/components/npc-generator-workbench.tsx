@@ -29,6 +29,17 @@ interface LocationRow {
   campaignId: string | null;
 }
 
+interface SavedNpcResponse {
+  entity: {
+    id: string;
+    name: string;
+  };
+  secrets: Array<{
+    id: string;
+    layer: string;
+  }>;
+}
+
 interface DraftState {
   campaignId: string;
   locationId: string;
@@ -70,6 +81,9 @@ export function NpcGeneratorWorkbench() {
   const [generating, setGenerating] = useState(false);
   const [rerollingField, setRerollingField] =
     useState<NpcRerollField | null>(null);
+  const [savingEntity, setSavingEntity] = useState(false);
+  const [savedEntity, setSavedEntity] =
+    useState<SavedNpcResponse["entity"] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -161,6 +175,7 @@ export function NpcGeneratorWorkbench() {
     setValidatedInput(null);
     setPreview(null);
     setPreviewContext(null);
+    setSavedEntity(null);
     setMessage(null);
     setError(null);
   }
@@ -172,6 +187,7 @@ export function NpcGeneratorWorkbench() {
       setValidatedInput(null);
       setPreview(null);
       setPreviewContext(null);
+      setSavedEntity(null);
       setMessage(null);
       setError(formatValidationError(result.error.issues));
       return;
@@ -192,6 +208,7 @@ export function NpcGeneratorWorkbench() {
       setValidatedInput(response.input);
       setPreview(response.output);
       setPreviewContext(response.context);
+      setSavedEntity(null);
       setMessage("Preview generata");
     } catch (err) {
       setError(messageForError(err));
@@ -219,11 +236,39 @@ export function NpcGeneratorWorkbench() {
       );
       setPreview(response.output);
       setPreviewContext(response.context);
+      setSavedEntity(null);
       setMessage(`Re-roll: ${labelForRerollField(field)}`);
     } catch (err) {
       setError(messageForError(err));
     } finally {
       setRerollingField(null);
+    }
+  }
+
+  async function saveEntity() {
+    if (!validatedInput || !preview) return;
+    setSavingEntity(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await apiFetch<SavedNpcResponse>(
+        "/api/npc-generator/save",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            input: validatedInput,
+            output: preview,
+          }),
+        },
+      );
+      setSavedEntity(response.entity);
+      setMessage(
+        `Entity salvata: ${response.entity.name} (${response.secrets.length} segreti)`,
+      );
+    } catch (err) {
+      setError(messageForError(err));
+    } finally {
+      setSavingEntity(false);
     }
   }
 
@@ -363,7 +408,10 @@ export function NpcGeneratorWorkbench() {
           <NpcPreviewPanel
             output={preview}
             rerollingField={rerollingField}
+            savingEntity={savingEntity}
+            savedEntity={savedEntity}
             onReroll={rerollField}
+            onSave={saveEntity}
           />
         </div>
 
@@ -422,11 +470,17 @@ export function NpcGeneratorWorkbench() {
 function NpcPreviewPanel({
   output,
   rerollingField,
+  savingEntity,
+  savedEntity,
   onReroll,
+  onSave,
 }: {
   output: NpcGeneratorOutput | null;
   rerollingField: NpcRerollField | null;
+  savingEntity: boolean;
+  savedEntity: SavedNpcResponse["entity"] | null;
   onReroll: (field: NpcRerollField) => void;
+  onSave: () => void;
 }) {
   if (!output) {
     return (
@@ -452,6 +506,21 @@ function NpcPreviewPanel({
           rerollingField={rerollingField}
           onReroll={onReroll}
         />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          {savedEntity
+            ? `Salvato nel wiki: ${savedEntity.name}`
+            : "Preview non ancora salvata nel wiki"}
+        </p>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={savingEntity || savedEntity !== null}
+          className="h-9 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white transition-colors hover:bg-emerald-600 disabled:opacity-50 dark:bg-emerald-500 dark:text-zinc-950 dark:hover:bg-emerald-400"
+        >
+          {savingEntity ? "Salvo..." : savedEntity ? "Salvata" : "Salva entity"}
+        </button>
       </div>
 
       <PreviewBlock title="Pubblico" text={output.public_description} />
