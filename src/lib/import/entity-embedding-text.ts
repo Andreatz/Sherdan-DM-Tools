@@ -9,6 +9,12 @@ export interface EntityEmbeddingTextInput {
   properties: unknown;
   tags: string[];
   visibility: string;
+  extraSections?: EntityEmbeddingExtraSection[];
+}
+
+export interface EntityEmbeddingExtraSection {
+  title: string;
+  content: string | null | undefined;
 }
 
 export function buildEntityEmbeddingText(
@@ -21,6 +27,9 @@ export function buildEntityEmbeddingText(
     entity.tags.length > 0 ? `Tag: ${entity.tags.join(", ")}` : null,
     section("Descrizione pubblica", entity.publicDescription),
     section("Verita' GM", entity.description),
+    ...(entity.extraSections ?? []).map((extra) =>
+      section(extra.title, extra.content),
+    ),
     section("Proprieta' strutturate", stringifyProperties(entity.properties)),
   ].filter(isNonEmpty);
 

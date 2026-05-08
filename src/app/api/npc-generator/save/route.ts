@@ -5,10 +5,13 @@ import { entities, entitySecrets } from "@/db/schema";
 import { AppError, ValidationFailedError } from "@/lib/api/errors";
 import { created, fail } from "@/lib/api/respond";
 import {
+  buildNpcSaveEmbeddingText,
   npcOutputToEntityInsert,
   npcOutputToSecretInserts,
   parseNpcGeneratorSaveRequest,
 } from "@/lib/generators/npc-save";
+import { assertEmbeddingDimensions } from "@/lib/import/entity-embedding-text";
+import { getLLMProvider } from "@/lib/llm";
 import { validateEntityProperties } from "@/lib/validation";
 
 const entityColumns = {
@@ -52,10 +55,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const embedding = await generateNpcEmbedding(
+      buildNpcSaveEmbeddingText(input, output),
+    );
+
     const saved = await db.transaction(async (tx) => {
       const [entity] = await tx
         .insert(entities)
-        .values(npcOutputToEntityInsert(input, output))
+        .values(npcOutputToEntityInsert(input, output, { embedding }))
         .returning(entityColumns);
 
       if (!entity) {
@@ -75,11 +82,30 @@ export async function POST(req: NextRequest) {
               .returning(secretColumns)
           : [];
 
-      return { entity, secrets };
+      return {
+        entity,
+        secrets,
+        embedding: { generated: true, dimensions: embedding.length },
+      };
     });
 
     return created(saved);
   } catch (err) {
     return fail(err);
+  }
+}
+
+async function generateNpcEmbedding(text: string): Promise<number[]> {
+  try {
+    const embedding = await getLLMProvider().embed(text);
+    assertEmbeddingDimensions(embedding);
+    return embedding;
+  } catch (err) {
+    throw new AppError(
+      "Embedding NPC non disponibile: verifica che Ollama sia avviato e che il modello embedding sia installato.",
+      503,
+      "npc_embedding_unavailable",
+      err instanceof Error ? err.message : String(err),
+    );
   }
 }

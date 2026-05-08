@@ -19,6 +19,12 @@ describe("buildEntityEmbeddingText", () => {
       },
       tags: ["sherdan-import", "domus-nova"],
       visibility: "dm_only",
+      extraSections: [
+        {
+          title: "Segreti stratificati",
+          content: "- surface: Deve un favore alla Synapse.",
+        },
+      ],
     });
 
     expect(text).toContain("Tipo: npc");
@@ -28,6 +34,8 @@ describe("buildEntityEmbeddingText", () => {
     expect(text).toContain("Verita' GM:");
     expect(text).toContain("Proprieta' strutturate:");
     expect(text).toContain('"tone": "fredda"');
+    expect(text).toContain("Segreti stratificati:");
+    expect(text).toContain("Deve un favore alla Synapse.");
   });
 
   it("rejects embedding vectors with the wrong dimension", () => {

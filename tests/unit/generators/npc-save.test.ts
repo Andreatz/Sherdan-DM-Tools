@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildNpcSaveEmbeddingText,
   npcOutputToEntityInsert,
   npcOutputToSecretInserts,
   parseNpcGeneratorSaveRequest,
@@ -26,6 +27,15 @@ describe("NPC save utilities", () => {
       visibility: "dm_only",
     });
     expect(entity.tags).toEqual(["npc", "generated", "porto", "capitano"]);
+  });
+
+  it("can attach a generated embedding to the entity insert", () => {
+    const embedding = Array.from({ length: 1024 }, (_, index) => index / 1024);
+    const entity = npcOutputToEntityInsert(sampleInput(), sampleOutput(), {
+      embedding,
+    });
+
+    expect(entity.embedding).toBe(embedding);
   });
 
   it("maps generated secrets to entity_secret inserts", () => {
@@ -80,6 +90,17 @@ describe("NPC save utilities", () => {
         }),
       }),
     ).toThrow("Una comparsa non deve introdurre segreti deep");
+  });
+
+  it("builds embedding text with generated secrets", () => {
+    const text = buildNpcSaveEmbeddingText(sampleInput(), sampleOutput());
+
+    expect(text).toContain("Tipo: npc");
+    expect(text).toContain("Nome: Capitana Rame");
+    expect(text).toContain("Proprieta' strutturate:");
+    expect(text).toContain("Segreti stratificati:");
+    expect(text).toContain("- surface: Ha un debito.");
+    expect(text).toContain("Sfruttabile: Una ricevuta nascosta.");
   });
 });
 

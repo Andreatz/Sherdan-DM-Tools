@@ -38,6 +38,10 @@ interface SavedNpcResponse {
     id: string;
     layer: string;
   }>;
+  embedding: {
+    generated: boolean;
+    dimensions: number;
+  };
 }
 
 interface DraftState {
@@ -263,7 +267,7 @@ export function NpcGeneratorWorkbench() {
       );
       setSavedEntity(response.entity);
       setMessage(
-        `Entity salvata: ${response.entity.name} (${response.secrets.length} segreti)`,
+        `Entity salvata: ${response.entity.name} (${response.secrets.length} segreti, embedding ${response.embedding.dimensions}d)`,
       );
     } catch (err) {
       setError(messageForError(err));

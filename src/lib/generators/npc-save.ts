@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { entities, entitySecrets } from "@/db/schema";
+import { buildEntityEmbeddingText } from "@/lib/import/entity-embedding-text";
 
 import { npcGeneratorInputSchema, type NpcGeneratorInput } from "./npc-input";
 import {
@@ -23,6 +24,10 @@ export type NpcGeneratorSaveRequest = z.infer<
 export type NpcGeneratedEntityInsert = typeof entities.$inferInsert;
 export type NpcGeneratedSecretInsert = typeof entitySecrets.$inferInsert;
 
+interface NpcOutputToEntityInsertOptions {
+  embedding?: number[];
+}
+
 export function parseNpcGeneratorSaveRequest(
   value: unknown,
 ): NpcGeneratorSaveRequest {
@@ -38,8 +43,9 @@ export function parseNpcGeneratorSaveRequest(
 export function npcOutputToEntityInsert(
   input: NpcGeneratorInput,
   output: NpcGeneratorOutput,
+  options: NpcOutputToEntityInsertOptions = {},
 ): NpcGeneratedEntityInsert {
-  return {
+  const insert: NpcGeneratedEntityInsert = {
     campaignId: input.campaignId,
     type: "npc",
     name: output.name,
@@ -50,6 +56,12 @@ export function npcOutputToEntityInsert(
     parentId: input.locationId,
     visibility: "dm_only",
   };
+
+  if (options.embedding) {
+    insert.embedding = options.embedding;
+  }
+
+  return insert;
 }
 
 export function npcOutputToSecretInserts(
@@ -67,6 +79,35 @@ export function npcOutputToSecretInserts(
     discoveredAtSession: null,
     discoveryNotes: null,
   }));
+}
+
+export function buildNpcSaveEmbeddingText(
+  input: NpcGeneratorInput,
+  output: NpcGeneratorOutput,
+): string {
+  const entity = npcOutputToEntityInsert(input, output);
+  return buildEntityEmbeddingText({
+    type: entity.type,
+    name: entity.name,
+    description: entity.description ?? null,
+    publicDescription: entity.publicDescription ?? null,
+    properties: entity.properties,
+    tags: entity.tags ?? [],
+    visibility: entity.visibility ?? "dm_only",
+    extraSections: [
+      {
+        title: "Segreti stratificati",
+        content: output.secrets
+          .map((secret) => {
+            const exploit = secret.exploit_hint
+              ? ` | Sfruttabile: ${secret.exploit_hint}`
+              : "";
+            return `- ${secret.layer}: ${secret.content}${exploit}`;
+          })
+          .join("\n"),
+      },
+    ],
+  });
 }
 
 function normalizeNpcTags(tags: string[]): string[] {
