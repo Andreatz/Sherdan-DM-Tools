@@ -42,7 +42,7 @@ const NAV: NavGroup[] = [
   {
     title: "Generators",
     items: [
-      { label: "Random Tables", comingIn: "Fase 2" },
+      { label: "Random Tables", href: "/random-tables" },
       { label: "NPC", comingIn: "Fase 3" },
       { label: "Loot", comingIn: "Fase 4" },
       { label: "Encounter", comingIn: "Fase 5" },

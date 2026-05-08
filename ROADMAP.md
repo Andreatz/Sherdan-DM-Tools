@@ -395,11 +395,15 @@ Motore generale per random tables con supporto nesting, riusato da tutti i gener
   - _Note implementative: rafforzato `randomTableEntriesSchema` come contratto unico per CRUD e roller. Valida forma raw e forma normalizzata persistita, rifiuta entry senza `value`/`subTableId`, pesi non positivi/non finiti, chiavi extra, alias conflittuali (`subTableId` vs `sub_table_id`, `templateVars` vs `template_vars`) e template string con placeholder non mappati in `templateVars`. Smoke HTTP live su Next dev temporaneo `:3053`: `POST /api/random-tables` con `value="Oste {name}"` senza mapping viene rifiutato con 400 `validation_failed`._
 
 **Frontend**
-- [ ] Editor: form per entries singole, oppure JSON/YAML editor avanzato
-- [ ] Roll button con history sticky
-- [ ] Filtro per tag
+- [x] Editor: form per entries singole, oppure JSON/YAML editor avanzato
+  - _Note implementative: aggiunta pagina `src/app/random-tables/page.tsx` con workbench client `RandomTablesWorkbench`. Editor centrale con campi `name`, `description`, `tags` comma-separated e textarea JSON per `entries`, collegato a `POST/PATCH/DELETE /api/random-tables`. La sidebar ora linka `Random Tables` a `/random-tables`._
+- [x] Roll button con history sticky
+  - _Note implementative: il pannello destro della pagina Random Tables chiama `POST /api/random-tables/[id]/roll`, mostra il valore prodotto e mantiene history locale degli ultimi 12 risultati con sintesi della trace nested/template. Il pannello resta sticky su desktop._
+- [x] Filtro per tag
+  - _Note implementative: la colonna library include filtri client-side-backed-by-API per `search`, `tag` e ordinamento `name_asc|updated_desc`, usando query params gia' supportati dal CRUD._
 - [ ] Import: CSV, Markdown bullet list, JSON
-- [ ] Library view: tutte le tabelle filtrate per tag
+- [x] Library view: tutte le tabelle filtrate per tag
+  - _Note implementative: colonna sinistra con lista filtrata delle tabelle, selezione immediata, badge testuali dei tag e stato empty/loading. La selezione aggiorna il draft senza effect derivati, per rispettare lint React hooks._
 
 **Seed data**
 - [ ] Importa tabelle public-domain: nomi (varie razze), atteggiamenti, taverne, eventi viaggio, complicazioni urbane
