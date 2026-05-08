@@ -429,7 +429,8 @@ Framework riutilizzabile per tutti i generators, prima implementazione concreta 
 ### Task
 
 **Generator Framework**
-- [ ] Interfaccia `Generator<Input, Output>`: `validateInput`, `buildContext`, `buildPrompt`, `call`, `validateOutput`, `persist`
+- [x] Interfaccia `Generator<Input, Output>`: `validateInput`, `buildContext`, `buildPrompt`, `call`, `validateOutput`, `persist`
+  - _Note implementative: aggiunto framework base in `src/lib/generators/` con interfaccia generic `Generator<Input, Output, Context, Persisted>`, `GeneratorPrompt`, `GeneratorRunOptions`, `runGenerator` e `GeneratorPipelineError` stage-aware. Il runner esegue la pipeline nell'ordine `validateInput -> buildContext -> buildPrompt -> call -> validateOutput -> persist`, supporta preview con `persist: false`, passa provider LLM/opzioni a ogni stage e wrappa gli errori con nome generator + stage. Test unitari coprono ordine, skip persist e wrapping degli errori._
 - [ ] `ContextRetriever`: dato un entity_id ancorante, recupera entità correlate (per relazione + per similarità semantica via embedding) — *include identità multiple e segreti rilevanti come contesto*
 - [ ] `PromptBuilder`: template engine con substitution (entità → markdown blocks nel prompt)
 - [ ] `StyleCalibrator`: dato il set di entità di una campagna, estrae feature stilistiche (lunghezza media descrizioni, presenza di tic/sensorialità/segreti stratificati, tono) e le inietta nel prompt come few-shot examples
