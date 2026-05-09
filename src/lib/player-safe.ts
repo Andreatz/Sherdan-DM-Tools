@@ -1,4 +1,5 @@
 type JsonRecord = Record<string, unknown>;
+type PlayerVisibility = "player_visible" | "public";
 
 const BLOCKED_PROPERTY_KEYS = new Set([
   "secret",
@@ -43,7 +44,7 @@ export interface PlayerSafeEntity {
   properties: JsonRecord;
   tags: string[];
   parentId: string | null;
-  visibility: "player_visible" | "public";
+  visibility: PlayerVisibility;
 }
 
 export interface PlayerSafeEntityLinkInput {
@@ -67,7 +68,7 @@ export interface PlayerSafeEntityLink {
   relationType: string | null;
   strength: number | null;
   description: string | null;
-  visibility: "player_visible" | "public";
+  visibility: PlayerVisibility;
 }
 
 export interface PlayerSafeTruthClueInput {
@@ -92,17 +93,18 @@ export interface PlayerSafeTruthClue {
   plantedInSession: string | null;
   relatedPlotThreadId: string | null;
   relatedEntities: string[];
-  visibility: "player_visible" | "public";
+  visibility: PlayerVisibility;
 }
 
 export function isPlayerVisible(value: { visibility?: string | null }): boolean {
-  return value.visibility === "player_visible" || value.visibility === "public";
+  return toPlayerVisibility(value.visibility) !== null;
 }
 
 export function toPlayerSafeEntity(
   entity: PlayerSafeEntityInput,
 ): PlayerSafeEntity | null {
-  if (!isPlayerVisible(entity)) return null;
+  const visibility = toPlayerVisibility(entity.visibility);
+  if (!visibility) return null;
 
   return {
     id: entity.id,
@@ -113,14 +115,15 @@ export function toPlayerSafeEntity(
     properties: sanitizePlayerProperties(entity.properties),
     tags: entity.tags ?? [],
     parentId: entity.parentId ?? null,
-    visibility: entity.visibility,
+    visibility,
   };
 }
 
 export function toPlayerSafeEntityLink(
   link: PlayerSafeEntityLinkInput,
 ): PlayerSafeEntityLink | null {
-  if (!isPlayerVisible(link)) return null;
+  const visibility = toPlayerVisibility(link.visibility);
+  if (!visibility) return null;
 
   return {
     id: link.id,
@@ -130,14 +133,15 @@ export function toPlayerSafeEntityLink(
     relationType: link.publicRelationType ?? null,
     strength: link.strength ?? null,
     description: link.description ?? null,
-    visibility: link.visibility,
+    visibility,
   };
 }
 
 export function toPlayerSafeTruthClue(
   clue: PlayerSafeTruthClueInput,
 ): PlayerSafeTruthClue | null {
-  if (!isPlayerVisible(clue)) return null;
+  const visibility = toPlayerVisibility(clue.visibility);
+  if (!visibility) return null;
 
   return {
     id: clue.id,
@@ -148,7 +152,7 @@ export function toPlayerSafeTruthClue(
     plantedInSession: clue.plantedInSession ?? null,
     relatedPlotThreadId: clue.relatedPlotThreadId ?? null,
     relatedEntities: clue.relatedEntities ?? [],
-    visibility: clue.visibility,
+    visibility,
   };
 }
 
@@ -191,6 +195,11 @@ function sanitizeUnknown(value: unknown): unknown {
   }
 
   return undefined;
+}
+
+function toPlayerVisibility(value: string | null | undefined): PlayerVisibility | null {
+  if (value === "player_visible" || value === "public") return value;
+  return null;
 }
 
 function isBlockedPropertyKey(key: string): boolean {
