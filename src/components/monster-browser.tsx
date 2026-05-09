@@ -20,6 +20,7 @@ import type {
   MonsterBrowserFacets,
   MonsterBrowserRecord,
 } from "@/lib/encounters/monster-browser";
+import { formatEncounterTacticalNotes } from "@/lib/encounters/tactical-notes";
 
 interface EncounterAssistOutput {
   title: string;
@@ -132,6 +133,7 @@ export function MonsterBrowser() {
     useState<AssistDraft>(EMPTY_ASSIST_DRAFT);
   const [assist, setAssist] = useState<EncounterAssistResponse | null>(null);
   const [draft, setDraft] = useState<EncounterDraftParticipant[]>([]);
+  const [tacticalNotes, setTacticalNotes] = useState("");
   const [data, setData] = useState<MonsterBrowserResponse | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingMonsters, setLoadingMonsters] = useState(false);
@@ -299,6 +301,7 @@ export function MonsterBrowser() {
       );
       setAssist(response);
       setDraft(participantsToDraft(response.assist.selectedCandidate.participants));
+      setTacticalNotes(formatEncounterTacticalNotes(response.assist));
     } catch (err) {
       setAssistError(messageForError(err));
     } finally {
@@ -526,6 +529,11 @@ export function MonsterBrowser() {
         onClear={() => setDraft([])}
       />
 
+      <TacticalNotesEditor
+        value={tacticalNotes}
+        onChange={setTacticalNotes}
+      />
+
       <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -585,6 +593,44 @@ export function MonsterBrowser() {
         )}
       </section>
     </div>
+  );
+}
+
+function TacticalNotesEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+            Tactical notes
+          </h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Markdown editabile; l&apos;assist LLM lo precompila quando disponibile.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          disabled={!value}
+          className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          Svuota
+        </button>
+      </div>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={14}
+        placeholder="# Tactical Notes"
+        className="mt-4 min-h-80 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm leading-6 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+      />
+    </section>
   );
 }
 

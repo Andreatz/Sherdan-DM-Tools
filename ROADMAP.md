@@ -529,7 +529,8 @@ Builder completo con browser mostri, math di bilanciamento, e LLM-assist per ide
 **UI**
 - [x] Builder: cerca/aggiungi mostri, modifica count, mostra difficulty corrente
   - _Note implementative: completato tramite la pagina `/encounter-builder`: il browser mostri espone search/filtri, ogni monster card ha `Aggiungi`, la sezione "Bozza encounter" permette di modificare count o svuotare la bozza, e il `DifficultyMeter` ricalcola live base XP, multiplier, adjusted XP e soglie DMG._
-- [ ] Tactical notes editor
+- [x] Tactical notes editor
+  - _Note implementative: aggiunto `TacticalNotesEditor` nella pagina `/encounter-builder`, textarea Markdown editabile con pulsante svuota. Quando l'assist LLM genera un encounter, `formatEncounterTacticalNotes` trasforma title/concept/composizione/difficulty/tactical notes/hook narrativi in Markdown e precompila l'editor. Test unitario copre il formatting Markdown._
 - [ ] Save con location_id link e plot_thread_id opzionale
 - [ ] "Used in session" toggle
 
