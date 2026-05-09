@@ -10,7 +10,7 @@ The architecture is Sherdan-first, but the long-term goal is to make the same fo
 
 ## Current Status
 
-The project has completed the foundation, Campaign Wiki vertical slice, Sherdan content bootstrap validation and Random Tables Engine. The next planned phase is the Generator Framework + NPC Generator.
+The project has completed the foundation, Campaign Wiki vertical slice, Sherdan content bootstrap validation, Random Tables Engine and the first generator framework pieces. NPC/Loot/Encounter tools exist as active workbench/generator areas, while Session Prep, Rules Lookup and Player Dashboard remain future phases.
 
 | Area | Status |
 |---|---|
@@ -25,8 +25,14 @@ The project has completed the foundation, Campaign Wiki vertical slice, Sherdan 
 | Idempotent Sherdan import pipeline | Done |
 | Sherdan import validation | Done |
 | Random Tables Engine | Done |
-| NPC Generator | Planned |
-| Player Dashboard | Planned |
+| Generator Framework | Beta |
+| NPC Generator | Beta |
+| Loot Generator | Beta |
+| Encounter Builder | Beta |
+| Plot Thread + Truth Clue Tracker | Schema ready / UI planned |
+| Session Prep Assistant | Planned |
+| Rules Lookup | Planned |
+| Player Dashboard | Blocked until player-safe projection + access gate |
 
 Validated Sherdan import snapshot:
 
@@ -53,24 +59,44 @@ Reports:
 
 ## Important Privacy Notice
 
-Sherdan campaign source files are currently stored in `public/`.
-
-This is acceptable only under the current assumptions:
-
-- single-user app;
-- local development;
-- private network or Tailscale access;
-- no public deployment;
-- no player-facing access to raw app routes or static files.
-
-Before enabling a public or semi-public Player Dashboard, move the campaign source files outside `public/`, for example:
+Sherdan raw campaign source files contain GM-only secrets and heavy spoilers. The preferred location is now:
 
 ```txt
-data/sherdan/
 content/sherdan/
 ```
 
-Runtime access should then happen only through server-side code and player-safe API routes.
+The real markdown files in that folder are ignored by git. `public/*.md` is accepted only as a temporary local-development fallback and must not be used before exposing the app to players or deploying it publicly/semi-publicly.
+
+Expected source files:
+
+- `NPC.md`
+- `Fazioni.md`
+- `Lore.md`
+- `Campagna.md`
+- `Background Personaggi.md`
+- `Manuale del Giocatore.md`
+
+Migration flow:
+
+```bash
+pnpm content:migrate:sherdan
+pnpm content:check
+```
+
+After verifying that imports work from `content/sherdan/`, remove public copies:
+
+```bash
+pnpm content:migrate:sherdan:delete-public
+pnpm content:check -- --strict
+```
+
+Strict mode fails if the app still depends on `public/*.md`:
+
+```bash
+SHERDAN_CONTENT_STRICT=1 pnpm db:bootstrap:sherdan
+```
+
+Before enabling Player Dashboard, add a player-safe projection layer and access gate. Do not expose raw entities, secrets, truth clues, GM descriptions or static markdown files to players.
 
 ---
 
@@ -139,9 +165,10 @@ http://localhost:3000
 
 ## Sherdan Import Pipeline
 
-The bootstrap imports the real Sherdan markdown files from `public/` into the structured database.
+The bootstrap imports the real Sherdan markdown files from `content/sherdan/` into the structured database. If the private folder is incomplete and strict mode is off, it can temporarily fall back to `public/` for local development.
 
 ```bash
+pnpm content:migrate:sherdan
 pnpm db:bootstrap:sherdan
 pnpm db:embed:sherdan
 pnpm db:report:sherdan
@@ -215,6 +242,8 @@ pnpm env:check
 
 to verify `.env`, `.env.example` and `src/lib/env.ts` stay aligned.
 
+NPC save is fail-forward: if Ollama embeddings are unavailable, generated NPCs are saved anyway and the response marks embedding status as `unavailable`.
+
 ---
 
 ## Common Commands
@@ -251,6 +280,9 @@ pnpm db:seed:tables
 ### Sherdan Dataset
 
 ```bash
+pnpm content:check
+pnpm content:migrate:sherdan
+pnpm content:migrate:sherdan:delete-public
 pnpm db:bootstrap:sherdan
 pnpm db:embed:sherdan
 pnpm db:report:sherdan
@@ -281,16 +313,18 @@ deletes the local Postgres volume and all local campaign data.
 sherdan-dm-tools/
 |-- README.md
 |-- ROADMAP.md
-|-- CLAUDE.md
 |-- docker-compose.yml
+|-- content/
+|   `-- sherdan/
+|       |-- README.md
+|       `-- *.md        # ignored by git, local only
 |-- docs/
 |   |-- decisions.md
 |   |-- sherdan-import-report.md
 |   `-- sherdan-phase-1-5-validation.md
-|-- public/
-|   `-- *.md
 |-- scripts/
 |   |-- bootstrap-sherdan.ts
+|   |-- migrate-sherdan-content.ts
 |   |-- embed-sherdan-entities.ts
 |   |-- report-sherdan-import.ts
 |   `-- validate-sherdan-phase-1-5.ts
@@ -299,9 +333,10 @@ sherdan-dm-tools/
 |   |-- components/
 |   |-- db/
 |   |-- lib/
+|   |   |-- generators/
 |   |   |-- import/
 |   |   |-- llm/
-|   |   |-- parsers/
+|   |   |-- random-tables/
 |   |   `-- validation/
 |   `-- ...
 `-- tests/
@@ -328,7 +363,7 @@ Core ideas:
 The import flow is:
 
 ```txt
-Sherdan markdown files
+Sherdan markdown files in content/sherdan/
         |
         v
 Parsers
@@ -343,7 +378,7 @@ Idempotent import pipeline
 Postgres entities, secrets, hooks, links, sessions and rules
         |
         v
-Campaign Wiki / Search / Graph / Future generators
+Campaign Wiki / Search / Graph / Generators
 ```
 
 ---
@@ -356,37 +391,37 @@ Campaign Wiki / Search / Graph / Future generators
 | 1 | Campaign Wiki | Done |
 | 1.5 | Sherdan content import | Done |
 | 2 | Random Tables Engine | Done |
-| 3 | Generator Framework + NPC Generator | Next |
-| 4 | Loot Generator | Planned |
-| 5 | Encounter Builder | Planned |
+| 3 | Generator Framework + NPC Generator | Beta |
+| 4 | Loot Generator | Beta |
+| 5 | Encounter Builder | Beta |
 | 6 | Plot Thread + Truth Clue Tracker | Planned |
 | 7 | Session Prep Assistant | Planned |
 | 8 | Procedural Dungeon Generator | Planned |
 | 9 | Rules Lookup | Planned |
-| 10 | Player Dashboard | Planned |
+| 10 | Player Dashboard | Planned / blocked by safety layer |
 
 ---
 
 ## Current Development Priority
 
-The next priority is Phase 3: the Generator Framework + NPC Generator.
+The next priority is hardening the beta generators and unlocking the Session Prep / Truth Clue workflow.
 
-Phase 3 should deliver:
+Recommended order:
 
-- reusable `Generator<Input, Output>` contracts;
-- context retrieval from Wiki entities, links, identities and secrets;
-- prompt building and structured LLM output;
-- generation logging and retry/fallback behavior;
-- first concrete implementation: NPC Generator calibrated on Sherdan style.
+1. player-safe projection layer before Player Dashboard;
+2. generation run logging;
+3. embedding backfill for records saved while Ollama is offline;
+4. Truth Clue Tracker UI;
+5. Session Prep Assistant.
 
 ---
 
 ## Known Limitations
 
-- Most sidebar tools beyond the Campaign Wiki and Random Tables are still placeholders.
-- `public/*.md` contains raw campaign material and is not player-safe.
-- Visibility filtering is not sufficient for a public Player Dashboard yet.
-- Full Postgres integration tests are not automated in CI yet.
+- Player Dashboard is not safe until a dedicated projection layer strips GM-only fields.
+- `public/*.md` must be treated as temporary local fallback only.
+- Generator run logging is not yet persisted in a dedicated table.
+- Full browser/e2e tests are not automated yet.
 - Random Tables seed data is local DB state; run `pnpm db:seed:tables` after recreating the database.
 
 ---
@@ -419,10 +454,13 @@ pnpm db:ping
 For Sherdan import work, verify:
 
 ```bash
+pnpm content:check
 pnpm db:bootstrap:sherdan
 pnpm db:report:sherdan
 pnpm db:validate:sherdan
 ```
+
+CI runs against a real `pgvector/pgvector:pg16` Postgres service and applies migrations before lint/typecheck/test/build.
 
 ---
 
@@ -442,6 +480,16 @@ pnpm db:ping
 The environment schema and `.env.example` are out of sync.
 
 Update both before continuing.
+
+### `pnpm content:check -- --strict` fails
+
+Some raw Sherdan markdown is missing from `content/sherdan/` or still present in `public/`.
+
+```bash
+pnpm content:migrate:sherdan
+pnpm content:migrate:sherdan:delete-public
+pnpm content:check -- --strict
+```
 
 ### `pnpm llm:ping` fails for Ollama
 
