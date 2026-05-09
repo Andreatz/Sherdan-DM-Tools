@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-// Home / dashboard placeholder. In Fase 6 mostra ultime sessioni, plot
-// thread caldi, briciole non ancora colte. In Fase 7 il prep assistant.
-// Per ora: punto d'ingresso per le campagne e stato di avanzamento.
+// Home / dashboard placeholder. In futuro mostra ultime sessioni, plot thread
+// caldi, briciole non ancora colte e prep assistant. Per ora: punto d'ingresso
+// per le campagne e stato di avanzamento reale del progetto.
 export default function HomePage() {
   return (
     <div className="space-y-10">
@@ -34,8 +34,8 @@ export default function HomePage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Stato del progetto</h2>
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          Sei in <strong>Fase 3</strong>. Wiki, grafo entità e generator framework sono in avanzamento.
+        <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+          Wiki, import Sherdan e Random Tables sono operativi. NPC, Loot ed Encounter Generator sono in beta. Player Dashboard resta bloccata finche&apos; non esiste un layer player-safe.
         </div>
       </section>
     </div>
