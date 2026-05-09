@@ -1,13 +1,12 @@
-import "server-only";
-
 import { z } from "zod";
 
 // Single source of truth per le variabili d'ambiente del progetto.
 //
 // Convenzione server-only: questo modulo legge `process.env` e contiene
 // chiavi sensibili (DATABASE_URL, GOOGLE_AI_API_KEY). NON deve essere
-// importato da componenti React client. `import "server-only"` fa fallire
-// il build se qualcuno prova a importarlo dal client.
+// importato da componenti React client. Non usiamo `import "server-only"` qui
+// perche' questo file e' importato anche da script Node eseguiti con tsx
+// (`pnpm env:check`, migrations, seed, bootstrap) fuori dal runtime Next.
 //
 // Per esporre valori al client, passare attraverso server actions o API routes
 // e valutare se vadano davvero sotto prefisso `NEXT_PUBLIC_*`.
