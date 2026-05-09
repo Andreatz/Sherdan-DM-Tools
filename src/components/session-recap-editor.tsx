@@ -13,6 +13,7 @@ interface SessionRecapRow {
   title: string | null;
   date: string | null;
   recap: string | null;
+  dmNotes: string | null;
 }
 
 interface EntityName {
@@ -32,10 +33,15 @@ export function SessionRecapEditor({
   const [recaps, setRecaps] = useState(
     () => new Map(sessions.map((session) => [session.id, session.recap ?? ""])),
   );
+  const [dmNotes, setDmNotes] = useState(
+    () =>
+      new Map(sessions.map((session) => [session.id, session.dmNotes ?? ""])),
+  );
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   const currentRecap = selectedId ? (recaps.get(selectedId) ?? "") : "";
+  const currentDmNotes = selectedId ? (dmNotes.get(selectedId) ?? "") : "";
   const mentionedEntities = useMemo(() => {
     const wikilinks = parseRecapWikilinkNames(currentRecap);
     return resolveRecapMentionEntities(wikilinks, entityNames);
@@ -50,7 +56,16 @@ export function SessionRecapEditor({
     setStatus(null);
   }
 
-  async function saveRecap() {
+  function updateDmNotes(value: string) {
+    setDmNotes((current) => {
+      const next = new Map(current);
+      next.set(selectedId, value);
+      return next;
+    });
+    setStatus(null);
+  }
+
+  async function saveSessionNotes() {
     if (!selectedId) return;
     setSaving(true);
     setStatus(null);
@@ -58,7 +73,10 @@ export function SessionRecapEditor({
       const response = await fetch(`/api/sessions/${selectedId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recap: currentRecap || null }),
+        body: JSON.stringify({
+          recap: currentRecap || null,
+          dmNotes: currentDmNotes || null,
+        }),
       });
       if (!response.ok) {
         let message = `HTTP ${response.status}`;
@@ -91,11 +109,11 @@ export function SessionRecapEditor({
         </div>
         <button
           type="button"
-          onClick={saveRecap}
+          onClick={saveSessionNotes}
           disabled={saving || !selectedId}
           className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200"
         >
-          {saving ? "Salvo..." : "Salva recap"}
+          {saving ? "Salvo..." : "Salva sessione"}
         </button>
       </div>
 
@@ -157,13 +175,33 @@ export function SessionRecapEditor({
             ) : null}
           </div>
 
-          <textarea
-            value={currentRecap}
-            onChange={(event) => updateRecap(event.target.value)}
-            rows={14}
-            placeholder="## Recap"
-            className="min-h-80 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm leading-6 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
-          />
+          <div className="grid gap-4 xl:grid-cols-2">
+            <label className="grid gap-2">
+              <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                Recap
+              </span>
+              <textarea
+                value={currentRecap}
+                onChange={(event) => updateRecap(event.target.value)}
+                rows={14}
+                placeholder="## Recap"
+                className="min-h-80 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm leading-6 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                DM notes
+              </span>
+              <textarea
+                value={currentDmNotes}
+                onChange={(event) => updateDmNotes(event.target.value)}
+                rows={14}
+                placeholder="Interpretazioni private, retcon, intuizioni"
+                className="min-h-80 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm leading-6 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+              />
+            </label>
+          </div>
         </div>
       )}
     </section>

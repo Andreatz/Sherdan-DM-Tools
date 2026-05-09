@@ -136,6 +136,7 @@ interface CampaignSessionOption {
   title: string | null;
   date: string | null;
   recap: string | null;
+  dmNotes: string | null;
 }
 
 interface EntityDetailData {
@@ -319,6 +320,7 @@ async function fetchCampaignSessionOptions(
       title: sessions.title,
       date: sessions.date,
       recap: sessions.recap,
+      dmNotes: sessions.dmNotes,
     })
     .from(sessions)
     .where(eq(sessions.campaignId, campaignId))

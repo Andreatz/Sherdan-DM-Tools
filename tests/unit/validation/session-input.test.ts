@@ -58,4 +58,16 @@ describe("session input validation", () => {
     expect(patch.recap).toBe("## Recap");
     expect(normalizeSessionText("   ")).toBeNull();
   });
+
+  it("keeps recap and DM notes as separate patch fields", () => {
+    const patch = updateSessionInputSchema.parse({
+      recap: "Cosa hanno visto i giocatori.",
+      dmNotes: "Cosa sta succedendo davvero.",
+    });
+
+    expect(patch).toEqual({
+      recap: "Cosa hanno visto i giocatori.",
+      dmNotes: "Cosa sta succedendo davvero.",
+    });
+  });
 });
