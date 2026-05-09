@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type {
+  EncounterCompositionSuggestion,
+  EncounterSuggesterDifficulty,
   MonsterBrowserFacets,
   MonsterBrowserRecord,
 } from "@/lib/encounters";
@@ -20,6 +22,11 @@ interface MonsterBrowserResponse {
   facets: MonsterBrowserFacets;
 }
 
+interface EncounterSuggestionResponse {
+  monstersConsidered: number;
+  suggestions: EncounterCompositionSuggestion[];
+}
+
 interface FilterState {
   campaignId: string;
   search: string;
@@ -28,6 +35,12 @@ interface FilterState {
   creatureType: string;
   environment: string;
   size: string;
+}
+
+interface SuggestionDraft {
+  partyLevel: string;
+  partySize: string;
+  difficulty: EncounterSuggesterDifficulty;
 }
 
 const EMPTY_FILTERS: FilterState = {
@@ -40,13 +53,33 @@ const EMPTY_FILTERS: FilterState = {
   size: "",
 };
 
+const EMPTY_SUGGESTION_DRAFT: SuggestionDraft = {
+  partyLevel: "5",
+  partySize: "4",
+  difficulty: "medium",
+};
+
+const ENCOUNTER_DIFFICULTY_OPTIONS: EncounterSuggesterDifficulty[] = [
+  "easy",
+  "medium",
+  "hard",
+  "deadly",
+];
+
 export function MonsterBrowser() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const [suggestionDraft, setSuggestionDraft] = useState<SuggestionDraft>(
+    EMPTY_SUGGESTION_DRAFT,
+  );
+  const [suggestions, setSuggestions] =
+    useState<EncounterSuggestionResponse | null>(null);
   const [data, setData] = useState<MonsterBrowserResponse | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingMonsters, setLoadingMonsters] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +155,35 @@ export function MonsterBrowser() {
       environment: "",
       size: "",
     }));
+  }
+
+  async function suggestCompositions() {
+    if (!filters.campaignId) return;
+    setSuggesting(true);
+    setSuggestionError(null);
+    try {
+      const response = await apiFetch<EncounterSuggestionResponse>(
+        "/api/encounters/suggest",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            campaignId: filters.campaignId,
+            partyLevel: suggestionDraft.partyLevel,
+            partySize: suggestionDraft.partySize,
+            difficulty: suggestionDraft.difficulty,
+            creatureType: filters.creatureType || undefined,
+            environment: filters.environment || undefined,
+            size: filters.size || undefined,
+            maxSuggestions: 6,
+          }),
+        },
+      );
+      setSuggestions(response);
+    } catch (err) {
+      setSuggestionError(messageForError(err));
+    } finally {
+      setSuggesting(false);
+    }
   }
 
   const facets = data?.facets;
@@ -244,6 +306,98 @@ export function MonsterBrowser() {
         </div>
       </section>
 
+      <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+              Suggester
+            </h2>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              Usa i filtri tattici attivi come vincoli.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={suggestCompositions}
+            disabled={suggesting || !filters.campaignId}
+            className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200"
+          >
+            {suggesting ? "Calcolo..." : "Suggerisci"}
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <NumberInput
+            label="Party level"
+            value={suggestionDraft.partyLevel}
+            onChange={(value) =>
+              setSuggestionDraft((current) => ({
+                ...current,
+                partyLevel: value,
+              }))
+            }
+          />
+          <NumberInput
+            label="Party size"
+            value={suggestionDraft.partySize}
+            onChange={(value) =>
+              setSuggestionDraft((current) => ({
+                ...current,
+                partySize: value,
+              }))
+            }
+          />
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+              Difficulty
+            </span>
+            <select
+              value={suggestionDraft.difficulty}
+              onChange={(event) =>
+                setSuggestionDraft((current) => ({
+                  ...current,
+                  difficulty: event.target.value as EncounterSuggesterDifficulty,
+                }))
+              }
+              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+            >
+              {ENCOUNTER_DIFFICULTY_OPTIONS.map((difficulty) => (
+                <option key={difficulty} value={difficulty}>
+                  {difficulty}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {suggestionError && (
+          <div className="mt-4 text-sm text-red-600 dark:text-red-400">
+            {suggestionError}
+          </div>
+        )}
+
+        {suggestions && (
+          <div className="mt-5 grid gap-3">
+            <div className="text-sm text-zinc-600 dark:text-zinc-400">
+              {suggestions.suggestions.length} candidate da{" "}
+              {suggestions.monstersConsidered} mostri considerati.
+            </div>
+            {suggestions.suggestions.length === 0 ? (
+              <div className="rounded-md border border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                Nessuna composizione nella fascia richiesta.
+              </div>
+            ) : (
+              suggestions.suggestions.map((suggestion, index) => (
+                <SuggestionCard
+                  key={`${suggestion.difficulty.adjustedXp}-${index}`}
+                  suggestion={suggestion}
+                />
+              ))
+            )}
+          </div>
+        )}
+      </section>
+
       <section className="grid gap-4">
         {data?.rows.length === 0 ? (
           <div className="rounded-lg border border-zinc-200 bg-white p-5 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
@@ -256,6 +410,45 @@ export function MonsterBrowser() {
         )}
       </section>
     </div>
+  );
+}
+
+function SuggestionCard({
+  suggestion,
+}: {
+  suggestion: EncounterCompositionSuggestion;
+}) {
+  return (
+    <article className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+            {suggestion.participants
+              .map(
+                (participant) =>
+                  `${participant.count}x ${participant.monster.name}`,
+              )
+              .join(", ")}
+          </h3>
+          <p className="mt-1 text-xs uppercase text-zinc-500 dark:text-zinc-400">
+            {suggestion.participants
+              .map(
+                (participant) =>
+                  `CR ${participant.monster.challengeRating} ${participant.monster.creatureType}`,
+              )
+              .join(" + ")}
+          </p>
+        </div>
+        <div className="text-right text-sm">
+          <div className="font-semibold text-zinc-950 dark:text-zinc-50">
+            {suggestion.difficulty.difficulty}
+          </div>
+          <div className="text-zinc-500 dark:text-zinc-400">
+            {suggestion.difficulty.adjustedXp} XP adj.
+          </div>
+        </div>
+      </div>
+    </article>
   );
 }
 
