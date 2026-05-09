@@ -34,6 +34,17 @@ The project has completed the foundation, Campaign Wiki vertical slice, Sherdan 
 | Rules Lookup | Planned |
 | Player Dashboard | Blocked until player-safe projection + access gate |
 
+### Phase 0 / Phase 1 hardening
+
+The repository now treats raw Sherdan markdown as sensitive by default.
+
+- `pnpm content:check:safe` fails if any expected Sherdan source markdown is still in `public/`.
+- CI runs `content:check:safe` before lint/typecheck/test/build.
+- `pnpm check` runs the local full gate: env sync, content safety, lint, typecheck, tests and build.
+- `/status` shows content-source safety, public leak status and feature maturity.
+- `src/lib/security/player-safe.ts` provides a conservative projection helper for future player/public surfaces.
+- The sidebar uses operational states (`Pronto`, `Beta`, `Schema`, `Pianificato`, `Bloccato`) instead of stale phase labels.
+
 Validated Sherdan import snapshot:
 
 | Metric | Count |
@@ -87,16 +98,17 @@ After verifying that imports work from `content/sherdan/`, remove public copies:
 
 ```bash
 pnpm content:migrate:sherdan:delete-public
-pnpm content:check -- --strict
+pnpm content:check:safe
 ```
 
-Strict mode fails if the app still depends on `public/*.md`:
+Strict mode also requires the private folder to be complete:
 
 ```bash
+pnpm content:check:strict
 SHERDAN_CONTENT_STRICT=1 pnpm db:bootstrap:sherdan
 ```
 
-Before enabling Player Dashboard, add a player-safe projection layer and access gate. Do not expose raw entities, secrets, truth clues, GM descriptions or static markdown files to players.
+Before enabling Player Dashboard, every player-facing API must use a player-safe projection and an access gate. Do not expose raw entities, secrets, truth clues, GM descriptions, GM notes or static markdown files to players.
 
 ---
 
@@ -159,6 +171,12 @@ The app runs at:
 
 ```txt
 http://localhost:3000
+```
+
+Project status panel:
+
+```txt
+http://localhost:3000/status
 ```
 
 ---
@@ -259,7 +277,14 @@ pnpm llm:ping
 ### Quality Gate
 
 ```bash
+pnpm check
+```
+
+Equivalent expanded gate:
+
+```bash
 pnpm env:check
+pnpm content:check:safe
 pnpm lint
 pnpm typecheck
 pnpm test
@@ -281,6 +306,8 @@ pnpm db:seed:tables
 
 ```bash
 pnpm content:check
+pnpm content:check:safe
+pnpm content:check:strict
 pnpm content:migrate:sherdan
 pnpm content:migrate:sherdan:delete-public
 pnpm db:bootstrap:sherdan
@@ -330,6 +357,7 @@ sherdan-dm-tools/
 |   `-- validate-sherdan-phase-1-5.ts
 |-- src/
 |   |-- app/
+|   |   `-- status/
 |   |-- components/
 |   |-- db/
 |   |-- lib/
@@ -337,6 +365,7 @@ sherdan-dm-tools/
 |   |   |-- import/
 |   |   |-- llm/
 |   |   |-- random-tables/
+|   |   |-- security/
 |   |   `-- validation/
 |   `-- ...
 `-- tests/
@@ -358,7 +387,8 @@ Core ideas:
 - identities are first-class records, so Malakor/Dante and Noel/Yancarlos/Lust can be modeled cleanly;
 - relationships and backlinks are first-class data;
 - PC hooks are separate from in-fiction relationships because they describe narrative potential;
-- AI tools should use the campaign database as context, not generic prompts.
+- AI tools should use the campaign database as context, not generic prompts;
+- player/public surfaces must pass through the player-safe projection layer before serialization.
 
 The import flow is:
 
@@ -387,18 +417,18 @@ Campaign Wiki / Search / Graph / Generators
 
 | Phase | Feature | Status |
 |---|---|---|
-| 0 | Setup and infrastructure | Done |
-| 1 | Campaign Wiki | Done |
+| 0 | Setup, infrastructure and content-safety gate | Done |
+| 1 | Campaign Wiki + status alignment | Done |
 | 1.5 | Sherdan content import | Done |
 | 2 | Random Tables Engine | Done |
 | 3 | Generator Framework + NPC Generator | Beta |
 | 4 | Loot Generator | Beta |
 | 5 | Encounter Builder | Beta |
-| 6 | Plot Thread + Truth Clue Tracker | Planned |
+| 6 | Plot Thread + Truth Clue Tracker | Schema ready / UI planned |
 | 7 | Session Prep Assistant | Planned |
 | 8 | Procedural Dungeon Generator | Planned |
 | 9 | Rules Lookup | Planned |
-| 10 | Player Dashboard | Planned / blocked by safety layer |
+| 10 | Player Dashboard | Blocked by player-safe access layer |
 
 ---
 
@@ -408,7 +438,7 @@ The next priority is hardening the beta generators and unlocking the Session Pre
 
 Recommended order:
 
-1. player-safe projection layer before Player Dashboard;
+1. route-level player-safe projection + access gate before Player Dashboard;
 2. generation run logging;
 3. embedding backfill for records saved while Ollama is offline;
 4. Truth Clue Tracker UI;
@@ -418,8 +448,8 @@ Recommended order:
 
 ## Known Limitations
 
-- Player Dashboard is not safe until a dedicated projection layer strips GM-only fields.
-- `public/*.md` must be treated as temporary local fallback only.
+- Player Dashboard is not safe until every player-facing route uses a dedicated projection layer and access gate.
+- `public/*.md` must be treated as temporary local fallback only; CI blocks committing/deploying with those files present.
 - Generator run logging is not yet persisted in a dedicated table.
 - Full browser/e2e tests are not automated yet.
 - Random Tables seed data is local DB state; run `pnpm db:seed:tables` after recreating the database.
@@ -437,11 +467,7 @@ pnpm test
 Run the full local quality gate:
 
 ```bash
-pnpm env:check
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
+pnpm check
 ```
 
 Before major schema or parser work, also verify:
@@ -454,7 +480,7 @@ pnpm db:ping
 For Sherdan import work, verify:
 
 ```bash
-pnpm content:check
+pnpm content:check:safe
 pnpm db:bootstrap:sherdan
 pnpm db:report:sherdan
 pnpm db:validate:sherdan
@@ -481,14 +507,24 @@ The environment schema and `.env.example` are out of sync.
 
 Update both before continuing.
 
-### `pnpm content:check -- --strict` fails
+### `pnpm content:check:safe` fails
+
+Raw Sherdan markdown still exists in `public/`.
+
+```bash
+pnpm content:migrate:sherdan
+pnpm content:migrate:sherdan:delete-public
+pnpm content:check:safe
+```
+
+### `pnpm content:check:strict` fails
 
 Some raw Sherdan markdown is missing from `content/sherdan/` or still present in `public/`.
 
 ```bash
 pnpm content:migrate:sherdan
 pnpm content:migrate:sherdan:delete-public
-pnpm content:check -- --strict
+pnpm content:check:strict
 ```
 
 ### `pnpm llm:ping` fails for Ollama

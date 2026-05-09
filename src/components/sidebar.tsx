@@ -5,8 +5,8 @@ import { EntitySidebarSection } from "@/components/entity-sidebar-section";
 interface NavItem {
   label: string;
   href?: string;
-  /** Etichetta "in arrivo Fase X". Se presente, l'item e' disabilitato. */
-  comingIn?: string;
+  /** Stato operativo leggibile. Se manca `href`, l'item resta disabilitato. */
+  status?: "Pronto" | "Beta" | "Schema" | "Pianificato" | "Bloccato";
 }
 
 interface NavGroup {
@@ -14,53 +14,63 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// Navigazione completa del progetto. Gli item con `comingIn` sono placeholder
-// per i tool che arriveranno nelle fasi successive (vedi ROADMAP.md). Cliccare
-// li tiene fermi: e' utile per ricordarsi cosa manca senza perdere il filo.
+// Navigazione allineata allo stato reale del progetto.
+// "Schema" significa che DB/API sono predisposti ma manca ancora la UI completa.
+// "Bloccato" indica feature volutamente ferme finche' non esiste una proiezione
+// player-safe e un access gate adeguato.
 const NAV: NavGroup[] = [
   {
     title: "Generale",
     items: [
-      { label: "Home", href: "/" },
-      { label: "Campagne", href: "/campaigns" },
+      { label: "Home", href: "/", status: "Pronto" },
+      { label: "Campagne", href: "/campaigns", status: "Pronto" },
+      { label: "Stato progetto", href: "/status", status: "Pronto" },
     ],
   },
   {
     title: "Wiki",
     items: [
-      { label: "Campagne / Grafo entità", href: "/campaigns" },
+      { label: "Campagne / Grafo entità", href: "/campaigns", status: "Pronto" },
     ],
   },
   {
     title: "Sessioni & Trama",
     items: [
-      { label: "Sessioni", comingIn: "Fase 6" },
-      { label: "Plot Threads", comingIn: "Fase 6" },
-      { label: "Briciole di Verita'", comingIn: "Fase 6" },
+      { label: "Sessioni", status: "Schema" },
+      { label: "Plot Threads", status: "Schema" },
+      { label: "Briciole di Verita'", status: "Schema" },
     ],
   },
   {
     title: "Generators",
     items: [
-      { label: "Random Tables", href: "/random-tables" },
-      { label: "NPC", href: "/npc-generator" },
-      { label: "Loot", href: "/loot-generator" },
-      { label: "Encounter", href: "/encounter-builder" },
-      { label: "Dungeon", comingIn: "Fase 8" },
+      { label: "Random Tables", href: "/random-tables", status: "Pronto" },
+      { label: "NPC", href: "/npc-generator", status: "Beta" },
+      { label: "Loot", href: "/loot-generator", status: "Beta" },
+      { label: "Encounter", href: "/encounter-builder", status: "Beta" },
+      { label: "Dungeon", status: "Pianificato" },
     ],
   },
   {
     title: "Assistenti",
     items: [
-      { label: "Session Prep", comingIn: "Fase 7" },
-      { label: "Rules Lookup", comingIn: "Fase 9" },
+      { label: "Session Prep", status: "Pianificato" },
+      { label: "Rules Lookup", status: "Pianificato" },
     ],
   },
   {
     title: "Tavolo",
-    items: [{ label: "Player Dashboard", comingIn: "Fase 10" }],
+    items: [{ label: "Player Dashboard", status: "Bloccato" }],
   },
 ];
+
+const statusClassName: Record<NonNullable<NavItem["status"]>, string> = {
+  Pronto: "text-emerald-700 dark:text-emerald-400",
+  Beta: "text-amber-700 dark:text-amber-400",
+  Schema: "text-sky-700 dark:text-sky-400",
+  Pianificato: "text-zinc-500 dark:text-zinc-400",
+  Bloccato: "text-red-700 dark:text-red-400",
+};
 
 export function Sidebar() {
   return (
@@ -92,19 +102,28 @@ export function Sidebar() {
                     {item.href ? (
                       <Link
                         href={item.href}
-                        className="block rounded-md px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        className="flex items-center justify-between gap-2 rounded-md px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                       >
-                        {item.label}
+                        <span className="truncate">{item.label}</span>
+                        {item.status && (
+                          <span
+                            className={`shrink-0 text-[10px] uppercase tracking-wider ${statusClassName[item.status]}`}
+                          >
+                            {item.status}
+                          </span>
+                        )}
                       </Link>
                     ) : (
                       <div
-                        className="flex items-center justify-between rounded-md px-3 py-2 text-sm text-zinc-400 dark:text-zinc-500"
+                        className="flex items-center justify-between gap-2 rounded-md px-3 py-2 text-sm text-zinc-400 dark:text-zinc-500"
                         aria-disabled
                       >
-                        <span>{item.label}</span>
-                        {item.comingIn && (
-                          <span className="text-[10px] uppercase tracking-wider">
-                            {item.comingIn}
+                        <span className="truncate">{item.label}</span>
+                        {item.status && (
+                          <span
+                            className={`shrink-0 text-[10px] uppercase tracking-wider ${statusClassName[item.status]}`}
+                          >
+                            {item.status}
                           </span>
                         )}
                       </div>

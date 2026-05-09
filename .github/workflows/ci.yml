@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   validate:
-    name: lint + typecheck + test + build
+    name: safety + lint + typecheck + test + build
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -60,6 +60,9 @@ jobs:
 
       - name: env:check (sync .env.example <-> Zod schema)
         run: pnpm env:check
+
+      - name: content:check:safe (fail on public Sherdan markdown)
+        run: pnpm content:check:safe
 
       - name: Migrate database
         run: pnpm db:migrate

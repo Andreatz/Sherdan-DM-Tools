@@ -13,8 +13,13 @@ const SHERDAN_SOURCE_FILES = [
 const root = process.cwd();
 const privateDir = path.join(root, "content", "sherdan");
 const publicDir = path.join(root, "public");
-const strict =
-  process.argv.includes("--strict") || process.env.SHERDAN_CONTENT_STRICT === "1";
+
+const args = new Set(process.argv.slice(2));
+const strict = args.has("--strict") || process.env.SHERDAN_CONTENT_STRICT === "1";
+const publicForbidden =
+  strict || args.has("--public-forbidden") || process.env.SHERDAN_PUBLIC_FORBIDDEN === "1";
+const requirePrivate =
+  strict || args.has("--require-private") || process.env.SHERDAN_REQUIRE_PRIVATE === "1";
 
 const privateFiles = SHERDAN_SOURCE_FILES.filter((file) =>
   existsSync(path.join(privateDir, file)),
@@ -26,33 +31,47 @@ const missingPrivateFiles = SHERDAN_SOURCE_FILES.filter(
   (file) => !privateFiles.includes(file),
 );
 
+let failed = false;
+
 if (privateFiles.length === SHERDAN_SOURCE_FILES.length) {
   console.log("[ok] Sherdan source markdown found in content/sherdan/.");
 } else {
-  console.warn(
-    `[warn] content/sherdan/ is incomplete (${privateFiles.length}/${SHERDAN_SOURCE_FILES.length}).`,
-  );
-  console.warn(
-    `       Missing: ${missingPrivateFiles.length > 0 ? missingPrivateFiles.join(", ") : "none"}`,
-  );
+  const message =
+    `[warn] content/sherdan/ is incomplete (${privateFiles.length}/${SHERDAN_SOURCE_FILES.length}).\n` +
+    `       Missing: ${missingPrivateFiles.length > 0 ? missingPrivateFiles.join(", ") : "none"}`;
+  if (requirePrivate) {
+    console.error(message.replace("[warn]", "[fail]"));
+    failed = true;
+  } else {
+    console.warn(message);
+  }
 }
 
 if (publicFiles.length > 0) {
   const message =
     `[warn] ${publicFiles.length} Sherdan source markdown file(s) still exist in public/: ${publicFiles.join(", ")}.\n` +
-    "       This is acceptable only for local single-user development. Move them before Player Dashboard or public/semi-public deployment.";
-  if (strict) {
+    "       Raw campaign markdown contains GM-only secrets and must not be committed, deployed, or exposed to players.";
+  if (publicForbidden) {
     console.error(message.replace("[warn]", "[fail]"));
-    process.exit(1);
+    failed = true;
+  } else {
+    console.warn(
+      `${message}\n       This fallback is tolerated only for temporary local single-user development.`,
+    );
   }
-  console.warn(message);
 } else {
   console.log("[ok] No Sherdan source markdown found in public/.");
 }
 
 if (privateFiles.length === 0 && publicFiles.length === 0) {
-  console.error(
-    "[fail] No Sherdan source markdown found. Run `pnpm content:migrate:sherdan` after restoring public/*.md, or place files in content/sherdan/.",
-  );
-  process.exit(1);
+  const message =
+    "[fail] No Sherdan source markdown found. Run `pnpm content:migrate:sherdan` after restoring public/*.md, or place files in content/sherdan/.";
+  if (requirePrivate) {
+    console.error(message);
+    failed = true;
+  } else {
+    console.warn(message.replace("[fail]", "[warn]"));
+  }
 }
+
+if (failed) process.exit(1);
