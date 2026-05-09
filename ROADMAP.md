@@ -551,7 +551,8 @@ Dimensione temporale: sessioni con recap, plot threads con doppio arco (percepit
 ### Task
 
 **Sessions**
-- [ ] CRUD sessions con auto-numerazione
+- [x] CRUD sessions con auto-numerazione
+  - _Note implementative: estesa `GET /api/sessions` con paginazione e `include_notes`; aggiunto `POST /api/sessions` che calcola automaticamente `number = max(number)+1` per campagna in transazione e salva title/date/recap/dm_notes/prep_notes. Aggiunta route `/api/sessions/[id]` con GET/PATCH/DELETE, validazione Zod dedicata in `src/lib/validation/session-input.ts` e test unitari su input, date e divieto di numbering manuale._
 - [ ] Recap markdown editor con auto-detect entità menzionate (parsing wikilinks → SessionEntity)
 - [ ] **Recap split**: campo `recap` (cosa è successo in fiction) e `dm_notes` (interpretazioni `🔒`, retcon, intuizioni private). Editor a due colonne.
 - [ ] Pre-session "prep notes" separati dal recap
