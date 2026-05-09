@@ -11,8 +11,11 @@ import {
   parseNpcGeneratorSaveRequest,
 } from "@/lib/generators/npc-save";
 import { assertEmbeddingDimensions } from "@/lib/import/entity-embedding-text";
+import { getLogger } from "@/lib/logger";
 import { getLLMProvider } from "@/lib/llm";
 import { validateEntityProperties } from "@/lib/validation";
+
+const log = getLogger("api.npc-generator.save");
 
 const entityColumns = {
   id: entities.id,
@@ -41,6 +44,13 @@ const secretColumns = {
   createdAt: entitySecrets.createdAt,
 } as const;
 
+interface EmbeddingResult {
+  vector: number[] | null;
+  status: "generated" | "unavailable";
+  dimensions: number | null;
+  error?: string;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as unknown;
@@ -55,14 +65,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const embedding = await generateNpcEmbedding(
+    // Fail-forward: l'embedding migliora search/RAG, ma non deve mai far
+    // perdere un NPC gia' generato. Se Ollama o il modello embedding non sono
+    // disponibili, salviamo comunque l'entity e segnaliamo lo stato al client.
+    const embedding = await tryGenerateNpcEmbedding(
       buildNpcSaveEmbeddingText(input, output),
     );
 
     const saved = await db.transaction(async (tx) => {
       const [entity] = await tx
         .insert(entities)
-        .values(npcOutputToEntityInsert(input, output, { embedding }))
+        .values(
+          npcOutputToEntityInsert(
+            input,
+            output,
+            embedding.vector ? { embedding: embedding.vector } : {},
+          ),
+        )
         .returning(entityColumns);
 
       if (!entity) {
@@ -85,7 +104,12 @@ export async function POST(req: NextRequest) {
       return {
         entity,
         secrets,
-        embedding: { generated: true, dimensions: embedding.length },
+        embedding: {
+          status: embedding.status,
+          generated: embedding.status === "generated",
+          dimensions: embedding.dimensions,
+          ...(embedding.error ? { error: embedding.error } : {}),
+        },
       };
     });
 
@@ -95,17 +119,23 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function generateNpcEmbedding(text: string): Promise<number[]> {
+async function tryGenerateNpcEmbedding(text: string): Promise<EmbeddingResult> {
   try {
-    const embedding = await getLLMProvider().embed(text);
-    assertEmbeddingDimensions(embedding);
-    return embedding;
+    const vector = await getLLMProvider().embed(text);
+    assertEmbeddingDimensions(vector);
+    return { vector, status: "generated", dimensions: vector.length };
   } catch (err) {
-    throw new AppError(
-      "Embedding NPC non disponibile: verifica che Ollama sia avviato e che il modello embedding sia installato.",
-      503,
-      "npc_embedding_unavailable",
-      err instanceof Error ? err.message : String(err),
+    const message = err instanceof Error ? err.message : String(err);
+    log.warn(
+      { err: message },
+      "NPC saved without embedding; run embedding backfill after Ollama setup",
     );
+    return {
+      vector: null,
+      status: "unavailable",
+      dimensions: null,
+      error:
+        "Embedding NPC non disponibile: NPC salvato comunque. Verifica Ollama/modello embedding e rigenera gli embedding mancanti.",
+    };
   }
 }

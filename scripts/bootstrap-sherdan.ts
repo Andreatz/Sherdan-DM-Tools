@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { and, eq } from "drizzle-orm";
@@ -24,8 +24,26 @@ import { resolvePcHookEntityKeys } from "@/lib/import/sherdan-pc-hook-resolution
 import { env } from "@/lib/env";
 
 const SHERDAN_NAME = "Sherdan";
+const SHERDAN_SOURCE_FILES = [
+  "NPC.md",
+  "Fazioni.md",
+  "Lore.md",
+  "Campagna.md",
+  "Background Personaggi.md",
+  "Manuale del Giocatore.md",
+] as const;
 
 type Db = ReturnType<typeof drizzle<typeof schema>>;
+
+interface SherdanSources {
+  npc: string;
+  factions: string;
+  lore: string;
+  campaign: string;
+  backgrounds: string;
+  playerManual: string;
+  sourceDir: string;
+}
 
 interface ImportStats {
   campaignsCreated: number;
@@ -56,8 +74,9 @@ async function main() {
   const db = drizzle(sql, { schema });
 
   try {
-    const plan = buildSherdanBootstrapPlan(readSherdanSources());
-    const stats = await importPlan(db, plan);
+    const sources = readSherdanSources();
+    const plan = buildSherdanBootstrapPlan(sources);
+    const stats = await importPlan(db, plan, sources.sourceDir);
 
     console.log("[ok] Bootstrap Sherdan completato");
     console.log(JSON.stringify(stats, null, 2));
@@ -66,7 +85,11 @@ async function main() {
   }
 }
 
-async function importPlan(db: Db, plan: SherdanBootstrapPlan): Promise<ImportStats> {
+async function importPlan(
+  db: Db,
+  plan: SherdanBootstrapPlan,
+  sourceDir: string,
+): Promise<ImportStats> {
   const stats: ImportStats = {
     campaignsCreated: 0,
     campaignsUpdated: 0,
@@ -91,7 +114,7 @@ async function importPlan(db: Db, plan: SherdanBootstrapPlan): Promise<ImportSta
     entityLinksUnresolved: plan.unresolvedLinks.length,
   };
 
-  const campaignId = await ensureSherdanCampaign(db, stats);
+  const campaignId = await ensureSherdanCampaign(db, stats, sourceDir);
   const entityIds = new Map<string, string>();
 
   for (const entity of plan.entities.filter((entity) => !entity.parentKey)) {
@@ -167,25 +190,76 @@ async function importPlan(db: Db, plan: SherdanBootstrapPlan): Promise<ImportSta
   return stats;
 }
 
-function readSherdanSources() {
-  const publicDir = path.join(process.cwd(), "public");
+function readSherdanSources(): SherdanSources {
+  const root = process.cwd();
+  const privateDir = path.join(root, "content", "sherdan");
+  const publicDir = path.join(root, "public");
+  const strict =
+    process.argv.includes("--strict") || process.env.SHERDAN_CONTENT_STRICT === "1";
+
+  const privateComplete = hasAllSherdanSources(privateDir);
+  const publicComplete = hasAllSherdanSources(publicDir);
+
+  if (privateComplete) {
+    return readSherdanSourcesFrom(privateDir);
+  }
+
+  if (publicComplete && !strict) {
+    console.warn(
+      "[warn] Uso fallback public/*.md per bootstrap Sherdan. Esegui `pnpm content:migrate:sherdan` e poi `pnpm content:check -- --strict` prima di esporre l'app.",
+    );
+    return readSherdanSourcesFrom(publicDir);
+  }
+
+  const privateMissing = missingSherdanSources(privateDir);
+  const publicMissing = missingSherdanSources(publicDir);
+  throw new Error(
+    [
+      "Sorgenti markdown Sherdan non disponibili nella posizione sicura content/sherdan/.",
+      `Mancanti in content/sherdan/: ${privateMissing.join(", ") || "nessuno"}`,
+      strict
+        ? "Modalita' strict attiva: public/*.md non viene accettato come fallback."
+        : `Mancanti in public/: ${publicMissing.join(", ") || "nessuno"}`,
+      "Risolvi con: pnpm content:migrate:sherdan",
+    ].join("\n"),
+  );
+}
+
+function readSherdanSourcesFrom(sourceDir: string): SherdanSources {
   return {
-    npc: readFileSync(path.join(publicDir, "NPC.md"), "utf8"),
-    factions: readFileSync(path.join(publicDir, "Fazioni.md"), "utf8"),
-    lore: readFileSync(path.join(publicDir, "Lore.md"), "utf8"),
-    campaign: readFileSync(path.join(publicDir, "Campagna.md"), "utf8"),
+    npc: readFileSync(path.join(sourceDir, "NPC.md"), "utf8"),
+    factions: readFileSync(path.join(sourceDir, "Fazioni.md"), "utf8"),
+    lore: readFileSync(path.join(sourceDir, "Lore.md"), "utf8"),
+    campaign: readFileSync(path.join(sourceDir, "Campagna.md"), "utf8"),
     backgrounds: readFileSync(
-      path.join(publicDir, "Background Personaggi.md"),
+      path.join(sourceDir, "Background Personaggi.md"),
       "utf8",
     ),
     playerManual: readFileSync(
-      path.join(publicDir, "Manuale del Giocatore.md"),
+      path.join(sourceDir, "Manuale del Giocatore.md"),
       "utf8",
     ),
+    sourceDir: path.relative(process.cwd(), sourceDir) || ".",
   };
 }
 
-async function ensureSherdanCampaign(db: Db, stats: ImportStats): Promise<string> {
+function hasAllSherdanSources(sourceDir: string): boolean {
+  return SHERDAN_SOURCE_FILES.every((file) =>
+    existsSync(path.join(sourceDir, file)),
+  );
+}
+
+function missingSherdanSources(sourceDir: string): string[] {
+  return SHERDAN_SOURCE_FILES.filter(
+    (file) => !existsSync(path.join(sourceDir, file)),
+  );
+}
+
+async function ensureSherdanCampaign(
+  db: Db,
+  stats: ImportStats,
+  sourceDir: string,
+): Promise<string> {
   const existing = await db
     .select({ id: schema.campaigns.id })
     .from(schema.campaigns)
@@ -197,7 +271,7 @@ async function ensureSherdanCampaign(db: Db, stats: ImportStats): Promise<string
     language: "it",
     tone: "dark fantasy con tratti grimdark",
     bootstrap: {
-      source: "public/*.md",
+      source: `${sourceDir}/*.md`,
       importer: "scripts/bootstrap-sherdan.ts",
     },
   };
@@ -207,7 +281,7 @@ async function ensureSherdanCampaign(db: Db, stats: ImportStats): Promise<string
       .update(schema.campaigns)
       .set({
         description:
-          "Campagna principale Sherdan, popolata dai sorgenti markdown in public/ tramite bootstrap idempotente.",
+          "Campagna principale Sherdan, popolata dai sorgenti markdown privati tramite bootstrap idempotente.",
         settings,
       })
       .where(eq(schema.campaigns.id, existing[0].id));
@@ -220,7 +294,7 @@ async function ensureSherdanCampaign(db: Db, stats: ImportStats): Promise<string
     .values({
       name: SHERDAN_NAME,
       description:
-        "Campagna principale Sherdan, popolata dai sorgenti markdown in public/ tramite bootstrap idempotente.",
+        "Campagna principale Sherdan, popolata dai sorgenti markdown privati tramite bootstrap idempotente.",
       settings,
     })
     .returning({ id: schema.campaigns.id });
