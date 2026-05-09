@@ -567,7 +567,8 @@ Dimensione temporale: sessioni con recap, plot threads con doppio arco (percepit
   - _Note implementative: estesa `GET /api/plot-threads` con status filter, paginazione e colonne complete del doppio arco; aggiunto `POST /api/plot-threads` e route `/api/plot-threads/[id]` con GET/PATCH/DELETE. La validazione Zod separa esplicitamente `description` (verita' GM) e `publicDescription` (versione percepita), con status/priority/visibility. Test unitari coprono create, update, filtri e normalizzazione text._
 - [x] PlotThreadEntity: assegna ruoli (instigator, victim, target, mcguffin, witness)
   - _Note implementative: aggiunte API `GET/POST /api/plot-thread-entities` e `GET/PATCH/DELETE /api/plot-thread-entities/[id]` per collegare entity ai plot thread con enum `plotRole`. La create valida che plot thread ed entity appartengano alla stessa campagna prima di inserire la relazione; gli update permettono role/notes. Test unitari coprono vocabolario ruoli, query list, update e normalizzazione note._
-- [ ] PlotThreadEvent: timeline con event_type
+- [x] PlotThreadEvent: timeline con event_type
+  - _Note implementative: aggiunte API `GET/POST /api/plot-thread-events` e `GET/PATCH/DELETE /api/plot-thread-events/[id]` per una timeline ordinata per `occurredAt`, filtrabile per plot thread o sessione. Gli eventi hanno `eventType`, `description` GM, `publicDescription` opzionale, `sessionId` opzionale e validazione che sessione e thread appartengano alla stessa campagna. Test unitari coprono create/update/list, date coercion e normalizzazione descrizioni pubbliche._
 - [ ] **Visualizzazione "split-screen"**: per ogni thread, due colonne sincronizzate temporalmente — ciò che il party crede stia succedendo vs ciò che sta realmente succedendo. Vedi a colpo d'occhio la divergenza/convergenza.
 - [ ] Stale alerts: thread "hot" senza eventi da N sessioni → suggerisce demote a "warm" o "cold"
 
