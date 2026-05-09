@@ -557,7 +557,8 @@ Dimensione temporale: sessioni con recap, plot threads con doppio arco (percepit
   - _Note implementative: aggiunto `SessionRecapEditor` nella pagina campagna con textarea Markdown per il recap, selector sessione e preview delle entity riconosciute dai wikilink. `POST /api/sessions` e `PATCH /api/sessions/[id]` sincronizzano automaticamente i wikilink del recap in `session_entities` con `role='mentioned'`; la sync cancella e ricrea solo le righe auto-generate (`notes='auto:recap-wikilink'`) per non toccare futuri collegamenti manuali. Test unitari coprono parsing wikilink, alias `[[Nome|label]]`, deduplica e risoluzione entity._
 - [x] **Recap split**: campo `recap` (cosa è successo in fiction) e `dm_notes` (interpretazioni `🔒`, retcon, intuizioni private). Editor a due colonne.
   - _Note implementative: `SessionRecapEditor` ora carica e salva separatamente `recap` e `dmNotes` via `PATCH /api/sessions/[id]`, con layout a due colonne nella pagina campagna. L'auto-detect delle entity resta legato solo al campo `recap`, cosi' le note private del DM non generano menzioni pubbliche/di fiction. Test unitario copre la separazione dei campi nel payload di update._
-- [ ] Pre-session "prep notes" separati dal recap
+- [x] Pre-session "prep notes" separati dal recap
+  - _Note implementative: `SessionRecapEditor` ora carica e salva anche `prepNotes` come textarea separata da `recap` e `dmNotes`, usando lo stesso `PATCH /api/sessions/[id]`. Le prep notes restano fuori dall'auto-detect wikilink del recap e sono coperte dal test di validazione dei campi sessione separati._
 - [ ] "Previously on..." generator: LLM riassume recap precedente in stile cinematografico per giocatori — **usa solo il `recap`, mai i `dm_notes`**
 
 **Plot Threads (doppio arco)**

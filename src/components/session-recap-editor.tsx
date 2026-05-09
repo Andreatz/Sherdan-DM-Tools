@@ -14,6 +14,7 @@ interface SessionRecapRow {
   date: string | null;
   recap: string | null;
   dmNotes: string | null;
+  prepNotes: string | null;
 }
 
 interface EntityName {
@@ -37,11 +38,16 @@ export function SessionRecapEditor({
     () =>
       new Map(sessions.map((session) => [session.id, session.dmNotes ?? ""])),
   );
+  const [prepNotes, setPrepNotes] = useState(
+    () =>
+      new Map(sessions.map((session) => [session.id, session.prepNotes ?? ""])),
+  );
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   const currentRecap = selectedId ? (recaps.get(selectedId) ?? "") : "";
   const currentDmNotes = selectedId ? (dmNotes.get(selectedId) ?? "") : "";
+  const currentPrepNotes = selectedId ? (prepNotes.get(selectedId) ?? "") : "";
   const mentionedEntities = useMemo(() => {
     const wikilinks = parseRecapWikilinkNames(currentRecap);
     return resolveRecapMentionEntities(wikilinks, entityNames);
@@ -65,6 +71,15 @@ export function SessionRecapEditor({
     setStatus(null);
   }
 
+  function updatePrepNotes(value: string) {
+    setPrepNotes((current) => {
+      const next = new Map(current);
+      next.set(selectedId, value);
+      return next;
+    });
+    setStatus(null);
+  }
+
   async function saveSessionNotes() {
     if (!selectedId) return;
     setSaving(true);
@@ -76,6 +91,7 @@ export function SessionRecapEditor({
         body: JSON.stringify({
           recap: currentRecap || null,
           dmNotes: currentDmNotes || null,
+          prepNotes: currentPrepNotes || null,
         }),
       });
       if (!response.ok) {
@@ -202,6 +218,19 @@ export function SessionRecapEditor({
               />
             </label>
           </div>
+
+          <label className="grid gap-2">
+            <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+              Prep notes
+            </span>
+            <textarea
+              value={currentPrepNotes}
+              onChange={(event) => updatePrepNotes(event.target.value)}
+              rows={8}
+              placeholder="Scene, agenda, domande aperte"
+              className="min-h-48 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm leading-6 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+            />
+          </label>
         </div>
       )}
     </section>

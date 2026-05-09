@@ -59,15 +59,17 @@ describe("session input validation", () => {
     expect(normalizeSessionText("   ")).toBeNull();
   });
 
-  it("keeps recap and DM notes as separate patch fields", () => {
+  it("keeps recap, DM notes and prep notes as separate patch fields", () => {
     const patch = updateSessionInputSchema.parse({
       recap: "Cosa hanno visto i giocatori.",
       dmNotes: "Cosa sta succedendo davvero.",
+      prepNotes: "Cosa preparare prima della prossima sessione.",
     });
 
     expect(patch).toEqual({
       recap: "Cosa hanno visto i giocatori.",
       dmNotes: "Cosa sta succedendo davvero.",
+      prepNotes: "Cosa preparare prima della prossima sessione.",
     });
   });
 });
