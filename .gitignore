@@ -34,6 +34,12 @@ yarn-error.log*
 .env*
 !.env.example
 
+# Sherdan raw campaign sources contain GM-only secrets.
+# Keep the directory structure and docs, but do not commit local campaign markdown.
+/content/sherdan/*.md
+!/content/sherdan/README.md
+!/content/sherdan/.gitkeep
+
 # export di conversazioni Claude Code (puo' contenere API key, prompt
 # privati, lore della campagna). Mai committare.
 conversation-export*.md
