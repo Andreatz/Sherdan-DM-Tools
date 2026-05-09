@@ -7,6 +7,12 @@ interface AccessStatus {
   authenticated: boolean;
 }
 
+interface PlayerCampaign {
+  id: string;
+  name: string;
+  updatedAt: string | null;
+}
+
 interface PlayerEntity {
   id: string;
   campaignId: string;
@@ -30,11 +36,13 @@ const fallbackMessage = "Operazione non riuscita.";
 export function PlayerDashboardShell() {
   const [status, setStatus] = useState<AccessStatus | null>(null);
   const [code, setCode] = useState("");
+  const [campaigns, setCampaigns] = useState<PlayerCampaign[]>([]);
   const [campaignId, setCampaignId] = useState("");
   const [entities, setEntities] = useState<PlayerEntity[]>([]);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [campaignLoading, setCampaignLoading] = useState(false);
   const [entityLoading, setEntityLoading] = useState(false);
 
   const canLoadEntities = useMemo(
@@ -45,6 +53,10 @@ export function PlayerDashboardShell() {
   useEffect(() => {
     void refreshStatus();
   }, []);
+
+  useEffect(() => {
+    if (status?.authenticated) void loadCampaigns();
+  }, [status?.authenticated]);
 
   async function refreshStatus() {
     setLoading(true);
@@ -90,6 +102,8 @@ export function PlayerDashboardShell() {
     try {
       const res = await fetch("/api/player/access/logout", { method: "POST" });
       if (!res.ok) throw new Error(await readApiError(res));
+      setCampaigns([]);
+      setCampaignId("");
       setEntities([]);
       setMessage("Accesso player chiuso.");
       await refreshStatus();
@@ -100,10 +114,27 @@ export function PlayerDashboardShell() {
     }
   }
 
+  async function loadCampaigns() {
+    setCampaignLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/player/campaigns", { cache: "no-store" });
+      if (!res.ok) throw new Error(await readApiError(res));
+
+      const data = (await res.json()) as PlayerCampaign[];
+      setCampaigns(data);
+      setCampaignId((current) => current || data[0]?.id || "");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : fallbackMessage);
+    } finally {
+      setCampaignLoading(false);
+    }
+  }
+
   async function loadEntities(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     if (!campaignId.trim()) {
-      setMessage("Inserisci un campaign_id valido prima di caricare la dashboard.");
+      setMessage("Seleziona una campagna prima di caricare la dashboard.");
       return;
     }
 
@@ -196,16 +227,29 @@ export function PlayerDashboardShell() {
             Entità conosciute
           </h2>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Inserisci il campaign_id della campagna. La lista mostra solo entità public/discovered.
+            Seleziona una campagna. La lista mostra solo entità public/discovered.
           </p>
 
           <form onSubmit={(event) => void loadEntities(event)} className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
-            <input
+            <select
               value={campaignId}
-              onChange={(event) => setCampaignId(event.target.value)}
-              placeholder="campaign_id"
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
-            />
+              onChange={(event) => {
+                setCampaignId(event.target.value);
+                setEntities([]);
+              }}
+              disabled={campaignLoading || campaigns.length === 0}
+              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+            >
+              {campaigns.length === 0 ? (
+                <option value="">Nessuna campagna disponibile</option>
+              ) : (
+                campaigns.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                  </option>
+                ))
+              )}
+            </select>
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
