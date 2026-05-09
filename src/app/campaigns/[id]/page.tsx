@@ -21,6 +21,7 @@ import { EntityGraphView } from "@/components/entity-graph-view";
 import { EntitySecretManager } from "@/components/entity-secret-manager";
 import { EntityTagEditor } from "@/components/entity-tag-editor";
 import { PcHookMatrix } from "@/components/pc-hook-matrix";
+import { SessionRecapEditor } from "@/components/session-recap-editor";
 import { WikiMarkdownEditor } from "@/components/wiki-markdown-editor";
 
 const log = getLogger("page.campaign-detail");
@@ -134,6 +135,7 @@ interface CampaignSessionOption {
   number: number;
   title: string | null;
   date: string | null;
+  recap: string | null;
 }
 
 interface EntityDetailData {
@@ -316,6 +318,7 @@ async function fetchCampaignSessionOptions(
       number: sessions.number,
       title: sessions.title,
       date: sessions.date,
+      recap: sessions.recap,
     })
     .from(sessions)
     .where(eq(sessions.campaignId, campaignId))
@@ -541,7 +544,10 @@ export default async function CampaignDetailPage({
         sessions={campaignSessions}
         pcHooks={campaignPcHooks}
       />
-      <PlaceholderSection title="Sessioni" comingIn="Fase 6" />
+      <SessionRecapEditor
+        sessions={campaignSessions}
+        entityNames={campaignEntityNames}
+      />
       <PlaceholderSection title="Plot Threads" comingIn="Fase 6" />
       <PlaceholderSection title="Briciole di Verita'" comingIn="Fase 6" />
     </div>

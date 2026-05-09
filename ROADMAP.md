@@ -553,7 +553,8 @@ Dimensione temporale: sessioni con recap, plot threads con doppio arco (percepit
 **Sessions**
 - [x] CRUD sessions con auto-numerazione
   - _Note implementative: estesa `GET /api/sessions` con paginazione e `include_notes`; aggiunto `POST /api/sessions` che calcola automaticamente `number = max(number)+1` per campagna in transazione e salva title/date/recap/dm_notes/prep_notes. Aggiunta route `/api/sessions/[id]` con GET/PATCH/DELETE, validazione Zod dedicata in `src/lib/validation/session-input.ts` e test unitari su input, date e divieto di numbering manuale._
-- [ ] Recap markdown editor con auto-detect entità menzionate (parsing wikilinks → SessionEntity)
+- [x] Recap markdown editor con auto-detect entità menzionate (parsing wikilinks → SessionEntity)
+  - _Note implementative: aggiunto `SessionRecapEditor` nella pagina campagna con textarea Markdown per il recap, selector sessione e preview delle entity riconosciute dai wikilink. `POST /api/sessions` e `PATCH /api/sessions/[id]` sincronizzano automaticamente i wikilink del recap in `session_entities` con `role='mentioned'`; la sync cancella e ricrea solo le righe auto-generate (`notes='auto:recap-wikilink'`) per non toccare futuri collegamenti manuali. Test unitari coprono parsing wikilink, alias `[[Nome|label]]`, deduplica e risoluzione entity._
 - [ ] **Recap split**: campo `recap` (cosa è successo in fiction) e `dm_notes` (interpretazioni `🔒`, retcon, intuizioni private). Editor a due colonne.
 - [ ] Pre-session "prep notes" separati dal recap
 - [ ] "Previously on..." generator: LLM riassume recap precedente in stile cinematografico per giocatori — **usa solo il `recap`, mai i `dm_notes`**

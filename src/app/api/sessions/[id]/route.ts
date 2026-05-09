@@ -6,6 +6,7 @@ import { db } from "@/db/client";
 import { sessions } from "@/db/schema";
 import { BadRequestError, NotFoundError } from "@/lib/api/errors";
 import { fail, noContent, ok } from "@/lib/api/respond";
+import { syncSessionRecapMentionEntities } from "@/lib/sessions/session-mentions";
 import {
   normalizeSessionText,
   updateSessionInputSchema,
@@ -78,6 +79,13 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       .returning(sessionDetailColumns);
 
     if (!row) throw new NotFoundError("session", id);
+    if (input.recap !== undefined) {
+      await syncSessionRecapMentionEntities({
+        campaignId: row.campaignId,
+        sessionId: row.id,
+        recap: row.recap,
+      });
+    }
     return ok(row);
   } catch (err) {
     return fail(err);

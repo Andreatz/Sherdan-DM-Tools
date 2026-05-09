@@ -4,6 +4,7 @@ import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { sessions } from "@/db/schema";
 import { created, fail, ok } from "@/lib/api/respond";
+import { syncSessionRecapMentionEntities } from "@/lib/sessions/session-mentions";
 import {
   createSessionInputSchema,
   listSessionsQuerySchema,
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as unknown;
     const input = createSessionInputSchema.parse(body);
 
-    const [row] = await db.transaction(async (tx) => {
+    const row = await db.transaction(async (tx) => {
       const [next] = await tx
         .select({
           number: sql<number>`coalesce(max(${sessions.number}), 0) + 1`,
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
         .from(sessions)
         .where(eq(sessions.campaignId, input.campaignId));
 
-      return tx
+      const [session] = await tx
         .insert(sessions)
         .values({
           campaignId: input.campaignId,
@@ -73,7 +74,17 @@ export async function POST(req: NextRequest) {
           prepNotes: normalizeSessionText(input.prepNotes),
         })
         .returning(sessionDetailColumns);
+
+      return session;
     });
+
+    if (row) {
+      await syncSessionRecapMentionEntities({
+        campaignId: row.campaignId,
+        sessionId: row.id,
+        recap: row.recap,
+      });
+    }
 
     return created(row);
   } catch (err) {
