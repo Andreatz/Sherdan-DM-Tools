@@ -16,15 +16,30 @@ jobs:
   validate:
     name: lint + typecheck + test + build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: ci
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     # Var minime per soddisfare la validazione Zod in src/lib/env.ts.
-    # Niente Postgres in CI: i test attuali sono unit (Zod schemas), e
-    # /campaigns e' force-dynamic quindi non viene prerendered al build.
-    # `LLM_PROVIDER=ollama` evita il check su GOOGLE_AI_API_KEY.
+    # `LLM_PROVIDER=ollama` evita il check su GOOGLE_AI_API_KEY: i test CI
+    # non chiamano il provider LLM remoto.
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       LLM_PROVIDER: ollama
+      NODE_ENV: test
 
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +60,12 @@ jobs:
 
       - name: env:check (sync .env.example <-> Zod schema)
         run: pnpm env:check
+
+      - name: Migrate database
+        run: pnpm db:migrate
+
+      - name: Ping database
+        run: pnpm db:ping
 
       - name: Lint
         run: pnpm lint
