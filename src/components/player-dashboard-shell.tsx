@@ -13,6 +13,16 @@ interface PlayerCampaign {
   updatedAt: string | null;
 }
 
+interface PlayerSessionRecap {
+  id: string;
+  campaignId: string;
+  number: number;
+  title: string;
+  date: string | null;
+  recap: string;
+  updatedAt: string | null;
+}
+
 interface PlayerEntity {
   id: string;
   campaignId: string;
@@ -38,11 +48,13 @@ export function PlayerDashboardShell() {
   const [code, setCode] = useState("");
   const [campaigns, setCampaigns] = useState<PlayerCampaign[]>([]);
   const [campaignId, setCampaignId] = useState("");
+  const [recaps, setRecaps] = useState<PlayerSessionRecap[]>([]);
   const [entities, setEntities] = useState<PlayerEntity[]>([]);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [campaignLoading, setCampaignLoading] = useState(false);
+  const [recapLoading, setRecapLoading] = useState(false);
   const [entityLoading, setEntityLoading] = useState(false);
 
   const canLoadEntities = useMemo(
@@ -57,6 +69,10 @@ export function PlayerDashboardShell() {
   useEffect(() => {
     if (status?.authenticated) void loadCampaigns();
   }, [status?.authenticated]);
+
+  useEffect(() => {
+    if (status?.authenticated && campaignId) void loadRecaps(campaignId);
+  }, [campaignId, status?.authenticated]);
 
   async function refreshStatus() {
     setLoading(true);
@@ -104,6 +120,7 @@ export function PlayerDashboardShell() {
       if (!res.ok) throw new Error(await readApiError(res));
       setCampaigns([]);
       setCampaignId("");
+      setRecaps([]);
       setEntities([]);
       setMessage("Accesso player chiuso.");
       await refreshStatus();
@@ -128,6 +145,25 @@ export function PlayerDashboardShell() {
       setMessage(err instanceof Error ? err.message : fallbackMessage);
     } finally {
       setCampaignLoading(false);
+    }
+  }
+
+  async function loadRecaps(selectedCampaignId: string) {
+    setRecapLoading(true);
+    setMessage(null);
+    try {
+      const params = new URLSearchParams({ campaign_id: selectedCampaignId, limit: "3" });
+      const res = await fetch(`/api/player/session-recaps?${params.toString()}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(await readApiError(res));
+
+      const data = (await res.json()) as PlayerSessionRecap[];
+      setRecaps(data);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : fallbackMessage);
+    } finally {
+      setRecapLoading(false);
     }
   }
 
@@ -222,23 +258,23 @@ export function PlayerDashboardShell() {
       </section>
 
       {status?.authenticated && (
-        <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-            Entità conosciute
-          </h2>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Seleziona una campagna. La lista mostra solo entità public/discovered.
-          </p>
-
-          <form onSubmit={(event) => void loadEntities(event)} className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+        <>
+          <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+              Campagna
+            </h2>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              Seleziona una campagna. Tutte le sezioni usano solo API player-safe.
+            </p>
             <select
               value={campaignId}
               onChange={(event) => {
                 setCampaignId(event.target.value);
+                setRecaps([]);
                 setEntities([]);
               }}
               disabled={campaignLoading || campaigns.length === 0}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+              className="mt-4 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
             >
               {campaigns.length === 0 ? (
                 <option value="">Nessuna campagna disponibile</option>
@@ -250,51 +286,113 @@ export function PlayerDashboardShell() {
                 ))
               )}
             </select>
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cerca per nome o descrizione pubblica"
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
-            />
-            <button
-              type="submit"
-              disabled={!canLoadEntities || entityLoading}
-              className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
-            >
-              Carica
-            </button>
-          </form>
+          </section>
 
-          <div className="mt-5 space-y-3">
-            {entities.length === 0 ? (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                Nessuna entità caricata.
-              </p>
-            ) : (
-              entities.map((entity) => (
-                <article
-                  key={entity.id}
-                  className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-zinc-950 dark:text-zinc-50">
-                      {entity.name}
-                    </h3>
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      {entity.type}
-                    </span>
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                      {entity.visibility}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-                    {entity.description || "Nessuna descrizione pubblica disponibile."}
-                  </p>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
+          <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                  Previously on Sherdan
+                </h2>
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                  Ultimi recap pubblici della campagna. Niente note GM o prep notes.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => campaignId && void loadRecaps(campaignId)}
+                disabled={!campaignId || recapLoading}
+                className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                Aggiorna
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {recaps.length === 0 ? (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Nessun recap pubblico disponibile.
+                </p>
+              ) : (
+                recaps.map((recap) => (
+                  <article
+                    key={recap.id}
+                    className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-zinc-950 dark:text-zinc-50">
+                        S{recap.number} — {recap.title}
+                      </h3>
+                      {recap.date && (
+                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          {recap.date}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+                      {recap.recap}
+                    </p>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+              Entità conosciute
+            </h2>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              La lista mostra solo entità public/discovered.
+            </p>
+
+            <form onSubmit={(event) => void loadEntities(event)} className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Cerca per nome o descrizione pubblica"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none transition focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+              />
+              <button
+                type="submit"
+                disabled={!canLoadEntities || entityLoading}
+                className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
+              >
+                Carica
+              </button>
+            </form>
+
+            <div className="mt-5 space-y-3">
+              {entities.length === 0 ? (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Nessuna entità caricata.
+                </p>
+              ) : (
+                entities.map((entity) => (
+                  <article
+                    key={entity.id}
+                    className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-zinc-950 dark:text-zinc-50">
+                        {entity.name}
+                      </h3>
+                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                        {entity.type}
+                      </span>
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                        {entity.visibility}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+                      {entity.description || "Nessuna descrizione pubblica disponibile."}
+                    </p>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+        </>
       )}
 
       {message && (
