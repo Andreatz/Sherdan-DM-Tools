@@ -60,7 +60,7 @@ const NAV: NavGroup[] = [
   },
   {
     title: "Tavolo",
-    items: [{ label: "Player Dashboard", status: "Bloccato" }],
+    items: [{ label: "Player Dashboard", href: "/player", status: "Beta" }],
   },
 ];
 
