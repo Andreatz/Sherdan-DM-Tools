@@ -511,7 +511,8 @@ Builder completo con browser mostri, math di bilanciamento, e LLM-assist per ide
   - _Note implementative: aggiunta API `GET /api/monsters` con query `campaign_id`, `search`, `cr_min/max`, `creature_type`, `environment`, `size`, paginazione e facets. Nuova pagina `/encounter-builder` con browser mostri SRD, filtri tattici, summary AC/HP/XP, speed/senses/languages, defenses e tag. Aggiornata sidebar per rendere attivo il tool Encounter. Test unitari coprono validazione query, conversione CR frazionari, filtri e facets._
 
 **Encounter logic**
-- [ ] CR calculator (DMG encounter difficulty: XP threshold per livello/dimensione party, multipliers per gruppo)
+- [x] CR calculator (DMG encounter difficulty: XP threshold per livello/dimensione party, multipliers per gruppo)
+  - _Note implementative: aggiunto `src/lib/encounters/cr-calculator.ts` con threshold XP DMG 5e 2014 per livello 1-20, party misti o da livello medio, multipliers per numero di mostri e adjustment per party piccoli/grandi. Espone `calculatePartyThresholds`, `encounterXpMultiplier`, `calculateEncounterDifficulty`, `classifyEncounterDifficulty` e `partyFromAverageLevel`. Test unitari coprono threshold ufficiali, multipliers, classificazione trivial/easy/medium/hard/deadly e input invalidi._
 - [ ] Suggester: input party_level/size/difficulty → composizioni candidate
 - [ ] Difficulty meter live mentre componi
 
