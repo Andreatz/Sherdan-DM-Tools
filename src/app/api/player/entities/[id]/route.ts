@@ -6,6 +6,7 @@ import { db } from "@/db/client";
 import { entities } from "@/db/schema";
 import { NotFoundError } from "@/lib/api/errors";
 import { fail, ok } from "@/lib/api/respond";
+import { requirePlayerAccess } from "@/lib/security/player-access";
 import { projectEntityForPlayer } from "@/lib/security/player-entities";
 
 const idParamSchema = z.object({ id: z.uuid() });
@@ -37,6 +38,8 @@ async function resolveId(ctx: RouteContext): Promise<string> {
 
 export async function GET(req: NextRequest, ctx: RouteContext) {
   try {
+    requirePlayerAccess(req);
+
     const id = await resolveId(ctx);
     const url = new URL(req.url);
     const q = detailQuerySchema.parse(
