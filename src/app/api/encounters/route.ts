@@ -8,6 +8,7 @@ import {
   encounters,
   entities,
   plotThreads,
+  sessions,
 } from "@/db/schema";
 import { AppError, BadRequestError } from "@/lib/api/errors";
 import { created, fail, ok } from "@/lib/api/respond";
@@ -65,6 +66,9 @@ export async function POST(req: NextRequest) {
     if (input.plotThreadId) {
       await assertPlotThread(input.campaignId, input.plotThreadId);
     }
+    if (input.usedInSession) {
+      await assertSession(input.campaignId, input.usedInSession);
+    }
     await assertParticipants(input.campaignId, input.participants);
 
     const saved = await db.transaction(async (tx) => {
@@ -80,6 +84,7 @@ export async function POST(req: NextRequest) {
           partyLevel: input.partyLevel ?? null,
           xpTotal: input.xpTotal ?? null,
           tacticalNotes: normalizeOptionalText(input.tacticalNotes),
+          usedInSession: input.usedInSession ?? null,
         })
         .returning(encounterListColumns);
 
@@ -150,6 +155,20 @@ async function assertPlotThread(campaignId: string, plotThreadId: string) {
   if (!thread) {
     throw new BadRequestError(
       "Il plot thread selezionato non esiste nella campagna.",
+    );
+  }
+}
+
+async function assertSession(campaignId: string, sessionId: string) {
+  const [session] = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(and(eq(sessions.id, sessionId), eq(sessions.campaignId, campaignId)))
+    .limit(1);
+
+  if (!session) {
+    throw new BadRequestError(
+      "La sessione selezionata non esiste nella campagna.",
     );
   }
 }

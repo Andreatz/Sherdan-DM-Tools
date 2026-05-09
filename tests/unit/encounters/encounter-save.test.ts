@@ -10,6 +10,7 @@ const campaignId = "11111111-1111-4111-8111-111111111111";
 const locationId = "22222222-2222-4222-8222-222222222222";
 const plotThreadId = "33333333-3333-4333-8333-333333333333";
 const monsterId = "44444444-4444-4444-8444-444444444444";
+const sessionId = "55555555-5555-4555-8555-555555555555";
 
 describe("saveEncounterInputSchema", () => {
   it("accepts a save payload with location and optional plot thread", () => {
@@ -19,6 +20,7 @@ describe("saveEncounterInputSchema", () => {
       description: "Agguato nel canale.",
       locationId,
       plotThreadId,
+      usedInSession: sessionId,
       difficulty: "medium",
       partyLevel: "5",
       xpTotal: "1400",
@@ -28,6 +30,7 @@ describe("saveEncounterInputSchema", () => {
 
     expect(parsed.partyLevel).toBe(5);
     expect(parsed.xpTotal).toBe(1400);
+    expect(parsed.usedInSession).toBe(sessionId);
     expect(parsed.participants).toEqual([{ entityId: monsterId, count: 2 }]);
   });
 

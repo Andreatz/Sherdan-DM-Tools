@@ -495,7 +495,7 @@ Generi loot per un encounter, gli items hanno descrizioni narrative coerenti con
 
 ---
 
-## Fase 5 — Encounter Builder
+## Fase 5 — Encounter Builder ✅ (completata 2026-05-09)
 
 **Durata**: 10-14 giorni · **Tool sbloccato**: ✅ Encounter Builder
 
@@ -533,7 +533,8 @@ Builder completo con browser mostri, math di bilanciamento, e LLM-assist per ide
   - _Note implementative: aggiunto `TacticalNotesEditor` nella pagina `/encounter-builder`, textarea Markdown editabile con pulsante svuota. Quando l'assist LLM genera un encounter, `formatEncounterTacticalNotes` trasforma title/concept/composizione/difficulty/tactical notes/hook narrativi in Markdown e precompila l'editor. Test unitario copre il formatting Markdown._
 - [x] Save con location_id link e plot_thread_id opzionale
   - _Note implementative: aggiunto `POST /api/encounters` con validazione Zod, controllo che `locationId` punti a una entity `location` della campagna, `plotThreadId` opzionale coerente con la campagna e partecipanti monster. La pagina `/encounter-builder` ora carica location e plot thread, salva titolo/descrizione/difficulty/party level/XP/tactical notes/partecipanti e mostra un link diretto alla location selezionata. Aggiunto `GET /api/plot-threads` minimale per alimentare il selector e test unitari sul payload di salvataggio._
-- [ ] "Used in session" toggle
+- [x] "Used in session" toggle
+  - _Note implementative: esteso il salvataggio encounter con `usedInSession` opzionale e validazione che la sessione appartenga alla stessa campagna. La pagina `/encounter-builder` carica le sessioni via `GET /api/sessions`, mostra un checkbox "Used in session" e abilita il selector sessione solo quando il toggle e' attivo. Il payload viene coperto dal test unitario di salvataggio._
 
 ### Definition of done
 Componi un encounter, vedi difficulty live, generi tactical notes, lo associ a una location, lo marchi come "usato" in una sessione.

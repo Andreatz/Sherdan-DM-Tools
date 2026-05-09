@@ -14,6 +14,7 @@ export const saveEncounterInputSchema = z
     description: z.string().trim().nullable().optional(),
     locationId: z.uuid(),
     plotThreadId: z.uuid().nullable().optional(),
+    usedInSession: z.uuid().nullable().optional(),
     difficulty: z
       .enum(storableEncounterDifficultyOptions)
       .nullable()

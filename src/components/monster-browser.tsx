@@ -70,6 +70,14 @@ interface PlotThreadRow {
   priority: number | null;
 }
 
+interface SessionRow {
+  id: string;
+  campaignId: string;
+  number: number;
+  title: string | null;
+  date: string | null;
+}
+
 interface MonsterBrowserResponse {
   rows: MonsterBrowserRecord[];
   total: number;
@@ -122,6 +130,8 @@ interface SaveDraft {
   description: string;
   locationId: string;
   plotThreadId: string;
+  usedInSession: boolean;
+  sessionId: string;
 }
 
 const EMPTY_FILTERS: FilterState = {
@@ -149,6 +159,8 @@ const EMPTY_SAVE_DRAFT: SaveDraft = {
   description: "",
   locationId: "",
   plotThreadId: "",
+  usedInSession: false,
+  sessionId: "",
 };
 
 const ENCOUNTER_DIFFICULTY_OPTIONS: EncounterSuggesterDifficulty[] = [
@@ -162,6 +174,7 @@ export function MonsterBrowser() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [plotThreads, setPlotThreads] = useState<PlotThreadRow[]>([]);
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [suggestionDraft, setSuggestionDraft] = useState<SuggestionDraft>(
     EMPTY_SUGGESTION_DRAFT,
@@ -180,6 +193,7 @@ export function MonsterBrowser() {
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [loadingPlotThreads, setLoadingPlotThreads] = useState(false);
+  const [loadingSessions, setLoadingSessions] = useState(false);
   const [loadingMonsters, setLoadingMonsters] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [assisting, setAssisting] = useState(false);
@@ -253,6 +267,46 @@ export function MonsterBrowser() {
     }
 
     void loadLocations();
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.campaignId]);
+
+  useEffect(() => {
+    if (!filters.campaignId) return;
+    let cancelled = false;
+
+    async function loadSessions() {
+      setLoadingSessions(true);
+      setSaveError(null);
+      try {
+        const params = new URLSearchParams({
+          campaign_id: filters.campaignId,
+        });
+        const rows = await apiFetch<SessionRow[]>(
+          `/api/sessions?${params.toString()}`,
+        );
+        if (cancelled) return;
+        setSessions(rows);
+        setSaveDraft((current) => {
+          const currentStillValid = rows.some(
+            (session) => session.id === current.sessionId,
+          );
+          return {
+            ...current,
+            sessionId: currentStillValid
+              ? current.sessionId
+              : (rows.at(-1)?.id ?? ""),
+          };
+        });
+      } catch (err) {
+        if (!cancelled) setSaveError(messageForError(err));
+      } finally {
+        if (!cancelled) setLoadingSessions(false);
+      }
+    }
+
+    void loadSessions();
     return () => {
       cancelled = true;
     };
@@ -472,6 +526,10 @@ export function MonsterBrowser() {
       setSaveError("Dai un titolo all'encounter prima di salvarlo.");
       return;
     }
+    if (saveDraft.usedInSession && !saveDraft.sessionId) {
+      setSaveError("Seleziona la sessione in cui l'encounter e' stato usato.");
+      return;
+    }
 
     const partyLevel = Number.parseInt(suggestionDraft.partyLevel, 10);
     setSavingEncounter(true);
@@ -486,6 +544,9 @@ export function MonsterBrowser() {
             description: saveDraft.description || null,
             locationId: saveDraft.locationId,
             plotThreadId: saveDraft.plotThreadId || null,
+            usedInSession: saveDraft.usedInSession
+              ? saveDraft.sessionId
+              : null,
             difficulty: storableDifficulty(liveDifficulty?.difficulty),
             partyLevel: Number.isInteger(partyLevel) ? partyLevel : null,
             xpTotal: liveDifficulty?.baseXp ?? null,
@@ -735,16 +796,19 @@ export function MonsterBrowser() {
         draft={saveDraft}
         locations={locations}
         plotThreads={plotThreads}
+        sessions={sessions}
         selectedLocation={selectedLocation}
         loadingLocations={loadingLocations}
         loadingPlotThreads={loadingPlotThreads}
+        loadingSessions={loadingSessions}
         saving={savingEncounter}
         saveError={saveError}
         savedEncounter={savedEncounter}
         canSave={
           draft.length > 0 &&
           Boolean(saveDraft.title.trim()) &&
-          Boolean(saveDraft.locationId)
+          Boolean(saveDraft.locationId) &&
+          (!saveDraft.usedInSession || Boolean(saveDraft.sessionId))
         }
         onChange={updateSaveDraft}
         onSave={saveEncounter}
@@ -855,9 +919,11 @@ function EncounterSavePanel({
   draft,
   locations,
   plotThreads,
+  sessions,
   selectedLocation,
   loadingLocations,
   loadingPlotThreads,
+  loadingSessions,
   saving,
   saveError,
   savedEncounter,
@@ -869,9 +935,11 @@ function EncounterSavePanel({
   draft: SaveDraft;
   locations: LocationRow[];
   plotThreads: PlotThreadRow[];
+  sessions: SessionRow[];
   selectedLocation: LocationRow | undefined;
   loadingLocations: boolean;
   loadingPlotThreads: boolean;
+  loadingSessions: boolean;
   saving: boolean;
   saveError: string | null;
   savedEncounter: SavedEncounterResponse["encounter"] | null;
@@ -969,6 +1037,38 @@ function EncounterSavePanel({
             className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
           />
         </label>
+      </div>
+
+      <div className="mt-4 grid gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+        <label className="flex items-center gap-3 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+          <input
+            type="checkbox"
+            checked={draft.usedInSession}
+            onChange={(event) =>
+              onChange("usedInSession", event.target.checked)
+            }
+            disabled={loadingSessions || sessions.length === 0}
+            className="h-4 w-4 rounded border-zinc-300"
+          />
+          Used in session
+        </label>
+        <select
+          value={draft.sessionId}
+          onChange={(event) => onChange("sessionId", event.target.value)}
+          disabled={
+            loadingSessions || sessions.length === 0 || !draft.usedInSession
+          }
+          className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+        >
+          <option value="">
+            {loadingSessions ? "Carico sessioni..." : "Nessuna sessione"}
+          </option>
+          {sessions.map((session) => (
+            <option key={session.id} value={session.id}>
+              {sessionLabel(session)}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
@@ -1455,6 +1555,10 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
 
 function messageForError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function sessionLabel(session: SessionRow) {
+  return `Sessione ${session.number}${session.title ? ` - ${session.title}` : ""}`;
 }
 
 function storableDifficulty(value: string | undefined) {
