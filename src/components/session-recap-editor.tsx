@@ -43,7 +43,9 @@ export function SessionRecapEditor({
       new Map(sessions.map((session) => [session.id, session.prepNotes ?? ""])),
   );
   const [saving, setSaving] = useState(false);
+  const [generatingPreviouslyOn, setGeneratingPreviouslyOn] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [previouslyOn, setPreviouslyOn] = useState("");
 
   const currentRecap = selectedId ? (recaps.get(selectedId) ?? "") : "";
   const currentDmNotes = selectedId ? (dmNotes.get(selectedId) ?? "") : "";
@@ -60,6 +62,7 @@ export function SessionRecapEditor({
       return next;
     });
     setStatus(null);
+    setPreviouslyOn("");
   }
 
   function updateDmNotes(value: string) {
@@ -114,6 +117,38 @@ export function SessionRecapEditor({
     }
   }
 
+  async function generatePreviouslyOn() {
+    if (!selectedId) return;
+    setGeneratingPreviouslyOn(true);
+    setStatus(null);
+    try {
+      const response = await fetch("/api/sessions/previously-on", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: selectedId }),
+      });
+      if (!response.ok) {
+        let message = `HTTP ${response.status}`;
+        try {
+          const body = (await response.json()) as {
+            error?: { message?: string };
+          };
+          message = body.error?.message ?? message;
+        } catch {
+          // Response not JSON.
+        }
+        throw new Error(message);
+      }
+      const body = (await response.json()) as { previously_on: string };
+      setPreviouslyOn(body.previously_on);
+      setStatus("Previously on generato");
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGeneratingPreviouslyOn(false);
+    }
+  }
+
   return (
     <section className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -123,14 +158,24 @@ export function SessionRecapEditor({
             Cronaca giocabile della campagna.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={saveSessionNotes}
-          disabled={saving || !selectedId}
-          className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200"
-        >
-          {saving ? "Salvo..." : "Salva sessione"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={generatePreviouslyOn}
+            disabled={generatingPreviouslyOn || !selectedId}
+            className="h-10 rounded-md border border-zinc-300 px-4 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            {generatingPreviouslyOn ? "Genero..." : "Previously on"}
+          </button>
+          <button
+            type="button"
+            onClick={saveSessionNotes}
+            disabled={saving || !selectedId}
+            className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200"
+          >
+            {saving ? "Salvo..." : "Salva sessione"}
+          </button>
+        </div>
       </div>
 
       {sessions.length === 0 ? (
@@ -149,6 +194,7 @@ export function SessionRecapEditor({
                 onChange={(event) => {
                   setSelectedId(event.target.value);
                   setStatus(null);
+                  setPreviouslyOn("");
                 }}
                 className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
               >
@@ -231,6 +277,20 @@ export function SessionRecapEditor({
               className="min-h-48 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm leading-6 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
             />
           </label>
+
+          {previouslyOn ? (
+            <label className="grid gap-2">
+              <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                Previously on
+              </span>
+              <textarea
+                value={previouslyOn}
+                onChange={(event) => setPreviouslyOn(event.target.value)}
+                rows={6}
+                className="min-h-40 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm leading-6 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+              />
+            </label>
+          ) : null}
         </div>
       )}
     </section>

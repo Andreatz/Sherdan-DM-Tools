@@ -559,7 +559,8 @@ Dimensione temporale: sessioni con recap, plot threads con doppio arco (percepit
   - _Note implementative: `SessionRecapEditor` ora carica e salva separatamente `recap` e `dmNotes` via `PATCH /api/sessions/[id]`, con layout a due colonne nella pagina campagna. L'auto-detect delle entity resta legato solo al campo `recap`, cosi' le note private del DM non generano menzioni pubbliche/di fiction. Test unitario copre la separazione dei campi nel payload di update._
 - [x] Pre-session "prep notes" separati dal recap
   - _Note implementative: `SessionRecapEditor` ora carica e salva anche `prepNotes` come textarea separata da `recap` e `dmNotes`, usando lo stesso `PATCH /api/sessions/[id]`. Le prep notes restano fuori dall'auto-detect wikilink del recap e sono coperte dal test di validazione dei campi sessione separati._
-- [ ] "Previously on..." generator: LLM riassume recap precedente in stile cinematografico per giocatori — **usa solo il `recap`, mai i `dm_notes`**
+- [x] "Previously on..." generator: LLM riassume recap precedente in stile cinematografico per giocatori — **usa solo il `recap`, mai i `dm_notes`**
+  - _Note implementative: aggiunto `POST /api/sessions/previously-on`, che carica solo `number/title/recap` della sessione selezionata e rifiuta sessioni senza recap salvato. `buildPreviouslyOnPrompt` istruisce il modello a usare esclusivamente il recap e lo schema Zod ritorna `{ previously_on }`. `SessionRecapEditor` espone un pulsante "Previously on" e un textarea modificabile per il risultato. Test unitari verificano schema e prompt, incluso che `dm_notes`/`prep_notes` non entrino nel prompt._
 
 **Plot Threads (doppio arco)**
 - [ ] CRUD plot_threads con `description` (verità GM) e `public_description` (versione percepita dal party)
