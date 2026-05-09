@@ -26,6 +26,14 @@ interface EncounterAssistOutput {
   concept: string;
   selectedCandidateIndex: number;
   selectedCandidate: EncounterCompositionSuggestion;
+  constraintReport: {
+    targetDifficulty: string | null;
+    selectedDifficulty: string;
+    adjustedXp: number;
+    baseXp: number;
+    multiplier: number;
+    respectsTarget: boolean;
+  };
   tacticalNotes: {
     terrain: string;
     opening: string;
@@ -588,8 +596,15 @@ function AssistPanel({ assist }: { assist: EncounterAssistOutput }) {
           </p>
         </div>
         <span className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
-          candidate {assist.selectedCandidateIndex}
+          candidate {assist.selectedCandidateIndex} -{" "}
+          {assist.constraintReport.selectedDifficulty}
         </span>
+      </div>
+
+      <div className="mt-4 rounded-md bg-zinc-50 p-3 text-sm text-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
+        Target {assist.constraintReport.targetDifficulty ?? "-"}; adjusted XP{" "}
+        {assist.constraintReport.adjustedXp} (base{" "}
+        {assist.constraintReport.baseXp}, x{assist.constraintReport.multiplier})
       </div>
 
       <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">

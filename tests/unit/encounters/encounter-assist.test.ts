@@ -56,12 +56,32 @@ describe("encounter assist", () => {
   it("composes LLM output with the selected math candidate", () => {
     const composed = composeEncounterAssistOutput(llmOutputFixture(), [
       candidateFixture(),
-    ]);
+    ], "medium");
 
     expect(composed.selectedCandidateIndex).toBe(0);
+    expect(composed.constraintReport).toMatchObject({
+      targetDifficulty: "medium",
+      selectedDifficulty: "medium",
+      adjustedXp: 2100,
+      respectsTarget: true,
+    });
     expect(composed.selectedCandidate.participants[0]?.monster.name).toBe(
       "Wight",
     );
+  });
+
+  it("falls back to a valid constrained candidate when the model chooses an invalid index", () => {
+    const composed = composeEncounterAssistOutput(
+      {
+        ...llmOutputFixture(),
+        selected_candidate_index: 99,
+      },
+      [candidateFixture()],
+      "medium",
+    );
+
+    expect(composed.selectedCandidateIndex).toBe(0);
+    expect(composed.constraintReport.respectsTarget).toBe(true);
   });
 });
 

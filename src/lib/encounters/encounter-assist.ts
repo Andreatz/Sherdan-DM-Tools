@@ -6,6 +6,7 @@ import type { GeneratorRunOptions } from "@/lib/generators";
 import {
   encounterSuggesterDifficultyOptions,
   type EncounterCompositionSuggestion,
+  type EncounterSuggesterDifficulty,
 } from "./encounter-suggester";
 
 export const encounterAssistInputSchema = z
@@ -50,6 +51,14 @@ export interface EncounterAssistOutput {
   concept: string;
   selectedCandidateIndex: number;
   selectedCandidate: EncounterCompositionSuggestion;
+  constraintReport: {
+    targetDifficulty: EncounterSuggesterDifficulty | null;
+    selectedDifficulty: string;
+    adjustedXp: number;
+    baseXp: number;
+    multiplier: number;
+    respectsTarget: boolean;
+  };
   tacticalNotes: EncounterAssistLLMOutput["tactical_notes"];
   variants: string[];
   gmNotes: string[];
@@ -96,32 +105,68 @@ export async function generateEncounterAssist(
     encounterAssistLLMOutputSchema,
     options,
   );
-  return composeEncounterAssistOutput(llmOutput, candidates);
+  return composeEncounterAssistOutput(llmOutput, candidates, request.difficulty);
 }
 
 export function composeEncounterAssistOutput(
   llmOutput: EncounterAssistLLMOutput,
   candidates: EncounterCompositionSuggestion[],
+  targetDifficulty: EncounterSuggesterDifficulty | null = null,
 ): EncounterAssistOutput {
-  const selectedCandidate =
-    candidates[llmOutput.selected_candidate_index] ?? candidates[0];
+  const selectedCandidate = selectConstrainedCandidate(
+    llmOutput.selected_candidate_index,
+    candidates,
+    targetDifficulty,
+  );
   if (!selectedCandidate) {
     throw new Error("Nessuna candidate encounter disponibile");
   }
+  const selectedCandidateIndex = candidates.indexOf(selectedCandidate);
 
   return {
     title: llmOutput.title,
     concept: llmOutput.concept,
-    selectedCandidateIndex:
-      candidates[llmOutput.selected_candidate_index] !== undefined
-        ? llmOutput.selected_candidate_index
-        : 0,
+    selectedCandidateIndex,
     selectedCandidate,
+    constraintReport: {
+      targetDifficulty,
+      selectedDifficulty: selectedCandidate.difficulty.difficulty,
+      adjustedXp: selectedCandidate.difficulty.adjustedXp,
+      baseXp: selectedCandidate.difficulty.baseXp,
+      multiplier: selectedCandidate.difficulty.multiplier,
+      respectsTarget:
+        targetDifficulty === null ||
+        selectedCandidate.difficulty.difficulty === targetDifficulty,
+    },
     tacticalNotes: llmOutput.tactical_notes,
     variants: llmOutput.variants,
     gmNotes: llmOutput.gm_notes,
     candidates,
   };
+}
+
+function selectConstrainedCandidate(
+  selectedIndex: number,
+  candidates: EncounterCompositionSuggestion[],
+  targetDifficulty: EncounterSuggesterDifficulty | null,
+): EncounterCompositionSuggestion | undefined {
+  const selected = candidates[selectedIndex];
+  if (
+    selected &&
+    (targetDifficulty === null ||
+      selected.difficulty.difficulty === targetDifficulty)
+  ) {
+    return selected;
+  }
+
+  if (targetDifficulty !== null) {
+    const matching = candidates.find(
+      (candidate) => candidate.difficulty.difficulty === targetDifficulty,
+    );
+    if (matching) return matching;
+  }
+
+  return candidates[0];
 }
 
 function renderEncounterAssistUserPrompt(

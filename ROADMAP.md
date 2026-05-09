@@ -521,7 +521,8 @@ Builder completo con browser mostri, math di bilanciamento, e LLM-assist per ide
 **LLM-assist**
 - [x] "Encounter di livello 5 in palude, tema corruzione" → composizione mostri + tactical notes
   - _Note implementative: aggiunto `src/lib/encounters/encounter-assist.ts` con input/schema output strutturato, prompt builder e composizione risultato. Nuova API `POST /api/encounters/assist`: calcola candidate valide dai mostri importati, passa al modello il brief DM e le candidate indicizzate, poi restituisce titolo, concept, candidate scelta e tactical notes (terrain/opening/tactics/escalation/retreat). La pagina `/encounter-builder` ora include un pannello "LLM assist"; la candidate scelta viene caricata nella bozza encounter. Test unitari coprono input, prompt, schema output e composizione._
-- [ ] Rispetta vincoli (CR target) usando il CR calculator come tool dell'agent
+- [x] Rispetta vincoli (CR target) usando il CR calculator come tool dell'agent
+  - _Note implementative: l'assist LLM non inventa la matematica: riceve solo candidate prodotte da `suggestEncounterCompositions`, che usa `calculateEncounterDifficulty` e i threshold DMG. `EncounterAssistOutput` ora include `constraintReport` con target difficulty, selected difficulty, base XP, adjusted XP e multiplier; se il modello sceglie un indice fuori range o non conforme, il composer ripiega su una candidate valida. La UI mostra il report vincoli nell'assist panel e i test coprono fallback e rispetto target._
 - [ ] **Include hook narrativi**: l'encounter può "essere usato come" rivelazione di una briciola di verità, complicazione di un plot thread, o aggancio per un PC specifico
 
 **UI**
