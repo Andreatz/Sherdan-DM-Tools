@@ -527,7 +527,8 @@ Builder completo con browser mostri, math di bilanciamento, e LLM-assist per ide
   - _Note implementative: `POST /api/encounters/assist` recupera un contesto narrativo leggero dalla campagna (plot threads recenti, truth clues non `understood`, PC hooks non `resolved`) e lo passa al prompt. Lo schema LLM ora include `narrative_hooks` con `truth_revelations`, `plot_complications` e `pc_hooks`; la UI li mostra nell'assist panel. Il prompt istruisce esplicitamente a trasformare verità e segreti in segni osservabili/complicazioni graduali, non rivelazioni brute. Test unitari coprono rendering del contesto e parsing degli hook narrativi._
 
 **UI**
-- [ ] Builder: cerca/aggiungi mostri, modifica count, mostra difficulty corrente
+- [x] Builder: cerca/aggiungi mostri, modifica count, mostra difficulty corrente
+  - _Note implementative: completato tramite la pagina `/encounter-builder`: il browser mostri espone search/filtri, ogni monster card ha `Aggiungi`, la sezione "Bozza encounter" permette di modificare count o svuotare la bozza, e il `DifficultyMeter` ricalcola live base XP, multiplier, adjusted XP e soglie DMG._
 - [ ] Tactical notes editor
 - [ ] Save con location_id link e plot_thread_id opzionale
 - [ ] "Used in session" toggle
