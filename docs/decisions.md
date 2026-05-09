@@ -290,3 +290,16 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - `vis-network` sarebbe più rapido per una vista pronta, ma meno flessibile quando serviranno filtri e affordance specifiche della campagna.
 
 **Scope intenzionale.** La prima versione mostra tutte le entity della campagna, link direzionali da `entity_links`, nodi colorati per `entity.type`, highlight dell'entity selezionata e toggle "solo links pubblici" basato su `entity_links.visibility = 'public'`. Zoom/pan, clustering e filtri avanzati restano futuri polish se serviranno.
+
+---
+
+## 2026-05-09 — Import SRD monsters da Open5e V2
+
+**Contesto.** Primo task Fase 5: importare mostri SRD come `entities type='monster'` con statblock JSONB completo.
+
+**Decisioni.**
+
+- **Fonte dati: Open5e API V2.** La documentazione Open5e indica V2 come versione corrente e V1 come deprecata. L'importer usa `/v2/creatures/` e filtra la source con `document__key__in`.
+- **Default document: `srd-2014`.** Il progetto usa math e tabelle DMG 2014 per i task encounter/loot già implementati; quindi la prima importazione resta coerente con il sistema 5e 2014. Lo script permette comunque `--document srd-2024` o altri documenti Open5e.
+- **Import per campagna.** `entities.campaign_id` è obbligatorio, quindi i mostri SRD vengono importati nella campagna scelta con `--campaign-id`. In futuro, se serviranno compendi globali riusabili tra campagne, sarà una migration/schema decision separata.
+- **Idempotenza via tag.** Non aggiungiamo una nuova colonna o unique constraint ora. Ogni mostro riceve tag `open5e:<key>` e lo script salta record già presenti nella stessa campagna.

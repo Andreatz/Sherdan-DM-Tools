@@ -505,7 +505,8 @@ Builder completo con browser mostri, math di bilanciamento, e LLM-assist per ide
 ### Task
 
 **Pre-requisiti**
-- [ ] Importer SRD monsters (open5e API o JSON dump) → entities type='monster' con statblock JSONB completo
+- [x] Importer SRD monsters (open5e API o JSON dump) → entities type='monster' con statblock JSONB completo
+  - _Note implementative: aggiunto mapper Open5e V2 in `src/lib/encounters/open5e-monsters.ts`, default su documento `srd-2014` filtrato con `document__key__in` (V2 corrente; V1 deprecata). Nuovo script `pnpm db:import:srd-monsters --campaign-id <uuid> [--document srd-2014] [--limit N] [--dry-run]`: importa creature come `entities.type='monster'`, valida `properties` con `monsterPropertiesSchema`, salva statblock completo in JSONB e usa tag `open5e:<key>` per saltare duplicati nella stessa campagna. Test unitari coprono URL V2, mapping statblock, CR frazionari e tag per i futuri filtri._
 - [ ] Browser mostri con filtri: CR range, type (umanoide/non morto/draconico…), environment, size
 
 **Encounter logic**
