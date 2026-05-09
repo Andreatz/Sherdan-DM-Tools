@@ -1,84 +1,70 @@
 # Sherdan DM Tools
 
-Local-first Dungeon Master toolkit for the Sherdan D&D 5e campaign.
+Toolkit locale per Dungeon Master dedicato alla campagna D&D 5e homebrew **Sherdan**.
 
-Sherdan DM Tools turns the campaign markdown archive into a structured, searchable and AI-assisted DM workspace. The app is single-user for now, optimized for local development, and calibrated on the real Sherdan dataset: layered secrets, propaganda vs GM truth, multiple identities, PC hooks, factions, sessions and plot threads.
+Sherdan DM Tools trasforma l'archivio markdown della campagna in uno spazio di lavoro strutturato: wiki, grafo entità, segreti stratificati, identità multiple, hook dei PG, sessioni, thread narrativi, tabelle casuali e generatori assistiti da LLM.
 
-The architecture is Sherdan-first, but the long-term goal is to make the same foundation reusable for other narrative-heavy D&D campaigns.
+Il progetto nasce Sherdan-first, ma l'architettura è pensata per poter diventare in futuro una base riusabile per campagne D&D/TTRPG narrative molto dense.
 
 ---
 
-## Current Status
+## Stato attuale
 
-The project has completed the foundation, Campaign Wiki vertical slice, Sherdan content bootstrap validation, Random Tables Engine and the first generator framework pieces. NPC/Loot/Encounter tools exist as active workbench/generator areas, while Session Prep, Rules Lookup and Player Dashboard remain future phases.
+Il progetto non è più fermo alla Fase 1. La base, la Campaign Wiki, l'import Sherdan, la sicurezza dei contenuti raw, il motore di Random Tables e i primi generatori sono già presenti. Alcune aree sono però ancora beta o solo predisposte a livello schema.
 
-| Area | Status |
-|---|---|
-| Project foundation | Done |
-| Next.js app shell | Done |
-| Postgres + pgvector setup | Done |
-| Drizzle schema v2 | Done |
-| Campaign Wiki | Done for Phase 1 |
-| Entity CRUD APIs | Done |
-| Identity / secrets / links / PC hooks UI | Done |
-| Sherdan markdown parsers | Done |
-| Idempotent Sherdan import pipeline | Done |
-| Sherdan import validation | Done |
-| Random Tables Engine | Done |
-| Generator Framework | Beta |
-| NPC Generator | Beta |
-| Loot Generator | Beta |
-| Encounter Builder | Beta |
-| Plot Thread + Truth Clue Tracker | Schema ready / UI planned |
-| Session Prep Assistant | Planned |
-| Rules Lookup | Planned |
-| Player Dashboard | Blocked until player-safe projection + access gate |
+| Area | Stato | Nota |
+|---|---|---|
+| Foundation progetto | Pronto | Next.js, TypeScript, DB, logging, env check, CI |
+| Campaign Wiki | Pronto | CRUD entità, identità, segreti, link, tag e PC hooks |
+| Grafo entità | Pronto | Visualizzazione relazioni tra entità |
+| Import Sherdan | Pronto | Parser + bootstrap idempotente dei markdown privati |
+| Content safety gate | Pronto | Blocca markdown Sherdan raw in `public/` |
+| Random Tables Engine | Pronto | CRUD, import, roll, subtabelle, template e history locale |
+| NPC Generator | Beta | Preview, re-roll parziale, salvataggio entity, embedding fail-forward |
+| Loot Generator | Beta | Workbench presente, da rifinire e collegare meglio al ciclo sessione |
+| Encounter Builder | Beta | Prima slice su mostri/browser; manca ancora builder tattico completo |
+| Player Dashboard | Beta locale | Accesso con codice e API player-safe; non ancora consigliato per deploy pubblico |
+| Plot Thread + Truth Clue Tracker | Schema pronto | Dati predisposti; UI dedicata ancora da fare |
+| Session Prep Assistant | Pianificato | Da costruire su sessioni, hooks, clues e generatori |
+| Rules Lookup | Pianificato | Import documenti regole presente, UI/search dedicata da completare |
+| Procedural Dungeon Generator | Pianificato | Non implementato |
 
-### Phase 0 / Phase 1 hardening
+Snapshot import Sherdan validato:
 
-The repository now treats raw Sherdan markdown as sensitive by default.
-
-- `pnpm content:check:safe` fails if any expected Sherdan source markdown is still in `public/`.
-- CI runs `content:check:safe` before lint/typecheck/test/build.
-- `pnpm check` runs the local full gate: env sync, content safety, lint, typecheck, tests and build.
-- `/status` shows content-source safety, public leak status and feature maturity.
-- `src/lib/security/player-safe.ts` provides a conservative projection helper for future player/public surfaces.
-- The sidebar uses operational states (`Pronto`, `Beta`, `Schema`, `Pianificato`, `Bloccato`) instead of stale phase labels.
-
-Validated Sherdan import snapshot:
-
-| Metric | Count |
+| Metrica | Conteggio |
 |---|---:|
-| Imported entities | 151 |
-| Identities | 81 |
-| Secrets | 56 |
-| PC hook assignments | 70 |
-| Entity links | 45 |
-| Sessions | 6 |
-| Plot threads | 10 |
-| Rule documents | 47 |
-| Imported entity embeddings | 151 / 151 |
+| Entità importate | 151 |
+| Identità | 81 |
+| Segreti | 56 |
+| Hook PG | 70 |
+| Link entità | 45 |
+| Sessioni | 6 |
+| Plot thread | 10 |
+| Documenti regole | 47 |
+| Embedding entità | 151 / 151 |
 
-Reports:
+Documenti utili:
 
+- [Roadmap](./ROADMAP.md)
+- [Decisioni architetturali](./docs/decisions.md)
 - [Sherdan import report](./docs/sherdan-import-report.md)
 - [Sherdan Phase 1.5 validation](./docs/sherdan-phase-1-5-validation.md)
-- [Roadmap](./ROADMAP.md)
-- [Architecture decisions](./docs/decisions.md)
 
 ---
 
-## Important Privacy Notice
+## Avviso critico: privacy e spoiler GM
 
-Sherdan raw campaign source files contain GM-only secrets and heavy spoilers. The preferred location is now:
+I markdown sorgenti di Sherdan contengono segreti GM-only, twist di campagna, identità reali, verità cosmologiche e informazioni non player-safe.
+
+La posizione corretta dei sorgenti raw è:
 
 ```txt
 content/sherdan/
 ```
 
-The real markdown files in that folder are ignored by git. `public/*.md` is accepted only as a temporary local-development fallback and must not be used before exposing the app to players or deploying it publicly/semi-publicly.
+I file reali in quella cartella devono restare ignorati da git. `public/*.md` è solo un fallback temporaneo per sviluppo locale e non deve essere usato prima di esporre il progetto a giocatori o a una rete pubblica/semi-pubblica.
 
-Expected source files:
+File attesi:
 
 - `NPC.md`
 - `Fazioni.md`
@@ -87,73 +73,70 @@ Expected source files:
 - `Background Personaggi.md`
 - `Manuale del Giocatore.md`
 
-Migration flow:
+Flusso consigliato:
 
 ```bash
 pnpm content:migrate:sherdan
 pnpm content:check
-```
-
-After verifying that imports work from `content/sherdan/`, remove public copies:
-
-```bash
 pnpm content:migrate:sherdan:delete-public
 pnpm content:check:safe
 ```
 
-Strict mode also requires the private folder to be complete:
+Modalità stretta:
 
 ```bash
 pnpm content:check:strict
 SHERDAN_CONTENT_STRICT=1 pnpm db:bootstrap:sherdan
 ```
 
-Before enabling Player Dashboard, every player-facing API must use a player-safe projection and an access gate. Do not expose raw entities, secrets, truth clues, GM descriptions, GM notes or static markdown files to players.
+Prima di usare davvero il Player Dashboard con giocatori, ogni rotta player-facing deve passare da proiezioni player-safe e da un access gate. Non esporre mai direttamente entità raw, `description` GM, `properties`, segreti, clues, note GM, prep notes o markdown statici.
 
 ---
 
-## Tech Stack
+## Stack tecnico
 
-| Layer | Technology |
+| Livello | Tecnologia |
 |---|---|
 | App | Next.js 16 App Router |
-| Language | TypeScript strict mode |
-| UI | React 19 |
+| UI | React 19, Tailwind CSS 4 |
+| Linguaggio | TypeScript strict mode |
 | Database | PostgreSQL 16 |
 | Vector search | pgvector |
 | Fuzzy search | pg_trgm |
 | ORM | Drizzle |
-| Validation | Zod |
-| Testing | Vitest |
+| Validazione | Zod |
+| Test | Vitest |
 | Logging | Pino |
-| Primary chat LLM | Gemini API |
-| Local fallback / embeddings | Ollama |
+| Grafi | D3 |
+| Editor | Lexical |
+| LLM cloud | Gemini API |
+| LLM locale / embedding | Ollama |
 | Package manager | pnpm |
 
 ---
 
-## Requirements
+## Requisiti
 
-| Tool | Version |
+| Tool | Versione consigliata |
 |---|---|
 | Node.js | 24+ |
 | pnpm | 10+ |
-| Docker Desktop | recent |
-| Ollama | required for embeddings |
+| Docker Desktop | recente |
+| Ollama | richiesto per embedding |
 
-Recommended local machine:
+Macchina consigliata:
 
-- 16 GB RAM or more;
-- Docker available;
-- Ollama installed with `mxbai-embed-large` for embeddings;
-- optional Gemini API key for primary chat/structured generation.
+- 16 GB RAM o più;
+- Docker attivo;
+- Ollama con `mxbai-embed-large` per embedding;
+- opzionale: API key Gemini per chat/generazione strutturata.
 
 ---
 
-## Quick Start
+## Setup rapido
 
 ```bash
-git clone <repo-url> sherdan-dm-tools
+git clone https://github.com/Andreatz/Sherdan-DM-Tools.git sherdan-dm-tools
 cd sherdan-dm-tools
 
 pnpm install
@@ -167,13 +150,13 @@ pnpm db:ping
 pnpm dev
 ```
 
-The app runs at:
+App locale:
 
 ```txt
 http://localhost:3000
 ```
 
-Project status panel:
+Pannello stato progetto:
 
 ```txt
 http://localhost:3000/status
@@ -181,9 +164,60 @@ http://localhost:3000/status
 
 ---
 
-## Sherdan Import Pipeline
+## Variabili ambiente principali
 
-The bootstrap imports the real Sherdan markdown files from `content/sherdan/` into the structured database. If the private folder is incomplete and strict mode is off, it can temporarily fall back to `public/` for local development.
+```txt
+DATABASE_URL=postgresql://sherdan:sherdan_dev@localhost:5432/sherdan_dm
+LLM_PROVIDER=gemini
+GOOGLE_AI_API_KEY=
+GEMINI_MODEL=gemini-3-flash-preview
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
+OLLAMA_EMBED_MODEL=mxbai-embed-large
+```
+
+Per usare il Player Dashboard locale:
+
+```txt
+SHERDAN_PLAYER_ACCESS_CODE=un-codice-lungo-non-indovinabile
+```
+
+Nota: l'accesso player attuale è sufficiente per uso locale/privato, ma non è ancora un sistema multiutente completo. Mancano ruoli per campagna, rate limit, auditing, rotazione token/sessioni avanzata e hardening da deploy pubblico.
+
+Verifica allineamento env:
+
+```bash
+pnpm env:check
+```
+
+Setup Ollama:
+
+```bash
+ollama pull mxbai-embed-large
+ollama pull qwen2.5:7b-instruct-q4_K_M
+pnpm llm:ping
+```
+
+---
+
+## Route principali
+
+| Route | Stato | Scopo |
+|---|---|---|
+| `/` | Pronto | Home progetto |
+| `/status` | Pronto | Stato feature + sicurezza contenuti |
+| `/campaigns` | Pronto | Campaign Wiki e grafo entità |
+| `/random-tables` | Pronto | Workbench tabelle casuali |
+| `/npc-generator` | Beta | Generatore NPC contestuale |
+| `/loot-generator` | Beta | Generatore loot |
+| `/encounter-builder` | Beta | Prima slice encounter/monster browser |
+| `/player` | Beta locale | Dashboard player con access code e API player-safe |
+
+---
+
+## Pipeline Sherdan
+
+Il bootstrap importa i markdown Sherdan da `content/sherdan/` nel database strutturato. Se la cartella privata è incompleta e la modalità strict è disattivata, può usare temporaneamente `public/` come fallback locale.
 
 ```bash
 pnpm content:migrate:sherdan
@@ -193,80 +227,71 @@ pnpm db:report:sherdan
 pnpm db:validate:sherdan
 ```
 
-What it imports:
+Cosa viene importato:
 
-- `NPC.md` -> NPC entities, identities, layered secrets, PC hooks and links;
-- `Fazioni.md` -> factions, lieutenants, faction secrets, PC hooks and links;
-- `Lore.md` -> locations, organizations and deities, split into public description vs GM truth;
-- `Campagna.md` -> plot threads and sessions with GM prep notes separated;
-- `Background Personaggi.md` -> PC entities and aliases/identities;
-- `Manuale del Giocatore.md` -> rule documents.
+- `NPC.md` -> NPC, identità, segreti stratificati, hook PG e link;
+- `Fazioni.md` -> fazioni, luogotenenti, segreti, hook e link;
+- `Lore.md` -> luoghi, organizzazioni, divinità, descrizione pubblica e verità GM;
+- `Campagna.md` -> sessioni, plot thread e prep notes separate;
+- `Background Personaggi.md` -> PG, alias e identità;
+- `Manuale del Giocatore.md` -> documenti regole.
 
-The import is idempotent: rerunning it updates existing records instead of duplicating them.
+L'import è idempotente: rilanciarlo aggiorna i record esistenti invece di duplicarli.
 
 ---
 
-## Random Tables Engine
+## Funzionalità implementate
 
-Phase 2 adds a reusable random table engine with:
+### Campaign Wiki
 
-- weighted and uniform rolls;
-- nested sub-table resolution;
-- template interpolation such as `Taverniere {name}, {attitude}`;
-- CRUD API and `/random-tables` workbench;
-- CSV, Markdown bullet list and JSON import;
-- sticky roll history with quick save to Wiki entity;
-- seed tables for public-domain fantasy prompts and Sherdan-style sensory details, NPC tics, accents, surface secrets and hooks.
+- Entità tipizzate: NPC, PG, fazioni, luoghi, divinità, oggetti, mostri, organizzazioni.
+- Separazione tra descrizione pubblica e descrizione GM.
+- Identità multiple per la stessa entità.
+- Segreti stratificati: `surface`, `intermediate`, `deep`.
+- Link tra entità con relazione reale e relazione pubblica.
+- Hook PG separati dai link in-fiction.
+- Grafo relazionale.
+- Editor markdown.
 
-Seed or refresh the table library with:
+### Random Tables Engine
+
+- Tabelle pesate o uniformi.
+- Sub-tabelle annidate.
+- Template interpolation, per esempio `Taverniere {name}, {attitude}`.
+- Import JSON, CSV e markdown bullet list.
+- Roll history locale.
+- Salvataggio rapido del risultato come entità Wiki.
+- Seed idempotente di tabelle fantasy/Sherdan-style.
+
+Seed tabelle:
 
 ```bash
 pnpm db:seed:tables
 ```
 
-The seed is idempotent: rerunning it updates the 26 seeded tables instead of duplicating them.
+### Generator Framework e NPC Generator
+
+- Recupero contesto da campagna, location e NPC di riferimento.
+- Prompt builder coerente con il tono Sherdan.
+- Output strutturato validato con Zod.
+- Preview prima del salvataggio.
+- Re-roll parziale di nome, voce e segreti.
+- Salvataggio come entity + secrets.
+- Embedding fail-forward: l'NPC viene salvato anche se Ollama non è disponibile.
+
+### Player Dashboard beta locale
+
+- Accesso tramite codice server-side.
+- Cookie HTTP-only firmato.
+- API dedicate `/api/player/*`.
+- Proiezione player-safe per campagne, recap ed entità conosciute.
+- Nessuna esposizione diretta di `description`, `properties`, `tags`, embedding, segreti, identità o note GM.
 
 ---
 
-## LLM And Embeddings Setup
+## Comandi comuni
 
-Embeddings always use Ollama so the vector space stays stable.
-
-```bash
-ollama pull mxbai-embed-large
-ollama pull qwen2.5:7b-instruct-q4_K_M
-pnpm llm:ping
-```
-
-Chat and structured generation can use Gemini as primary provider with Ollama fallback.
-
-Main environment variables:
-
-```txt
-DATABASE_URL=
-LLM_PROVIDER=gemini
-GOOGLE_AI_API_KEY=
-GEMINI_MODEL=gemini-3-flash-preview
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
-OLLAMA_EMBED_MODEL=mxbai-embed-large
-```
-
-Run:
-
-```bash
-pnpm env:check
-```
-
-to verify `.env`, `.env.example` and `src/lib/env.ts` stay aligned.
-
-NPC save is fail-forward: if Ollama embeddings are unavailable, generated NPCs are saved anyway and the response marks embedding status as `unavailable`.
-
----
-
-## Common Commands
-
-### Development
+### Sviluppo
 
 ```bash
 pnpm dev
@@ -274,13 +299,13 @@ pnpm db:studio
 pnpm llm:ping
 ```
 
-### Quality Gate
+### Quality gate completo
 
 ```bash
 pnpm check
 ```
 
-Equivalent expanded gate:
+Equivalente espanso:
 
 ```bash
 pnpm env:check
@@ -302,7 +327,7 @@ pnpm db:seed
 pnpm db:seed:tables
 ```
 
-### Sherdan Dataset
+### Dataset Sherdan
 
 ```bash
 pnpm content:check
@@ -324,17 +349,17 @@ docker compose down
 docker compose down -v
 ```
 
-Warning:
+Attenzione:
 
 ```bash
 docker compose down -v
 ```
 
-deletes the local Postgres volume and all local campaign data.
+cancella il volume Postgres locale e tutti i dati campagna locali.
 
 ---
 
-## Project Structure
+## Struttura progetto
 
 ```txt
 sherdan-dm-tools/
@@ -344,7 +369,7 @@ sherdan-dm-tools/
 |-- content/
 |   `-- sherdan/
 |       |-- README.md
-|       `-- *.md        # ignored by git, local only
+|       `-- *.md        # ignorati da git, locali/privati
 |-- docs/
 |   |-- decisions.md
 |   |-- sherdan-import-report.md
@@ -352,15 +377,25 @@ sherdan-dm-tools/
 |-- scripts/
 |   |-- bootstrap-sherdan.ts
 |   |-- migrate-sherdan-content.ts
+|   |-- seed-random-tables.ts
 |   |-- embed-sherdan-entities.ts
 |   |-- report-sherdan-import.ts
 |   `-- validate-sherdan-phase-1-5.ts
 |-- src/
 |   |-- app/
+|   |   |-- api/
+|   |   |-- campaigns/
+|   |   |-- random-tables/
+|   |   |-- npc-generator/
+|   |   |-- loot-generator/
+|   |   |-- encounter-builder/
+|   |   |-- player/
 |   |   `-- status/
 |   |-- components/
 |   |-- db/
+|   |   `-- schema/
 |   |-- lib/
+|   |   |-- api/
 |   |   |-- generators/
 |   |   |-- import/
 |   |   |-- llm/
@@ -374,142 +409,87 @@ sherdan-dm-tools/
 
 ---
 
-## Architecture Overview
+## Architettura
 
-The app is built around a structured campaign database.
+Il cuore del progetto è il database campagna strutturato.
 
-Core ideas:
+Principi:
 
-- every important campaign object becomes an entity;
-- entities can represent NPCs, PCs, factions, locations, deities, items, monsters and organizations;
-- entities have separate public descriptions and DM-only descriptions;
-- secrets are modeled as layered information: `surface`, `intermediate`, `deep`;
-- identities are first-class records, so Malakor/Dante and Noel/Yancarlos/Lust can be modeled cleanly;
-- relationships and backlinks are first-class data;
-- PC hooks are separate from in-fiction relationships because they describe narrative potential;
-- AI tools should use the campaign database as context, not generic prompts;
-- player/public surfaces must pass through the player-safe projection layer before serialization.
+- ogni oggetto importante diventa una entity;
+- la verità GM e la versione pubblica sono campi separati;
+- le identità sono record di primo livello;
+- i segreti sono informazioni stratificate, non testo disperso;
+- i link descrivono relazioni in-fiction;
+- gli hook PG descrivono potenziale narrativo;
+- i generatori devono usare il database come contesto, non prompt generici;
+- ogni superficie player-facing deve passare da una proiezione player-safe.
 
-The import flow is:
+Flusso dati:
 
 ```txt
-Sherdan markdown files in content/sherdan/
+Markdown Sherdan in content/sherdan/
         |
         v
-Parsers
+Parser
         |
         v
-Bootstrap plan
+Bootstrap idempotente
         |
         v
-Idempotent import pipeline
+Postgres: entities, secrets, identities, links, sessions, plot, rules
         |
         v
-Postgres entities, secrets, hooks, links, sessions and rules
-        |
-        v
-Campaign Wiki / Search / Graph / Generators
+Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 ```
 
 ---
 
-## Roadmap Summary
+## Priorità consigliate
 
-| Phase | Feature | Status |
-|---|---|---|
-| 0 | Setup, infrastructure and content-safety gate | Done |
-| 1 | Campaign Wiki + status alignment | Done |
-| 1.5 | Sherdan content import | Done |
-| 2 | Random Tables Engine | Done |
-| 3 | Generator Framework + NPC Generator | Beta |
-| 4 | Loot Generator | Beta |
-| 5 | Encounter Builder | Beta |
-| 6 | Plot Thread + Truth Clue Tracker | Schema ready / UI planned |
-| 7 | Session Prep Assistant | Planned |
-| 8 | Procedural Dungeon Generator | Planned |
-| 9 | Rules Lookup | Planned |
-| 10 | Player Dashboard | Blocked by player-safe access layer |
+1. Allineare sidebar, status page e README sullo stesso vocabolario di stato.
+2. Rendere il Player Dashboard pubblicabile: ruoli, campaign scoping, rate limit, audit log e test di leakage.
+3. Collegare davvero `generation_log` al Generator Framework, non solo allo schema.
+4. Aggiungere test integrazione DB/API e almeno una smoke E2E browser.
+5. Completare Truth Clue Tracker UI.
+6. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
+7. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
+8. Introdurre backup/restore locale del DB e export campagna.
 
 ---
 
-## Current Development Priority
+## Limitazioni note
 
-The next priority is hardening the beta generators and unlocking the Session Prep / Truth Clue workflow.
-
-Recommended order:
-
-1. route-level player-safe projection + access gate before Player Dashboard;
-2. generation run logging;
-3. embedding backfill for records saved while Ollama is offline;
-4. Truth Clue Tracker UI;
-5. Session Prep Assistant.
-
----
-
-## Known Limitations
-
-- Player Dashboard is not safe until every player-facing route uses a dedicated projection layer and access gate.
-- `public/*.md` must be treated as temporary local fallback only; CI blocks committing/deploying with those files present.
-- Generator run logging is not yet persisted in a dedicated table.
-- Full browser/e2e tests are not automated yet.
-- Random Tables seed data is local DB state; run `pnpm db:seed:tables` after recreating the database.
-
----
-
-## Testing
-
-Run unit tests:
-
-```bash
-pnpm test
-```
-
-Run the full local quality gate:
-
-```bash
-pnpm check
-```
-
-Before major schema or parser work, also verify:
-
-```bash
-pnpm db:migrate
-pnpm db:ping
-```
-
-For Sherdan import work, verify:
-
-```bash
-pnpm content:check:safe
-pnpm db:bootstrap:sherdan
-pnpm db:report:sherdan
-pnpm db:validate:sherdan
-```
-
-CI runs against a real `pgvector/pgvector:pg16` Postgres service and applies migrations before lint/typecheck/test/build.
+- Il progetto è ancora single-user e local-first: non è pronto come SaaS o app multiutente.
+- Il Player Dashboard esiste ma va considerato beta locale, non hardening definitivo.
+- L'accesso player usa un codice globale, non ruoli per giocatore/campagna.
+- Non c'è ancora rate limiting sulle API player-facing.
+- `generation_log` è presente nello schema, ma la pipeline generator non è ancora pienamente collegata a logging/costi/tokens.
+- Encounter Builder è ancora una prima slice, non un costruttore tattico completo.
+- Non ci sono ancora test E2E browser automatizzati.
+- I seed delle Random Tables sono stato locale DB: rilanciare `pnpm db:seed:tables` dopo reset del database.
 
 ---
 
 ## Troubleshooting
 
-### `pnpm db:ping` fails with `ECONNREFUSED`
+### `pnpm db:ping` fallisce con `ECONNREFUSED`
 
-Postgres is probably not running.
+Postgres probabilmente non è avviato.
 
 ```bash
 docker compose up -d
 pnpm db:ping
 ```
 
-### `pnpm env:check` reports drift
+### `pnpm env:check` segnala drift
 
-The environment schema and `.env.example` are out of sync.
+`.env.example` e `src/lib/env.ts` non sono allineati.
 
-Update both before continuing.
+Aggiorna entrambi prima di continuare.
 
-### `pnpm content:check:safe` fails
+### `pnpm content:check:safe` fallisce
 
-Raw Sherdan markdown still exists in `public/`.
+Ci sono ancora markdown Sherdan raw in `public/`.
 
 ```bash
 pnpm content:migrate:sherdan
@@ -517,9 +497,9 @@ pnpm content:migrate:sherdan:delete-public
 pnpm content:check:safe
 ```
 
-### `pnpm content:check:strict` fails
+### `pnpm content:check:strict` fallisce
 
-Some raw Sherdan markdown is missing from `content/sherdan/` or still present in `public/`.
+Mancano file in `content/sherdan/` o sono ancora presenti in `public/`.
 
 ```bash
 pnpm content:migrate:sherdan
@@ -527,9 +507,9 @@ pnpm content:migrate:sherdan:delete-public
 pnpm content:check:strict
 ```
 
-### `pnpm llm:ping` fails for Ollama
+### `pnpm llm:ping` fallisce per Ollama
 
-Make sure Ollama is running and the configured models are pulled.
+Controlla che Ollama sia attivo e che i modelli siano stati scaricati.
 
 ```bash
 ollama serve
@@ -538,11 +518,11 @@ ollama pull qwen2.5:7b-instruct-q4_K_M
 pnpm llm:ping
 ```
 
-### Next.js build fails because of database access
+### Build Next.js fallisce per accesso database
 
-A page may be treated as static while querying the database.
+Una pagina potrebbe essere trattata come statica mentre interroga il DB.
 
-Mark it as dynamic:
+Marcarla come dinamica:
 
 ```ts
 export const dynamic = "force-dynamic";
@@ -550,15 +530,15 @@ export const dynamic = "force-dynamic";
 
 ---
 
-## Recommended GitHub Repository Metadata
+## Metadata consigliati repository
 
-Suggested description:
+Descrizione:
 
 ```txt
 Local-first DM toolkit for the Sherdan D&D 5e campaign: campaign wiki, entity graph, secrets, session prep and AI-assisted generators.
 ```
 
-Suggested topics:
+Topic suggeriti:
 
 ```txt
 dnd
@@ -577,8 +557,8 @@ dm-tools
 
 ---
 
-## License
+## Licenza
 
-Private/personal campaign project unless a license is added.
+Progetto personale/privato di campagna finché non viene aggiunta una licenza esplicita.
 
-Do not redistribute campaign content without permission.
+Non redistribuire materiale narrativo di Sherdan senza permesso.
