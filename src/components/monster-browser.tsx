@@ -4,18 +4,38 @@ import { useEffect, useMemo, useState } from "react";
 
 import type {
   EncounterDraftParticipant,
-  EncounterCompositionSuggestion,
-  EncounterSuggesterDifficulty,
-  MonsterBrowserFacets,
-  MonsterBrowserRecord,
-} from "@/lib/encounters";
+} from "@/lib/encounters/encounter-composer";
 import {
   addMonsterToDraft,
   calculateDraftDifficulty,
-  monsterRecordToSuggesterMonster,
   participantsToDraft,
   setMonsterCountInDraft,
-} from "@/lib/encounters";
+} from "@/lib/encounters/encounter-composer";
+import type {
+  EncounterCompositionSuggestion,
+  EncounterSuggesterDifficulty,
+} from "@/lib/encounters/encounter-suggester";
+import { monsterRecordToSuggesterMonster } from "@/lib/encounters/encounter-suggester";
+import type {
+  MonsterBrowserFacets,
+  MonsterBrowserRecord,
+} from "@/lib/encounters/monster-browser";
+
+interface EncounterAssistOutput {
+  title: string;
+  concept: string;
+  selectedCandidateIndex: number;
+  selectedCandidate: EncounterCompositionSuggestion;
+  tacticalNotes: {
+    terrain: string;
+    opening: string;
+    monster_tactics: string[];
+    escalation: string;
+    retreat_or_surrender: string;
+  };
+  variants: string[];
+  gmNotes: string[];
+}
 
 interface CampaignRow {
   id: string;
@@ -35,6 +55,11 @@ interface EncounterSuggestionResponse {
   suggestions: EncounterCompositionSuggestion[];
 }
 
+interface EncounterAssistResponse {
+  monstersConsidered: number;
+  assist: EncounterAssistOutput;
+}
+
 interface FilterState {
   campaignId: string;
   search: string;
@@ -49,6 +74,10 @@ interface SuggestionDraft {
   partyLevel: string;
   partySize: string;
   difficulty: EncounterSuggesterDifficulty;
+}
+
+interface AssistDraft {
+  brief: string;
 }
 
 const EMPTY_FILTERS: FilterState = {
@@ -67,6 +96,10 @@ const EMPTY_SUGGESTION_DRAFT: SuggestionDraft = {
   difficulty: "medium",
 };
 
+const EMPTY_ASSIST_DRAFT: AssistDraft = {
+  brief: "Encounter di livello 5 in palude, tema corruzione",
+};
+
 const ENCOUNTER_DIFFICULTY_OPTIONS: EncounterSuggesterDifficulty[] = [
   "easy",
   "medium",
@@ -82,13 +115,18 @@ export function MonsterBrowser() {
   );
   const [suggestions, setSuggestions] =
     useState<EncounterSuggestionResponse | null>(null);
+  const [assistDraft, setAssistDraft] =
+    useState<AssistDraft>(EMPTY_ASSIST_DRAFT);
+  const [assist, setAssist] = useState<EncounterAssistResponse | null>(null);
   const [draft, setDraft] = useState<EncounterDraftParticipant[]>([]);
   const [data, setData] = useState<MonsterBrowserResponse | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingMonsters, setLoadingMonsters] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [assisting, setAssisting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
+  const [assistError, setAssistError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -222,6 +260,36 @@ export function MonsterBrowser() {
       setSuggestionError(messageForError(err));
     } finally {
       setSuggesting(false);
+    }
+  }
+
+  async function generateAssist() {
+    if (!filters.campaignId) return;
+    setAssisting(true);
+    setAssistError(null);
+    try {
+      const response = await apiFetch<EncounterAssistResponse>(
+        "/api/encounters/assist",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            campaignId: filters.campaignId,
+            brief: assistDraft.brief,
+            partyLevel: suggestionDraft.partyLevel,
+            partySize: suggestionDraft.partySize,
+            difficulty: suggestionDraft.difficulty,
+            creatureType: filters.creatureType || undefined,
+            environment: filters.environment || undefined,
+            size: filters.size || undefined,
+          }),
+        },
+      );
+      setAssist(response);
+      setDraft(participantsToDraft(response.assist.selectedCandidate.participants));
+    } catch (err) {
+      setAssistError(messageForError(err));
+    } finally {
+      setAssisting(false);
     }
   }
 
@@ -445,6 +513,49 @@ export function MonsterBrowser() {
         onClear={() => setDraft([])}
       />
 
+      <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+              LLM assist
+            </h2>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              Genera una composizione dai candidati validi e note tattiche.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={generateAssist}
+            disabled={assisting || !filters.campaignId}
+            className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200"
+          >
+            {assisting ? "Genero..." : "Genera assist"}
+          </button>
+        </div>
+
+        <label className="mt-4 grid gap-1">
+          <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            Brief
+          </span>
+          <textarea
+            value={assistDraft.brief}
+            onChange={(event) =>
+              setAssistDraft({ brief: event.target.value })
+            }
+            rows={3}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+          />
+        </label>
+
+        {assistError && (
+          <div className="mt-4 text-sm text-red-600 dark:text-red-400">
+            {assistError}
+          </div>
+        )}
+
+        {assist && <AssistPanel assist={assist.assist} />}
+      </section>
+
       <section className="grid gap-4">
         {data?.rows.length === 0 ? (
           <div className="rounded-lg border border-zinc-200 bg-white p-5 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
@@ -460,6 +571,59 @@ export function MonsterBrowser() {
           ))
         )}
       </section>
+    </div>
+  );
+}
+
+function AssistPanel({ assist }: { assist: EncounterAssistOutput }) {
+  return (
+    <article className="mt-5 rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">
+            {assist.title}
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-300">
+            {assist.concept}
+          </p>
+        </div>
+        <span className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+          candidate {assist.selectedCandidateIndex}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
+        <InfoBlock label="Terrain" value={assist.tacticalNotes.terrain} />
+        <InfoBlock label="Opening" value={assist.tacticalNotes.opening} />
+        <InfoBlock
+          label="Escalation"
+          value={assist.tacticalNotes.escalation}
+        />
+        <InfoBlock
+          label="Retreat"
+          value={assist.tacticalNotes.retreat_or_surrender}
+        />
+      </div>
+
+      <PreviewList title="Monster tactics" items={assist.tacticalNotes.monster_tactics} />
+      <PreviewList title="Variants" items={assist.variants} />
+      <PreviewList title="GM notes" items={assist.gmNotes} />
+    </article>
+  );
+}
+
+function PreviewList({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-4">
+      <h4 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+        {title}
+      </h4>
+      <ul className="mt-2 grid gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+        {items.map((item, index) => (
+          <li key={`${title}-${index}`}>{item}</li>
+        ))}
+      </ul>
     </div>
   );
 }
