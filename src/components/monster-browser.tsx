@@ -3,10 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type {
+  EncounterDraftParticipant,
   EncounterCompositionSuggestion,
   EncounterSuggesterDifficulty,
   MonsterBrowserFacets,
   MonsterBrowserRecord,
+} from "@/lib/encounters";
+import {
+  addMonsterToDraft,
+  calculateDraftDifficulty,
+  monsterRecordToSuggesterMonster,
+  participantsToDraft,
+  setMonsterCountInDraft,
 } from "@/lib/encounters";
 
 interface CampaignRow {
@@ -74,6 +82,7 @@ export function MonsterBrowser() {
   );
   const [suggestions, setSuggestions] =
     useState<EncounterSuggestionResponse | null>(null);
+  const [draft, setDraft] = useState<EncounterDraftParticipant[]>([]);
   const [data, setData] = useState<MonsterBrowserResponse | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingMonsters, setLoadingMonsters] = useState(false);
@@ -137,6 +146,18 @@ export function MonsterBrowser() {
     () => campaigns.find((campaign) => campaign.id === filters.campaignId),
     [campaigns, filters.campaignId],
   );
+  const liveDifficulty = useMemo(() => {
+    const partyLevel = Number.parseInt(suggestionDraft.partyLevel, 10);
+    const partySize = Number.parseInt(suggestionDraft.partySize, 10);
+    if (!Number.isInteger(partyLevel) || !Number.isInteger(partySize)) {
+      return null;
+    }
+    try {
+      return calculateDraftDifficulty({ partyLevel, partySize, draft });
+    } catch {
+      return null;
+    }
+  }, [draft, suggestionDraft.partyLevel, suggestionDraft.partySize]);
 
   function updateFilter<K extends keyof FilterState>(
     key: K,
@@ -155,6 +176,24 @@ export function MonsterBrowser() {
       environment: "",
       size: "",
     }));
+  }
+
+  function addMonster(record: MonsterBrowserRecord) {
+    const monster = monsterRecordToSuggesterMonster(record);
+    if (!monster) {
+      setSuggestionError("Questo mostro non ha XP valido per il meter.");
+      return;
+    }
+    setSuggestionError(null);
+    setDraft((current) => addMonsterToDraft(current, monster));
+  }
+
+  function setDraftCount(monsterId: string, count: number) {
+    try {
+      setDraft((current) => setMonsterCountInDraft(current, monsterId, count));
+    } catch (err) {
+      setSuggestionError(messageForError(err));
+    }
   }
 
   async function suggestCompositions() {
@@ -391,12 +430,20 @@ export function MonsterBrowser() {
                 <SuggestionCard
                   key={`${suggestion.difficulty.adjustedXp}-${index}`}
                   suggestion={suggestion}
+                  onUse={() => setDraft(participantsToDraft(suggestion.participants))}
                 />
               ))
             )}
           </div>
         )}
       </section>
+
+      <EncounterDraftPanel
+        draft={draft}
+        liveDifficulty={liveDifficulty}
+        onCountChange={setDraftCount}
+        onClear={() => setDraft([])}
+      />
 
       <section className="grid gap-4">
         {data?.rows.length === 0 ? (
@@ -405,7 +452,11 @@ export function MonsterBrowser() {
           </div>
         ) : (
           data?.rows.map((monster) => (
-            <MonsterCard key={monster.id} monster={monster} />
+            <MonsterCard
+              key={monster.id}
+              monster={monster}
+              onAdd={() => addMonster(monster)}
+            />
           ))
         )}
       </section>
@@ -415,8 +466,10 @@ export function MonsterBrowser() {
 
 function SuggestionCard({
   suggestion,
+  onUse,
 }: {
   suggestion: EncounterCompositionSuggestion;
+  onUse: () => void;
 }) {
   return (
     <article className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
@@ -447,12 +500,157 @@ function SuggestionCard({
             {suggestion.difficulty.adjustedXp} XP adj.
           </div>
         </div>
+        <button
+          type="button"
+          onClick={onUse}
+          className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          Usa
+        </button>
       </div>
     </article>
   );
 }
 
-function MonsterCard({ monster }: { monster: MonsterBrowserRecord }) {
+function EncounterDraftPanel({
+  draft,
+  liveDifficulty,
+  onCountChange,
+  onClear,
+}: {
+  draft: EncounterDraftParticipant[];
+  liveDifficulty: ReturnType<typeof calculateDraftDifficulty>;
+  onCountChange: (monsterId: string, count: number) => void;
+  onClear: () => void;
+}) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+            Bozza encounter
+          </h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Il meter si aggiorna quando aggiungi o modifichi i mostri.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClear}
+          disabled={draft.length === 0}
+          className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          Svuota
+        </button>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="grid gap-2">
+          {draft.length === 0 ? (
+            <div className="rounded-md border border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+              Aggiungi mostri dal browser o usa una suggestion.
+            </div>
+          ) : (
+            draft.map((participant) => (
+              <DraftRow
+                key={participant.monster.id}
+                participant={participant}
+                onCountChange={(count) =>
+                  onCountChange(participant.monster.id, count)
+                }
+              />
+            ))
+          )}
+        </div>
+
+        <DifficultyMeter liveDifficulty={liveDifficulty} />
+      </div>
+    </section>
+  );
+}
+
+function DraftRow({
+  participant,
+  onCountChange,
+}: {
+  participant: EncounterDraftParticipant;
+  onCountChange: (count: number) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+      <div>
+        <div className="font-medium text-zinc-950 dark:text-zinc-50">
+          {participant.monster.name}
+        </div>
+        <div className="text-xs uppercase text-zinc-500 dark:text-zinc-400">
+          CR {participant.monster.challengeRating} - {participant.monster.xp} XP
+        </div>
+      </div>
+      <input
+        type="number"
+        min={0}
+        max={20}
+        step={1}
+        value={participant.count}
+        onChange={(event) =>
+          onCountChange(Number.parseInt(event.target.value || "0", 10))
+        }
+        className="h-9 w-20 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+      />
+    </div>
+  );
+}
+
+function DifficultyMeter({
+  liveDifficulty,
+}: {
+  liveDifficulty: ReturnType<typeof calculateDraftDifficulty>;
+}) {
+  if (!liveDifficulty) {
+    return (
+      <div className="rounded-md border border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        Nessuna difficolta calcolata.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+        Difficulty
+      </div>
+      <div className="mt-1 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
+        {liveDifficulty.difficulty}
+      </div>
+      <dl className="mt-4 grid gap-2 text-sm">
+        <MeterRow label="Base XP" value={liveDifficulty.baseXp} />
+        <MeterRow label="Multiplier" value={`x${liveDifficulty.multiplier}`} />
+        <MeterRow label="Adjusted XP" value={liveDifficulty.adjustedXp} />
+        <MeterRow label="Easy" value={liveDifficulty.thresholds.easy} />
+        <MeterRow label="Medium" value={liveDifficulty.thresholds.medium} />
+        <MeterRow label="Hard" value={liveDifficulty.thresholds.hard} />
+        <MeterRow label="Deadly" value={liveDifficulty.thresholds.deadly} />
+      </dl>
+    </div>
+  );
+}
+
+function MeterRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-zinc-500 dark:text-zinc-400">{label}</dt>
+      <dd className="font-medium text-zinc-900 dark:text-zinc-100">{value}</dd>
+    </div>
+  );
+}
+
+function MonsterCard({
+  monster,
+  onAdd,
+}: {
+  monster: MonsterBrowserRecord;
+  onAdd: () => void;
+}) {
   const p = monster.properties;
 
   return (
@@ -473,6 +671,13 @@ function MonsterCard({ monster }: { monster: MonsterBrowserRecord }) {
           <StatPill label="HP" value={String(p.hp_average)} />
           <StatPill label="XP" value={p.xp ? String(p.xp) : "-"} />
         </div>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          Aggiungi
+        </button>
       </div>
 
       <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">

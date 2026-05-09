@@ -515,7 +515,8 @@ Builder completo con browser mostri, math di bilanciamento, e LLM-assist per ide
   - _Note implementative: aggiunto `src/lib/encounters/cr-calculator.ts` con threshold XP DMG 5e 2014 per livello 1-20, party misti o da livello medio, multipliers per numero di mostri e adjustment per party piccoli/grandi. Espone `calculatePartyThresholds`, `encounterXpMultiplier`, `calculateEncounterDifficulty`, `classifyEncounterDifficulty` e `partyFromAverageLevel`. Test unitari coprono threshold ufficiali, multipliers, classificazione trivial/easy/medium/hard/deadly e input invalidi._
 - [x] Suggester: input party_level/size/difficulty → composizioni candidate
   - _Note implementative: aggiunto `src/lib/encounters/encounter-suggester.ts` con input Zod, conversione monster record → candidate, filtri tattici e generazione deterministica di composizioni singolo-mostro e coppie. Il suggester usa il CR calculator DMG per tenere solo candidate nella fascia richiesta e ordinarle per vicinanza al target XP. Aggiunto `POST /api/encounters/suggest` e pannello "Suggester" in `/encounter-builder` che usa party level/size/difficulty e i filtri browser attivi come vincoli. Test unitari coprono input, mapping mostri, filtri e composizioni candidate._
-- [ ] Difficulty meter live mentre componi
+- [x] Difficulty meter live mentre componi
+  - _Note implementative: aggiunto `src/lib/encounters/encounter-composer.ts` per gestire la bozza encounter (add/increment, set count, import da suggestion) e calcolare la difficulty live via CR calculator. La pagina `/encounter-builder` ora ha una sezione "Bozza encounter": puoi aggiungere mostri dal browser, usare una suggestion come base, modificare i count e vedere subito base XP, multiplier, adjusted XP e soglie easy/medium/hard/deadly. Test unitari coprono composizione bozza e ricalcolo difficulty._
 
 **LLM-assist**
 - [ ] "Encounter di livello 5 in palude, tema corruzione" → composizione mostri + tactical notes

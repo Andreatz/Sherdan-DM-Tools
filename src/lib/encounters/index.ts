@@ -2,3 +2,4 @@ export * from "./open5e-monsters";
 export * from "./monster-browser";
 export * from "./cr-calculator";
 export * from "./encounter-suggester";
+export * from "./encounter-composer";
