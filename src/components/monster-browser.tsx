@@ -56,6 +56,20 @@ interface CampaignRow {
   name: string;
 }
 
+interface LocationRow {
+  id: string;
+  name: string;
+  campaignId: string | null;
+}
+
+interface PlotThreadRow {
+  id: string;
+  campaignId: string;
+  title: string;
+  status: string;
+  priority: number | null;
+}
+
 interface MonsterBrowserResponse {
   rows: MonsterBrowserRecord[];
   total: number;
@@ -72,6 +86,15 @@ interface EncounterSuggestionResponse {
 interface EncounterAssistResponse {
   monstersConsidered: number;
   assist: EncounterAssistOutput;
+}
+
+interface SavedEncounterResponse {
+  encounter: {
+    id: string;
+    title: string;
+    locationId: string | null;
+    plotThreadId: string | null;
+  };
 }
 
 interface FilterState {
@@ -94,6 +117,13 @@ interface AssistDraft {
   brief: string;
 }
 
+interface SaveDraft {
+  title: string;
+  description: string;
+  locationId: string;
+  plotThreadId: string;
+}
+
 const EMPTY_FILTERS: FilterState = {
   campaignId: "",
   search: "",
@@ -114,6 +144,13 @@ const EMPTY_ASSIST_DRAFT: AssistDraft = {
   brief: "Encounter di livello 5 in palude, tema corruzione",
 };
 
+const EMPTY_SAVE_DRAFT: SaveDraft = {
+  title: "",
+  description: "",
+  locationId: "",
+  plotThreadId: "",
+};
+
 const ENCOUNTER_DIFFICULTY_OPTIONS: EncounterSuggesterDifficulty[] = [
   "easy",
   "medium",
@@ -123,6 +160,8 @@ const ENCOUNTER_DIFFICULTY_OPTIONS: EncounterSuggesterDifficulty[] = [
 
 export function MonsterBrowser() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
+  const [locations, setLocations] = useState<LocationRow[]>([]);
+  const [plotThreads, setPlotThreads] = useState<PlotThreadRow[]>([]);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [suggestionDraft, setSuggestionDraft] = useState<SuggestionDraft>(
     EMPTY_SUGGESTION_DRAFT,
@@ -131,17 +170,24 @@ export function MonsterBrowser() {
     useState<EncounterSuggestionResponse | null>(null);
   const [assistDraft, setAssistDraft] =
     useState<AssistDraft>(EMPTY_ASSIST_DRAFT);
+  const [saveDraft, setSaveDraft] = useState<SaveDraft>(EMPTY_SAVE_DRAFT);
   const [assist, setAssist] = useState<EncounterAssistResponse | null>(null);
+  const [savedEncounter, setSavedEncounter] =
+    useState<SavedEncounterResponse["encounter"] | null>(null);
   const [draft, setDraft] = useState<EncounterDraftParticipant[]>([]);
   const [tacticalNotes, setTacticalNotes] = useState("");
   const [data, setData] = useState<MonsterBrowserResponse | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [loadingPlotThreads, setLoadingPlotThreads] = useState(false);
   const [loadingMonsters, setLoadingMonsters] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [assisting, setAssisting] = useState(false);
+  const [savingEncounter, setSavingEncounter] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [assistError, setAssistError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,6 +219,87 @@ export function MonsterBrowser() {
     if (!filters.campaignId) return;
     let cancelled = false;
 
+    async function loadLocations() {
+      setLoadingLocations(true);
+      setSaveError(null);
+      try {
+        const params = new URLSearchParams({
+          type: "location",
+          campaign_id: filters.campaignId,
+          sort: "name_asc",
+          limit: "200",
+        });
+        const rows = await apiFetch<LocationRow[]>(
+          `/api/entities?${params.toString()}`,
+        );
+        if (cancelled) return;
+        setLocations(rows);
+        setSaveDraft((current) => {
+          const currentStillValid = rows.some(
+            (location) => location.id === current.locationId,
+          );
+          return {
+            ...current,
+            locationId: currentStillValid
+              ? current.locationId
+              : (rows[0]?.id ?? ""),
+          };
+        });
+      } catch (err) {
+        if (!cancelled) setSaveError(messageForError(err));
+      } finally {
+        if (!cancelled) setLoadingLocations(false);
+      }
+    }
+
+    void loadLocations();
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.campaignId]);
+
+  useEffect(() => {
+    if (!filters.campaignId) return;
+    let cancelled = false;
+
+    async function loadPlotThreads() {
+      setLoadingPlotThreads(true);
+      setSaveError(null);
+      try {
+        const params = new URLSearchParams({
+          campaign_id: filters.campaignId,
+        });
+        const rows = await apiFetch<PlotThreadRow[]>(
+          `/api/plot-threads?${params.toString()}`,
+        );
+        if (cancelled) return;
+        setPlotThreads(rows);
+        setSaveDraft((current) => {
+          const currentStillValid = rows.some(
+            (thread) => thread.id === current.plotThreadId,
+          );
+          return {
+            ...current,
+            plotThreadId: currentStillValid ? current.plotThreadId : "",
+          };
+        });
+      } catch (err) {
+        if (!cancelled) setSaveError(messageForError(err));
+      } finally {
+        if (!cancelled) setLoadingPlotThreads(false);
+      }
+    }
+
+    void loadPlotThreads();
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.campaignId]);
+
+  useEffect(() => {
+    if (!filters.campaignId) return;
+    let cancelled = false;
+
     async function loadMonsters() {
       setLoadingMonsters(true);
       setError(null);
@@ -199,6 +326,10 @@ export function MonsterBrowser() {
     () => campaigns.find((campaign) => campaign.id === filters.campaignId),
     [campaigns, filters.campaignId],
   );
+  const selectedLocation = useMemo(
+    () => locations.find((location) => location.id === saveDraft.locationId),
+    [locations, saveDraft.locationId],
+  );
   const liveDifficulty = useMemo(() => {
     const partyLevel = Number.parseInt(suggestionDraft.partyLevel, 10);
     const partySize = Number.parseInt(suggestionDraft.partySize, 10);
@@ -217,6 +348,17 @@ export function MonsterBrowser() {
     value: FilterState[K],
   ) {
     setFilters((current) => ({ ...current, [key]: value }));
+    if (key === "campaignId") {
+      setSavedEncounter(null);
+    }
+  }
+
+  function updateSaveDraft<K extends keyof SaveDraft>(
+    key: K,
+    value: SaveDraft[K],
+  ) {
+    setSaveDraft((current) => ({ ...current, [key]: value }));
+    setSavedEncounter(null);
   }
 
   function resetTacticalFilters() {
@@ -302,10 +444,64 @@ export function MonsterBrowser() {
       setAssist(response);
       setDraft(participantsToDraft(response.assist.selectedCandidate.participants));
       setTacticalNotes(formatEncounterTacticalNotes(response.assist));
+      setSaveDraft((current) => ({
+        ...current,
+        title: response.assist.title,
+        description: response.assist.concept,
+      }));
     } catch (err) {
       setAssistError(messageForError(err));
     } finally {
       setAssisting(false);
+    }
+  }
+
+  async function saveEncounter() {
+    setSaveError(null);
+    setSavedEncounter(null);
+    if (!filters.campaignId) return;
+    if (!saveDraft.locationId) {
+      setSaveError("Seleziona una location prima di salvare.");
+      return;
+    }
+    if (draft.length === 0) {
+      setSaveError("Aggiungi almeno un mostro alla bozza.");
+      return;
+    }
+    if (!saveDraft.title.trim()) {
+      setSaveError("Dai un titolo all'encounter prima di salvarlo.");
+      return;
+    }
+
+    const partyLevel = Number.parseInt(suggestionDraft.partyLevel, 10);
+    setSavingEncounter(true);
+    try {
+      const response = await apiFetch<SavedEncounterResponse>(
+        "/api/encounters",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            campaignId: filters.campaignId,
+            title: saveDraft.title,
+            description: saveDraft.description || null,
+            locationId: saveDraft.locationId,
+            plotThreadId: saveDraft.plotThreadId || null,
+            difficulty: storableDifficulty(liveDifficulty?.difficulty),
+            partyLevel: Number.isInteger(partyLevel) ? partyLevel : null,
+            xpTotal: liveDifficulty?.baseXp ?? null,
+            tacticalNotes: tacticalNotes || null,
+            participants: draft.map((participant) => ({
+              entityId: participant.monster.id,
+              count: participant.count,
+            })),
+          }),
+        },
+      );
+      setSavedEncounter(response.encounter);
+    } catch (err) {
+      setSaveError(messageForError(err));
+    } finally {
+      setSavingEncounter(false);
     }
   }
 
@@ -534,6 +730,26 @@ export function MonsterBrowser() {
         onChange={setTacticalNotes}
       />
 
+      <EncounterSavePanel
+        campaignId={filters.campaignId}
+        draft={saveDraft}
+        locations={locations}
+        plotThreads={plotThreads}
+        selectedLocation={selectedLocation}
+        loadingLocations={loadingLocations}
+        loadingPlotThreads={loadingPlotThreads}
+        saving={savingEncounter}
+        saveError={saveError}
+        savedEncounter={savedEncounter}
+        canSave={
+          draft.length > 0 &&
+          Boolean(saveDraft.title.trim()) &&
+          Boolean(saveDraft.locationId)
+        }
+        onChange={updateSaveDraft}
+        onSave={saveEncounter}
+      />
+
       <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -630,6 +846,149 @@ function TacticalNotesEditor({
         placeholder="# Tactical Notes"
         className="mt-4 min-h-80 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm leading-6 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
       />
+    </section>
+  );
+}
+
+function EncounterSavePanel({
+  campaignId,
+  draft,
+  locations,
+  plotThreads,
+  selectedLocation,
+  loadingLocations,
+  loadingPlotThreads,
+  saving,
+  saveError,
+  savedEncounter,
+  canSave,
+  onChange,
+  onSave,
+}: {
+  campaignId: string;
+  draft: SaveDraft;
+  locations: LocationRow[];
+  plotThreads: PlotThreadRow[];
+  selectedLocation: LocationRow | undefined;
+  loadingLocations: boolean;
+  loadingPlotThreads: boolean;
+  saving: boolean;
+  saveError: string | null;
+  savedEncounter: SavedEncounterResponse["encounter"] | null;
+  canSave: boolean;
+  onChange: <K extends keyof SaveDraft>(key: K, value: SaveDraft[K]) => void;
+  onSave: () => void;
+}) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+            Salva encounter
+          </h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Location obbligatoria, plot thread opzionale.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving || !campaignId || !canSave}
+          className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200"
+        >
+          {saving ? "Salvo..." : "Salva"}
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            Titolo
+          </span>
+          <input
+            value={draft.title}
+            onChange={(event) => onChange("title", event.target.value)}
+            placeholder="Titolo encounter"
+            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+          />
+        </label>
+
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            Location
+          </span>
+          <select
+            value={draft.locationId}
+            onChange={(event) => onChange("locationId", event.target.value)}
+            disabled={loadingLocations || locations.length === 0}
+            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+          >
+            {locations.length === 0 ? (
+              <option value="">
+                {loadingLocations ? "Carico location..." : "Nessuna location"}
+              </option>
+            ) : (
+              locations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                </option>
+              ))
+            )}
+          </select>
+        </label>
+
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            Plot thread
+          </span>
+          <select
+            value={draft.plotThreadId}
+            onChange={(event) => onChange("plotThreadId", event.target.value)}
+            disabled={loadingPlotThreads}
+            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+          >
+            <option value="">
+              {loadingPlotThreads ? "Carico thread..." : "Nessun thread"}
+            </option>
+            {plotThreads.map((thread) => (
+              <option key={thread.id} value={thread.id}>
+                {thread.title} ({thread.status})
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            Descrizione
+          </span>
+          <input
+            value={draft.description}
+            onChange={(event) => onChange("description", event.target.value)}
+            placeholder="Concept breve"
+            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950"
+          />
+        </label>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+        {selectedLocation ? (
+          <a
+            href={`/campaigns/${campaignId}?focus=${selectedLocation.id}`}
+            className="font-medium text-zinc-900 underline-offset-4 hover:underline dark:text-zinc-100"
+          >
+            Apri location: {selectedLocation.name}
+          </a>
+        ) : null}
+        {saveError ? (
+          <span className="text-red-600 dark:text-red-400">{saveError}</span>
+        ) : null}
+        {savedEncounter ? (
+          <span className="text-green-700 dark:text-green-400">
+            Salvato: {savedEncounter.title}
+          </span>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -1096,4 +1455,16 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
 
 function messageForError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function storableDifficulty(value: string | undefined) {
+  if (
+    value === "easy" ||
+    value === "medium" ||
+    value === "hard" ||
+    value === "deadly"
+  ) {
+    return value;
+  }
+  return null;
 }

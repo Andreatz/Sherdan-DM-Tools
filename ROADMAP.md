@@ -531,7 +531,8 @@ Builder completo con browser mostri, math di bilanciamento, e LLM-assist per ide
   - _Note implementative: completato tramite la pagina `/encounter-builder`: il browser mostri espone search/filtri, ogni monster card ha `Aggiungi`, la sezione "Bozza encounter" permette di modificare count o svuotare la bozza, e il `DifficultyMeter` ricalcola live base XP, multiplier, adjusted XP e soglie DMG._
 - [x] Tactical notes editor
   - _Note implementative: aggiunto `TacticalNotesEditor` nella pagina `/encounter-builder`, textarea Markdown editabile con pulsante svuota. Quando l'assist LLM genera un encounter, `formatEncounterTacticalNotes` trasforma title/concept/composizione/difficulty/tactical notes/hook narrativi in Markdown e precompila l'editor. Test unitario copre il formatting Markdown._
-- [ ] Save con location_id link e plot_thread_id opzionale
+- [x] Save con location_id link e plot_thread_id opzionale
+  - _Note implementative: aggiunto `POST /api/encounters` con validazione Zod, controllo che `locationId` punti a una entity `location` della campagna, `plotThreadId` opzionale coerente con la campagna e partecipanti monster. La pagina `/encounter-builder` ora carica location e plot thread, salva titolo/descrizione/difficulty/party level/XP/tactical notes/partecipanti e mostra un link diretto alla location selezionata. Aggiunto `GET /api/plot-threads` minimale per alimentare il selector e test unitari sul payload di salvataggio._
 - [ ] "Used in session" toggle
 
 ### Definition of done
