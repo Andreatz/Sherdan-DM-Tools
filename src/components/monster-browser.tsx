@@ -43,6 +43,11 @@ interface EncounterAssistOutput {
   };
   variants: string[];
   gmNotes: string[];
+  narrativeHooks: {
+    truth_revelations: string[];
+    plot_complications: string[];
+    pc_hooks: string[];
+  };
 }
 
 interface CampaignRow {
@@ -621,6 +626,15 @@ function AssistPanel({ assist }: { assist: EncounterAssistOutput }) {
       </div>
 
       <PreviewList title="Monster tactics" items={assist.tacticalNotes.monster_tactics} />
+      <PreviewList
+        title="Truth revelations"
+        items={assist.narrativeHooks.truth_revelations}
+      />
+      <PreviewList
+        title="Plot complications"
+        items={assist.narrativeHooks.plot_complications}
+      />
+      <PreviewList title="PC hooks" items={assist.narrativeHooks.pc_hooks} />
       <PreviewList title="Variants" items={assist.variants} />
       <PreviewList title="GM notes" items={assist.gmNotes} />
     </article>

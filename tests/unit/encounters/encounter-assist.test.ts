@@ -37,11 +37,14 @@ describe("encounter assist", () => {
         difficulty: "medium",
       }),
       candidates: [candidateFixture()],
+      narrativeContext: narrativeContextFixture(),
     });
 
     const user = Array.isArray(prompt.input) ? prompt.input[1]?.content : "";
     expect(user).toContain("Candidate 0");
     expect(user).toContain("2x Wight");
+    expect(user).toContain("Plot Threads");
+    expect(user).toContain("Monete nere");
     expect(user).toContain("selected_candidate_index");
   });
 
@@ -50,6 +53,9 @@ describe("encounter assist", () => {
 
     expect(output.tactical_notes.monster_tactics).toContain(
       "I wight provano a isolare il personaggio con meno mobilita.",
+    );
+    expect(output.narrative_hooks.truth_revelations[0]).toContain(
+      "moneta nera",
     );
   });
 
@@ -65,6 +71,7 @@ describe("encounter assist", () => {
       adjustedXp: 2100,
       respectsTarget: true,
     });
+    expect(composed.narrativeHooks.plot_complications).toHaveLength(1);
     expect(composed.selectedCandidate.participants[0]?.monster.name).toBe(
       "Wight",
     );
@@ -132,5 +139,47 @@ function llmOutputFixture() {
     },
     variants: ["Aggiungi nebbia pesante se vuoi piu' pressione."],
     gm_notes: ["Buono per introdurre tracce di corruzione necromantica."],
+    narrative_hooks: {
+      truth_revelations: [
+        "Mostra una moneta nera ossidata nel fango senza spiegarne l'origine.",
+      ],
+      plot_complications: [
+        "La palude reagisce al sangue e richiama il thread delle monete nere.",
+      ],
+      pc_hooks: ["Un simbolo sul wight richiama il passato di un PG."],
+    },
+  };
+}
+
+function narrativeContextFixture() {
+  return {
+    plotThreads: [
+      {
+        id: "plot-1",
+        title: "Monete nere",
+        status: "hot",
+        publicDescription: "Strane monete circolano tra i mercanti.",
+        description: "Le monete sono un segnale della rete dell'Eclissi.",
+      },
+    ],
+    truthClues: [
+      {
+        id: "clue-1",
+        description: "Una moneta nera ossidata appare nel fango.",
+        truthRevealed: "La palude e' collegata ai movimenti dell'Eclissi.",
+        status: "planted",
+        relatedPlotThreadId: "plot-1",
+      },
+    ],
+    pcHooks: [
+      {
+        id: "hook-1",
+        pcEntityId: "pc-1",
+        targetEntityId: "npc-1",
+        hookDescription: "Un vecchio simbolo familiare compare sui cadaveri.",
+        potentialArc: "Il PG puo' collegare la palude al suo passato.",
+        status: "available",
+      },
+    ],
   };
 }

@@ -38,6 +38,18 @@ export const encounterAssistLLMOutputSchema = z
       .strict(),
     variants: z.array(z.string().trim().min(1)).default([]),
     gm_notes: z.array(z.string().trim().min(1)).default([]),
+    narrative_hooks: z
+      .object({
+        truth_revelations: z.array(z.string().trim().min(1)).default([]),
+        plot_complications: z.array(z.string().trim().min(1)).default([]),
+        pc_hooks: z.array(z.string().trim().min(1)).default([]),
+      })
+      .strict()
+      .default({
+        truth_revelations: [],
+        plot_complications: [],
+        pc_hooks: [],
+      }),
   })
   .strict();
 
@@ -62,12 +74,39 @@ export interface EncounterAssistOutput {
   tacticalNotes: EncounterAssistLLMOutput["tactical_notes"];
   variants: string[];
   gmNotes: string[];
+  narrativeHooks: EncounterAssistLLMOutput["narrative_hooks"];
   candidates: EncounterCompositionSuggestion[];
+}
+
+export interface EncounterNarrativeContext {
+  plotThreads: Array<{
+    id: string;
+    title: string;
+    status: string;
+    publicDescription: string | null;
+    description: string | null;
+  }>;
+  truthClues: Array<{
+    id: string;
+    description: string;
+    truthRevealed: string;
+    status: string;
+    relatedPlotThreadId: string | null;
+  }>;
+  pcHooks: Array<{
+    id: string;
+    pcEntityId: string;
+    targetEntityId: string;
+    hookDescription: string;
+    potentialArc: string | null;
+    status: string;
+  }>;
 }
 
 export function buildEncounterAssistPrompt(input: {
   request: EncounterAssistInput;
   candidates: EncounterCompositionSuggestion[];
+  narrativeContext?: EncounterNarrativeContext;
 }): GeneratorPrompt {
   return {
     input: [
@@ -83,7 +122,11 @@ export function buildEncounterAssistPrompt(input: {
       },
       {
         role: "user",
-        content: renderEncounterAssistUserPrompt(input.request, input.candidates),
+        content: renderEncounterAssistUserPrompt(
+          input.request,
+          input.candidates,
+          input.narrativeContext,
+        ),
       },
     ],
     options: {
@@ -97,9 +140,14 @@ export function buildEncounterAssistPrompt(input: {
 export async function generateEncounterAssist(
   request: EncounterAssistInput,
   candidates: EncounterCompositionSuggestion[],
+  narrativeContext?: EncounterNarrativeContext,
   options: GeneratorRunOptions = {},
 ): Promise<EncounterAssistOutput> {
-  const prompt = buildEncounterAssistPrompt({ request, candidates });
+  const prompt = buildEncounterAssistPrompt({
+    request,
+    candidates,
+    narrativeContext,
+  });
   const llmOutput = await callStructuredOutput(
     prompt,
     encounterAssistLLMOutputSchema,
@@ -141,6 +189,7 @@ export function composeEncounterAssistOutput(
     tacticalNotes: llmOutput.tactical_notes,
     variants: llmOutput.variants,
     gmNotes: llmOutput.gm_notes,
+    narrativeHooks: llmOutput.narrative_hooks,
     candidates,
   };
 }
@@ -172,6 +221,7 @@ function selectConstrainedCandidate(
 function renderEncounterAssistUserPrompt(
   request: EncounterAssistInput,
   candidates: EncounterCompositionSuggestion[],
+  narrativeContext: EncounterNarrativeContext | undefined,
 ): string {
   return [
     "# Encounter Assist Request",
@@ -192,6 +242,9 @@ function renderEncounterAssistUserPrompt(
       ? candidates.map(renderCandidate).join("\n\n")
       : "_Nessuna candidate disponibile._",
     "",
+    "## Narrative Context",
+    renderNarrativeContext(narrativeContext),
+    "",
     "## Output Contract",
     `Return exactly this JSON shape:
 {
@@ -206,16 +259,89 @@ function renderEncounterAssistUserPrompt(
     "retreat_or_surrender": "string"
   },
   "variants": ["string"],
-  "gm_notes": ["string"]
+  "gm_notes": ["string"],
+  "narrative_hooks": {
+    "truth_revelations": ["string"],
+    "plot_complications": ["string"],
+    "pc_hooks": ["string"]
+  }
 }`,
     "",
     "## Quality Bar",
     "- `selected_candidate_index` deve essere l'indice di una candidate sopra.",
     "- Le tactical notes devono usare le creature scelte e il tema del brief.",
     "- Evita prosa generica: includi posizione iniziale, priorita' tattiche, escalation e fallback.",
+    "- Se il contesto narrativo e' presente, proponi hook usabili come rivelazione di briciole di verita', complicazione di plot thread o aggancio per un PG.",
+    "- Non rivelare direttamente una verita' deep ai giocatori: trasformala in segno osservabile o complicazione graduata.",
   ]
     .filter((line): line is string => line !== null)
     .join("\n");
+}
+
+function renderNarrativeContext(
+  narrativeContext: EncounterNarrativeContext | undefined,
+): string {
+  if (!narrativeContext) {
+    return "_Nessun contesto narrativo recuperato._";
+  }
+
+  const sections = [
+    renderPlotThreads(narrativeContext.plotThreads),
+    renderTruthClues(narrativeContext.truthClues),
+    renderPcHooks(narrativeContext.pcHooks),
+  ].filter(Boolean);
+
+  return sections.length > 0
+    ? sections.join("\n\n")
+    : "_Nessun contesto narrativo rilevante disponibile._";
+}
+
+function renderPlotThreads(
+  threads: EncounterNarrativeContext["plotThreads"],
+): string {
+  if (threads.length === 0) return "";
+  return [
+    "### Plot Threads",
+    ...threads.map((thread) =>
+      [
+        `- ${thread.title} (${thread.status})`,
+        thread.publicDescription
+          ? `  - party view: ${thread.publicDescription}`
+          : null,
+        thread.description ? `  - GM truth: ${thread.description}` : null,
+      ]
+        .filter((line): line is string => line !== null)
+        .join("\n"),
+    ),
+  ].join("\n");
+}
+
+function renderTruthClues(
+  clues: EncounterNarrativeContext["truthClues"],
+): string {
+  if (clues.length === 0) return "";
+  return [
+    "### Truth Clues",
+    ...clues.map(
+      (clue) =>
+        `- ${clue.description} [${clue.status}] -> ${clue.truthRevealed}`,
+    ),
+  ].join("\n");
+}
+
+function renderPcHooks(hooks: EncounterNarrativeContext["pcHooks"]): string {
+  if (hooks.length === 0) return "";
+  return [
+    "### PC Hooks",
+    ...hooks.map((hook) =>
+      [
+        `- ${hook.hookDescription} [${hook.status}]`,
+        hook.potentialArc ? `  - arc: ${hook.potentialArc}` : null,
+      ]
+        .filter((line): line is string => line !== null)
+        .join("\n"),
+    ),
+  ].join("\n");
 }
 
 function renderCandidate(

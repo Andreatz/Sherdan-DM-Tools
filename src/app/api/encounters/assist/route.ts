@@ -1,12 +1,13 @@
 import type { NextRequest } from "next/server";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, ne } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { entities } from "@/db/schema";
+import { entities, pcHooks, plotThreads, truthClues } from "@/db/schema";
 import { BadRequestError } from "@/lib/api/errors";
 import { fail, ok } from "@/lib/api/respond";
 import {
   encounterAssistInputSchema,
+  type EncounterNarrativeContext,
   filterSuggesterMonsters,
   generateEncounterAssist,
   monsterRecordToSuggesterMonster,
@@ -64,7 +65,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const assist = await generateEncounterAssist(input, candidates);
+    const narrativeContext = await loadNarrativeContext(input.campaignId);
+    const assist = await generateEncounterAssist(
+      input,
+      candidates,
+      narrativeContext,
+    );
 
     return ok({
       input,
@@ -74,4 +80,59 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return fail(err);
   }
+}
+
+async function loadNarrativeContext(
+  campaignId: string,
+): Promise<EncounterNarrativeContext> {
+  const [threads, clues, hooks] = await Promise.all([
+    db
+      .select({
+        id: plotThreads.id,
+        title: plotThreads.title,
+        status: plotThreads.status,
+        publicDescription: plotThreads.publicDescription,
+        description: plotThreads.description,
+      })
+      .from(plotThreads)
+      .where(eq(plotThreads.campaignId, campaignId))
+      .orderBy(desc(plotThreads.updatedAt))
+      .limit(8),
+    db
+      .select({
+        id: truthClues.id,
+        description: truthClues.description,
+        truthRevealed: truthClues.truthRevealed,
+        status: truthClues.status,
+        relatedPlotThreadId: truthClues.relatedPlotThreadId,
+      })
+      .from(truthClues)
+      .where(
+        and(
+          eq(truthClues.campaignId, campaignId),
+          ne(truthClues.status, "understood"),
+        ),
+      )
+      .orderBy(desc(truthClues.statusUpdatedAt))
+      .limit(8),
+    db
+      .select({
+        id: pcHooks.id,
+        pcEntityId: pcHooks.pcEntityId,
+        targetEntityId: pcHooks.targetEntityId,
+        hookDescription: pcHooks.hookDescription,
+        potentialArc: pcHooks.potentialArc,
+        status: pcHooks.status,
+      })
+      .from(pcHooks)
+      .where(and(eq(pcHooks.campaignId, campaignId), ne(pcHooks.status, "resolved")))
+      .orderBy(asc(pcHooks.createdAt))
+      .limit(8),
+  ]);
+
+  return {
+    plotThreads: threads,
+    truthClues: clues,
+    pcHooks: hooks,
+  };
 }
