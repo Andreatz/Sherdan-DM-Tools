@@ -43,6 +43,20 @@ export class BadRequestError extends AppError {
   }
 }
 
+export class UnauthorizedError extends AppError {
+  override readonly name: string = "UnauthorizedError";
+  constructor(message = "Accesso non autorizzato", details?: unknown) {
+    super(message, 401, "unauthorized", details);
+  }
+}
+
+export class ServiceUnavailableError extends AppError {
+  override readonly name: string = "ServiceUnavailableError";
+  constructor(message = "Servizio non disponibile", details?: unknown) {
+    super(message, 503, "service_unavailable", details);
+  }
+}
+
 export class ConflictError extends AppError {
   override readonly name: string = "ConflictError";
   constructor(message: string, details?: unknown) {
