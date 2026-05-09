@@ -1,8 +1,9 @@
 import type { NextRequest } from "next/server";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { entities, lootBundles } from "@/db/schema";
-import { AppError } from "@/lib/api/errors";
+import { encounters, entities, lootBundles } from "@/db/schema";
+import { AppError, NotFoundError } from "@/lib/api/errors";
 import { created, fail } from "@/lib/api/respond";
 import {
   lootGeneratorSaveRequestSchema,
@@ -33,7 +34,8 @@ const itemEntityColumns = {
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as unknown;
-    const { output } = lootGeneratorSaveRequestSchema.parse(body);
+    const { output, encounterId } = lootGeneratorSaveRequestSchema.parse(body);
+    await assertEncounterMatchesCampaign(encounterId, output.metadata.campaignId);
     const resolved = await resolveLootItemsForSave(output);
 
     const saved = await db.transaction(async (tx) => {
@@ -79,7 +81,7 @@ export async function POST(req: NextRequest) {
           description: lootBundleDescription(output),
           goldAmount: Math.round(output.baseGold.totalGp),
           items: savedItems,
-          encounterId: null,
+          encounterId: encounterId ?? null,
         })
         .returning(bundleColumns);
 
@@ -101,6 +103,31 @@ export async function POST(req: NextRequest) {
     return created(saved);
   } catch (err) {
     return fail(err);
+  }
+}
+
+async function assertEncounterMatchesCampaign(
+  encounterId: string | undefined,
+  campaignId: string,
+) {
+  if (!encounterId) return;
+
+  const [row] = await db
+    .select({ id: encounters.id })
+    .from(encounters)
+    .where(
+      and(
+        eq(encounters.id, encounterId),
+        eq(encounters.campaignId, campaignId),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    throw new NotFoundError(
+      "Encounter della campagna per il loot bundle",
+      encounterId,
+    );
   }
 }
 

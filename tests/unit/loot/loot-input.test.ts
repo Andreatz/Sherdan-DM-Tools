@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  lootGeneratorSaveRequestSchema,
   lootGeneratorInputSchema,
   lootNarrativeDensityOptions,
   lootSourcePresetOptions,
 } from "@/lib/loot";
+import {
+  calculateDmgBaseGold,
+  type LootGeneratorOutput,
+} from "@/lib/loot";
 
 const campaignId = "11111111-1111-4111-8111-111111111111";
 const anchorEntityId = "22222222-2222-4222-8222-222222222222";
+const encounterId = "33333333-3333-4333-8333-333333333333";
 
 describe("lootGeneratorInputSchema", () => {
   it("normalizes loot generator input from form-shaped values", () => {
@@ -65,3 +71,58 @@ describe("lootGeneratorInputSchema", () => {
     }
   });
 });
+
+describe("lootGeneratorSaveRequestSchema", () => {
+  it("accepts an optional encounter target for save", () => {
+    const result = lootGeneratorSaveRequestSchema.parse({
+      output: outputFixture(),
+      encounterId,
+    });
+
+    expect(result.encounterId).toBe(encounterId);
+  });
+
+  it("normalizes empty encounter target from form-shaped values", () => {
+    const result = lootGeneratorSaveRequestSchema.parse({
+      output: outputFixture(),
+      encounterId: "",
+    });
+
+    expect(result.encounterId).toBeUndefined();
+  });
+});
+
+function outputFixture(): LootGeneratorOutput {
+  const baseGold = calculateDmgBaseGold({ partyLevel: 5, mode: "hoard" });
+
+  return {
+    baseGold,
+    narrativeSummary: "Una cassa chiusa con sigilli rotti.",
+    gmNotes: null,
+    hooks: [],
+    items: [
+      {
+        name: "Gemma incrinata",
+        kind: "material",
+        rarity: "common",
+        quantity: 1,
+        value_gp: 25,
+        attunement: false,
+        description: "Una pietra lattiginosa segnata da una crepa netta.",
+        effects: [],
+        tags: ["loot"],
+        lore_references: [],
+        extra: {},
+      },
+    ],
+    totalEstimatedValueGp: baseGold.totalGp + 25,
+    metadata: {
+      campaignId,
+      source: "bandit",
+      anchorEntityId: null,
+      partyLevel: 5,
+      narrativeDensity: "sobrio",
+      contextEntitiesUsed: 0,
+    },
+  };
+}

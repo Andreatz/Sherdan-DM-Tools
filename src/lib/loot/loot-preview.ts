@@ -7,6 +7,12 @@ import type { ResolvedLootBundle, ResolvedLootItem } from "./loot-resolver";
 export const lootGeneratorSaveRequestSchema = z
   .object({
     output: lootGeneratorOutputSchema,
+    encounterId: z
+      .preprocess(
+        (value) => (value === "" || value === null ? undefined : value),
+        z.uuid().optional(),
+      )
+      .optional(),
   })
   .strict();
 

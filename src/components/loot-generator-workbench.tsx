@@ -26,11 +26,19 @@ interface EntityRow {
   type: string;
 }
 
+interface EncounterRow {
+  id: string;
+  title: string;
+  difficulty: string | null;
+  partyLevel: number | null;
+}
+
 interface SavedLootResponse {
   bundle: {
     id: string;
     title: string | null;
     goldAmount: number | null;
+    encounterId: string | null;
   };
   createdEntities: Array<{
     id: string;
@@ -66,7 +74,9 @@ const FIELD_LABELS: Record<string, string> = {
 export function LootGeneratorWorkbench() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [entities, setEntities] = useState<EntityRow[]>([]);
+  const [encounters, setEncounters] = useState<EncounterRow[]>([]);
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
+  const [encounterId, setEncounterId] = useState("");
   const [validatedInput, setValidatedInput] =
     useState<LootGeneratorInput | null>(null);
   const [preview, setPreview] = useState<LootGeneratorOutput | null>(null);
@@ -76,6 +86,7 @@ export function LootGeneratorWorkbench() {
   const [savedLoot, setSavedLoot] = useState<SavedLootResponse | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingEntities, setLoadingEntities] = useState(false);
+  const [loadingEncounters, setLoadingEncounters] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -146,6 +157,38 @@ export function LootGeneratorWorkbench() {
     };
   }, [draft.campaignId]);
 
+  useEffect(() => {
+    if (!draft.campaignId) return;
+    let cancelled = false;
+
+    async function loadEncounters() {
+      setLoadingEncounters(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          campaign_id: draft.campaignId,
+        });
+        const rows = await apiFetch<EncounterRow[]>(
+          `/api/encounters?${params.toString()}`,
+        );
+        if (cancelled) return;
+        setEncounters(rows);
+        setEncounterId((current) =>
+          rows.some((row) => row.id === current) ? current : "",
+        );
+      } catch (err) {
+        if (!cancelled) setError(messageForError(err));
+      } finally {
+        if (!cancelled) setLoadingEncounters(false);
+      }
+    }
+
+    void loadEncounters();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.campaignId]);
+
   const selectedCampaign = useMemo(
     () => campaigns.find((campaign) => campaign.id === draft.campaignId),
     [campaigns, draft.campaignId],
@@ -153,6 +196,10 @@ export function LootGeneratorWorkbench() {
   const selectedAnchor = useMemo(
     () => entities.find((entity) => entity.id === draft.anchorEntityId),
     [entities, draft.anchorEntityId],
+  );
+  const selectedEncounter = useMemo(
+    () => encounters.find((encounter) => encounter.id === encounterId),
+    [encounters, encounterId],
   );
 
   function updateDraft<K extends keyof DraftState>(
@@ -214,7 +261,10 @@ export function LootGeneratorWorkbench() {
         "/api/loot-generator/save",
         {
           method: "POST",
-          body: JSON.stringify({ output: preview }),
+          body: JSON.stringify({
+            output: preview,
+            encounterId: encounterId || undefined,
+          }),
         },
       );
       setSavedLoot(response);
@@ -316,6 +366,31 @@ export function LootGeneratorWorkbench() {
 
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                  Encounter
+                </span>
+                <select
+                  value={encounterId}
+                  onChange={(event) => {
+                    setEncounterId(event.target.value);
+                    setSavedLoot(null);
+                    setMessage(null);
+                    setError(null);
+                  }}
+                  disabled={!draft.campaignId || loadingEncounters}
+                  className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+                >
+                  <option value="">Nessun encounter specifico</option>
+                  {encounters.map((encounter) => (
+                    <option key={encounter.id} value={encounter.id}>
+                      {encounter.title}
+                      {encounter.difficulty ? ` (${encounter.difficulty})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
                   Livello party
                 </span>
                 <input
@@ -382,6 +457,10 @@ export function LootGeneratorWorkbench() {
               <SummaryRow
                 label="Anchor"
                 value={selectedAnchor?.name ?? "Sorgente testuale"}
+              />
+              <SummaryRow
+                label="Encounter"
+                value={selectedEncounter?.title ?? "Non collegato"}
               />
               <SummaryRow label="Sorgente" value={draft.source || "-"} />
               <SummaryRow label="Livello" value={draft.partyLevel || "-"} />

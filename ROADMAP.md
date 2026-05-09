@@ -469,9 +469,9 @@ Generi un NPC contestuale a Sherdan, lo confronti con quelli che hai scritto a m
 
 ---
 
-## Fase 4 — Loot Generator
+## Fase 4 — Loot Generator ✅
 
-**Durata**: 5-7 giorni · **Tool sbloccato**: ✅ Loot Generator
+**Durata**: 5-7 giorni · **Tool sbloccato**: ✅ Loot Generator · **Chiusa il 2026-05-09**
 
 ### Goal
 Riusare il generator framework per produrre loot bundles narrativamente coerenti.
@@ -487,7 +487,8 @@ Riusare il generator framework per produrre loot bundles narrativamente coerenti
   - _Note implementative: aggiunto `LootItemResolver` con similarity search su entity `type='item'` embeddati (`embedding <=> query`) e soglia di riuso default `0.88`. Il resolver genera embedding per ogni item del bundle, recupera candidati simili, decide `reuse` quando il miglior match supera soglia oppure `create` quando serve un nuovo item, senza side effect durante la preview. Per i nuovi item prepara `entityInsert` validato con `lootItemToItemProperties`, tags normalizzati e embedding 1024-dim; `buildLootItemEmbeddingText` include descrizione, properties, effetti e `lore_references` per migliorare il matching. Test unitari coprono reuse/create, testo embedding lore-aware, validazione dimensioni embedding e preparazione insert._
 - [x] UI: form input → preview bundle → save
   - _Note implementative: aggiunte route `POST /api/loot-generator/generate` e `POST /api/loot-generator/save`. La generate esegue pipeline `LootGenerator`, risolve gli item con `LootItemResolver` e ritorna preview + summary `reuse/create`; la save rivalida output, risolve di nuovo, crea entity `type='item'` solo per gli item nuovi, riusa gli item simili esistenti e persiste `loot_bundles` con gold deterministico e riferimenti item. Aggiunta pagina `/loot-generator` con form campagna/sorgente/anchor/livello/densita', preview gold+item+lore references, badge di risoluzione similarity e pulsante salva bundle; sidebar aggiornata._
-- [ ] Link opzionale a Encounter (drop di un encounter specifico)
+- [x] Link opzionale a Encounter (drop di un encounter specifico)
+  - _Note implementative: aggiunto `GET /api/encounters?campaign_id=...` per popolare il selettore, `encounterId` opzionale nel save schema del Loot Generator, validazione server-side che l'encounter appartenga alla stessa campagna del bundle e salvataggio in `loot_bundles.encounter_id`. La UI `/loot-generator` ora permette di scegliere un encounter specifico prima del save senza dover rigenerare la preview._
 
 ### Definition of done
 Generi loot per un encounter, gli items hanno descrizioni narrative coerenti con la lore di Sherdan (se attiva), items magici nuovi diventano entity nel wiki.
