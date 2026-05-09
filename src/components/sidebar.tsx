@@ -45,7 +45,7 @@ const NAV: NavGroup[] = [
       { label: "Random Tables", href: "/random-tables" },
       { label: "NPC", href: "/npc-generator" },
       { label: "Loot", href: "/loot-generator" },
-      { label: "Encounter", comingIn: "Fase 5" },
+      { label: "Encounter", href: "/encounter-builder" },
       { label: "Dungeon", comingIn: "Fase 8" },
     ],
   },

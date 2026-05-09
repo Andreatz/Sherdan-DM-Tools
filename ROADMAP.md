@@ -507,7 +507,8 @@ Builder completo con browser mostri, math di bilanciamento, e LLM-assist per ide
 **Pre-requisiti**
 - [x] Importer SRD monsters (open5e API o JSON dump) → entities type='monster' con statblock JSONB completo
   - _Note implementative: aggiunto mapper Open5e V2 in `src/lib/encounters/open5e-monsters.ts`, default su documento `srd-2014` filtrato con `document__key__in` (V2 corrente; V1 deprecata). Nuovo script `pnpm db:import:srd-monsters --campaign-id <uuid> [--document srd-2014] [--limit N] [--dry-run]`: importa creature come `entities.type='monster'`, valida `properties` con `monsterPropertiesSchema`, salva statblock completo in JSONB e usa tag `open5e:<key>` per saltare duplicati nella stessa campagna. Test unitari coprono URL V2, mapping statblock, CR frazionari e tag per i futuri filtri._
-- [ ] Browser mostri con filtri: CR range, type (umanoide/non morto/draconico…), environment, size
+- [x] Browser mostri con filtri: CR range, type (umanoide/non morto/draconico…), environment, size
+  - _Note implementative: aggiunta API `GET /api/monsters` con query `campaign_id`, `search`, `cr_min/max`, `creature_type`, `environment`, `size`, paginazione e facets. Nuova pagina `/encounter-builder` con browser mostri SRD, filtri tattici, summary AC/HP/XP, speed/senses/languages, defenses e tag. Aggiornata sidebar per rendere attivo il tool Encounter. Test unitari coprono validazione query, conversione CR frazionari, filtri e facets._
 
 **Encounter logic**
 - [ ] CR calculator (DMG encounter difficulty: XP threshold per livello/dimensione party, multipliers per gruppo)
