@@ -563,7 +563,8 @@ Dimensione temporale: sessioni con recap, plot threads con doppio arco (percepit
   - _Note implementative: aggiunto `POST /api/sessions/previously-on`, che carica solo `number/title/recap` della sessione selezionata e rifiuta sessioni senza recap salvato. `buildPreviouslyOnPrompt` istruisce il modello a usare esclusivamente il recap e lo schema Zod ritorna `{ previously_on }`. `SessionRecapEditor` espone un pulsante "Previously on" e un textarea modificabile per il risultato. Test unitari verificano schema e prompt, incluso che `dm_notes`/`prep_notes` non entrino nel prompt._
 
 **Plot Threads (doppio arco)**
-- [ ] CRUD plot_threads con `description` (verità GM) e `public_description` (versione percepita dal party)
+- [x] CRUD plot_threads con `description` (verità GM) e `public_description` (versione percepita dal party)
+  - _Note implementative: estesa `GET /api/plot-threads` con status filter, paginazione e colonne complete del doppio arco; aggiunto `POST /api/plot-threads` e route `/api/plot-threads/[id]` con GET/PATCH/DELETE. La validazione Zod separa esplicitamente `description` (verita' GM) e `publicDescription` (versione percepita), con status/priority/visibility. Test unitari coprono create, update, filtri e normalizzazione text._
 - [ ] PlotThreadEntity: assegna ruoli (instigator, victim, target, mcguffin, witness)
 - [ ] PlotThreadEvent: timeline con event_type
 - [ ] **Visualizzazione "split-screen"**: per ogni thread, due colonne sincronizzate temporalmente — ciò che il party crede stia succedendo vs ciò che sta realmente succedendo. Vedi a colpo d'occhio la divergenza/convergenza.
