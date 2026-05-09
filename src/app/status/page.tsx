@@ -56,7 +56,7 @@ export default function StatusPage() {
           Stato progetto
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-          Pannello operativo per verificare a colpo d'occhio sicurezza dei contenuti,
+          Pannello operativo per verificare a colpo d&apos;occhio sicurezza dei contenuti,
           stato reale delle feature e blocchi prima di qualunque esposizione player-facing.
         </p>
       </header>
