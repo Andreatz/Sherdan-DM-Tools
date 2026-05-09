@@ -23,6 +23,9 @@
     "db:report:sherdan": "tsx scripts/report-sherdan-import.ts",
     "db:validate:sherdan": "tsx scripts/validate-sherdan-phase-1-5.ts",
     "db:import:srd-monsters": "tsx scripts/import-srd-monsters.ts",
+    "content:check": "tsx scripts/check-sherdan-content-location.ts",
+    "content:migrate:sherdan": "tsx scripts/migrate-sherdan-content.ts",
+    "content:migrate:sherdan:delete-public": "tsx scripts/migrate-sherdan-content.ts --delete-public",
     "llm:ping": "tsx scripts/llm-ping.ts",
     "env:check": "tsx scripts/env-check.ts"
   },
