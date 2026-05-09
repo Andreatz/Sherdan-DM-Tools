@@ -37,16 +37,16 @@ export interface ProjectionOptions {
  */
 export function projectForAudience<T>(value: T, options: ProjectionOptions): T {
   if (options.audience === "dm") return value;
-  return projectUnknown(value, options.audience) as T;
+  return projectUnknown(value) as T;
 }
 
 export function isPlayerSafeKey(key: string): boolean {
   return !GM_ONLY_KEYS.has(key);
 }
 
-function projectUnknown(value: unknown, audience: Exclude<Audience, "dm">): unknown {
+function projectUnknown(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value.map((item) => projectUnknown(item, audience));
+    return value.map((item) => projectUnknown(item));
   }
 
   if (!isPlainRecord(value)) return value;
@@ -66,7 +66,7 @@ function projectUnknown(value: unknown, audience: Exclude<Audience, "dm">): unkn
       continue;
     }
 
-    projected[key] = projectUnknown(nested, audience);
+    projected[key] = projectUnknown(nested);
   }
 
   return projected;
