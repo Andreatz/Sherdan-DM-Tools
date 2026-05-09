@@ -5,8 +5,8 @@ import { campaigns } from "@/db/schema";
 import { getLogger } from "@/lib/logger";
 
 // Niente prerendering al build: la lista cambia, vogliamo dati freschi
-// ad ogni richiesta. Inoltre questo evita che `next build` tenti di
-// connettersi al DB in CI (dove Postgres non gira).
+// ad ogni richiesta. In CI Postgres gira come service container, ma la pagina
+// resta comunque dinamica per evitare dati stale.
 export const dynamic = "force-dynamic";
 
 const log = getLogger("page.campaigns");
@@ -97,9 +97,10 @@ function EmptyState() {
     <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-zinc-700 dark:bg-zinc-900">
       <h2 className="text-lg font-semibold">Nessuna campagna ancora</h2>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        La creazione di campagne arriva in <strong>Fase 1</strong> insieme al
-        Wiki. Per ora, lo schema DB e&apos; pronto e questa pagina la
-        leggera&apos; non appena ci saranno righe.
+        Esegui <code className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">pnpm db:seed</code>{" "}
+        per creare la campagna Sherdan vuota, oppure{" "}
+        <code className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">pnpm db:bootstrap:sherdan</code>{" "}
+        dopo aver migrato i sorgenti in <code className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">content/sherdan/</code>.
       </p>
     </div>
   );
