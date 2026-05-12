@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   forceCenter,
   forceCollide,
@@ -172,6 +172,128 @@ export function EntityGraphView({
     nodes: RenderNode[];
     links: RenderLink[];
   }>({ nodes: [], links: [] });
+
+  // Pan & zoom: transform `translate(x,y) scale(k)` applicato al gruppo
+  // che contiene nodi+link. Tutta la matematica e' in coordinate SVG
+  // (viewBox 0..WIDTH x 0..HEIGHT) per restare risoluzione-indipendente.
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
+  // Pan in corso: usiamo i ref invece di state cosi' i tick di
+  // onMouseMove non triggerano render React inutili.
+  const panStateRef = useRef<{
+    startSvgX: number;
+    startSvgY: number;
+    originX: number;
+    originY: number;
+    movedPx: number;
+  } | null>(null);
+  // Soglia: se durante un click il mouse si muove piu' di N pixel sul
+  // viewport, sopprimi la navigazione del Link sottostante: l'utente
+  // stava pannando, non cliccando.
+  const suppressNextClickRef = useRef(false);
+
+  // Converte le coordinate viewport (clientX/Y) nelle coordinate SVG
+  // del viewBox (0..WIDTH x 0..HEIGHT). Necessario perche' il pan/zoom
+  // ragiona in viewBox-space.
+  const viewportToSvg = useCallback((clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: clientX, y: clientY };
+    const rect = svg.getBoundingClientRect();
+    const ratioX = WIDTH / rect.width;
+    const ratioY = HEIGHT / rect.height;
+    return {
+      x: (clientX - rect.left) * ratioX,
+      y: (clientY - rect.top) * ratioY,
+    };
+  }, []);
+
+  const handleWheel = useCallback(
+    (event: React.WheelEvent<SVGSVGElement>) => {
+      event.preventDefault();
+      const { x: mouseX, y: mouseY } = viewportToSvg(event.clientX, event.clientY);
+      const factor = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+      setTransform((current) => {
+        const newK = Math.min(4, Math.max(0.3, current.k * factor));
+        const ratio = newK / current.k;
+        // Mantieni il punto sotto il cursore fisso durante lo zoom.
+        return {
+          k: newK,
+          x: mouseX - (mouseX - current.x) * ratio,
+          y: mouseY - (mouseY - current.y) * ratio,
+        };
+      });
+    },
+    [viewportToSvg],
+  );
+
+  const handleMouseDown = useCallback(
+    (event: React.MouseEvent<SVGSVGElement>) => {
+      // Solo tasto sinistro. Middle/right per gli usi futuri.
+      if (event.button !== 0) return;
+      const { x, y } = viewportToSvg(event.clientX, event.clientY);
+      panStateRef.current = {
+        startSvgX: x,
+        startSvgY: y,
+        originX: transform.x,
+        originY: transform.y,
+        movedPx: 0,
+      };
+      suppressNextClickRef.current = false;
+    },
+    [viewportToSvg, transform.x, transform.y],
+  );
+
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent<SVGSVGElement>) => {
+      const state = panStateRef.current;
+      if (!state) return;
+      const { x, y } = viewportToSvg(event.clientX, event.clientY);
+      const dxSvg = x - state.startSvgX;
+      const dySvg = y - state.startSvgY;
+      state.movedPx += Math.abs(event.movementX) + Math.abs(event.movementY);
+      if (state.movedPx > 5) suppressNextClickRef.current = true;
+      setTransform((current) => ({
+        ...current,
+        x: state.originX + dxSvg,
+        y: state.originY + dySvg,
+      }));
+    },
+    [viewportToSvg],
+  );
+
+  const endPan = useCallback(() => {
+    panStateRef.current = null;
+  }, []);
+
+  // Click-capture al livello svg: se l'utente ha pannato, sopprime la
+  // navigazione del `<Link>` sottostante. Altrimenti lascia passare.
+  const handleClickCapture = useCallback(
+    (event: React.MouseEvent<SVGSVGElement>) => {
+      if (suppressNextClickRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        suppressNextClickRef.current = false;
+      }
+    },
+    [],
+  );
+
+  const zoomBy = useCallback((factor: number) => {
+    setTransform((current) => {
+      const newK = Math.min(4, Math.max(0.3, current.k * factor));
+      const ratio = newK / current.k;
+      // Zoom centrato sul viewBox.
+      return {
+        k: newK,
+        x: WIDTH / 2 - (WIDTH / 2 - current.x) * ratio,
+        y: HEIGHT / 2 - (HEIGHT / 2 - current.y) * ratio,
+      };
+    });
+  }, []);
+
+  const resetTransform = useCallback(() => {
+    setTransform({ x: 0, y: 0, k: 1 });
+  }, []);
 
   useEffect(() => {
     if (graph.nodes.length === 0) return;
