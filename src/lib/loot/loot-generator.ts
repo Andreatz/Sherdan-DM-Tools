@@ -1,5 +1,5 @@
 import {
-  callStructuredOutput,
+  callStructuredOutputLogged,
   type Generator,
   type GeneratorPrompt,
   type GeneratorRunOptions,
@@ -58,11 +58,20 @@ export class LootGenerator
 
   async call(
     prompt: GeneratorPrompt,
-    _input: LootGeneratorInput,
+    input: LootGeneratorInput,
     _context: LootGeneratorContext,
     options: GeneratorRunOptions,
   ): Promise<LootGeneratorLLMOutput> {
-    return callStructuredOutput(prompt, lootGeneratorLLMOutputSchema, options);
+    return callStructuredOutputLogged({
+      prompt,
+      schema: lootGeneratorLLMOutputSchema,
+      logContext: {
+        generatorName: this.name,
+        campaignId: input.campaignId,
+        input,
+      },
+      runOptions: options,
+    });
   }
 
   validateOutput(

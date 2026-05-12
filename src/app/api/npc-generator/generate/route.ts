@@ -4,7 +4,7 @@ import { fail, ok } from "@/lib/api/respond";
 import {
   NpcGeneratorContextRetriever,
   buildNpcGeneratorPrompt,
-  callStructuredOutput,
+  callStructuredOutputLogged,
   npcGeneratorOutputSchemaForDepth,
   npcGeneratorPreviewRequestSchema,
   summarizeNpcGeneratorContext,
@@ -16,10 +16,16 @@ export async function POST(req: NextRequest) {
     const input = npcGeneratorPreviewRequestSchema.parse(body);
     const context = await new NpcGeneratorContextRetriever().retrieve(input);
     const prompt = buildNpcGeneratorPrompt(context);
-    const output = await callStructuredOutput(
+    const output = await callStructuredOutputLogged({
       prompt,
-      npcGeneratorOutputSchemaForDepth(input.narrativeDepth),
-    );
+      schema: npcGeneratorOutputSchemaForDepth(input.narrativeDepth),
+      logContext: {
+        generatorName: "npc-generator",
+        campaignId: input.campaignId,
+        input,
+        metadata: { phase: "generate" },
+      },
+    });
 
     return ok({
       input,

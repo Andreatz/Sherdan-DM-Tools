@@ -1,5 +1,6 @@
 export * from "./context-retriever";
 export * from "./errors";
+export * from "./generation-log";
 export * from "./npc-context";
 export * from "./npc-input";
 export * from "./npc-output";

@@ -450,11 +450,10 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 
 1. Allineare sidebar, status page e README sullo stesso vocabolario di stato.
 2. Rendere il Player Dashboard pubblicabile: ruoli, campaign scoping, rate limit, audit log e test di leakage.
-3. Collegare davvero `generation_log` al Generator Framework, non solo allo schema.
-4. Aggiungere test integrazione DB/API e almeno una smoke E2E browser.
-5. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
-6. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
-7. Introdurre backup/restore locale del DB e export campagna.
+3. Aggiungere test integrazione DB/API e almeno una smoke E2E browser.
+4. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
+5. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
+6. Introdurre backup/restore locale del DB e export campagna.
 
 ---
 
@@ -464,7 +463,7 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 - Il Player Dashboard esiste ma va considerato beta locale, non hardening definitivo.
 - L'accesso player usa un codice globale, non ruoli per giocatore/campagna.
 - Non c'è ancora rate limiting sulle API player-facing.
-- `generation_log` è presente nello schema, ma la pipeline generator non è ancora pienamente collegata a logging/costi/tokens.
+- `generation_log` ora cattura ogni chiamata LLM (NPC/Loot/Encounter assist) con input, prompt, output, status e latenza, ma `input_tokens`/`output_tokens`/`cost_usd` restano `null` finché `LLMProvider` non espone l'usage del provider.
 - Encounter Builder è ancora una prima slice, non un costruttore tattico completo.
 - Non ci sono ancora test E2E browser automatizzati.
 - I seed delle Random Tables sono stato locale DB: rilanciare `pnpm db:seed:tables` dopo reset del database.

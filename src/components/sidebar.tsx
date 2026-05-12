@@ -25,6 +25,7 @@ const NAV: NavGroup[] = [
       { label: "Home", href: "/", status: "Pronto" },
       { label: "Campagne", href: "/campaigns", status: "Pronto" },
       { label: "Stato progetto", href: "/status", status: "Pronto" },
+      { label: "Generation log", href: "/generation-log", status: "Pronto" },
     ],
   },
   {

@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { callStructuredOutput, type GeneratorPrompt } from "@/lib/generators";
+import {
+  callStructuredOutputLogged,
+  type GeneratorPrompt,
+} from "@/lib/generators";
 import type { GeneratorRunOptions } from "@/lib/generators";
 
 import {
@@ -148,11 +151,20 @@ export async function generateEncounterAssist(
     candidates,
     narrativeContext,
   });
-  const llmOutput = await callStructuredOutput(
+  const llmOutput = await callStructuredOutputLogged({
     prompt,
-    encounterAssistLLMOutputSchema,
-    options,
-  );
+    schema: encounterAssistLLMOutputSchema,
+    logContext: {
+      generatorName: "encounter-assist",
+      campaignId: request.campaignId,
+      input: request,
+      metadata: {
+        candidateCount: candidates.length,
+        hasNarrativeContext: narrativeContext !== undefined,
+      },
+    },
+    runOptions: options,
+  });
   return composeEncounterAssistOutput(llmOutput, candidates, request.difficulty);
 }
 

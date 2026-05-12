@@ -6,7 +6,7 @@ import {
   NpcGeneratorContextRetriever,
   applyNpcRerollPatch,
   buildNpcRerollPrompt,
-  callStructuredOutput,
+  callStructuredOutputLogged,
   npcGeneratorOutputSchemaForDepth,
   npcGeneratorRerollRequestSchema,
   npcRerollPatchSchemaForField,
@@ -25,10 +25,16 @@ export async function POST(req: NextRequest) {
       output: request.output,
       field: request.field,
     });
-    const patch = await callStructuredOutput(
+    const patch = await callStructuredOutputLogged({
       prompt,
-      npcRerollPatchSchemaForField(request.field) as z.ZodType<unknown>,
-    );
+      schema: npcRerollPatchSchemaForField(request.field) as z.ZodType<unknown>,
+      logContext: {
+        generatorName: "npc-generator",
+        campaignId: request.input.campaignId,
+        input: request.input,
+        metadata: { phase: "reroll", field: request.field },
+      },
+    });
     const output = npcGeneratorOutputSchemaForDepth(
       request.input.narrativeDepth,
     ).parse(applyNpcRerollPatch(request.output, request.field, patch));
