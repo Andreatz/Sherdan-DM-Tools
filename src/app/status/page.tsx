@@ -31,7 +31,7 @@ const featureRows = [
   ["Encounter Builder", "Pronto", "Browser mostri, CR calculator, LLM assist, used_in_session, filtri list (sessione/location/plot)."],
   ["Generation log", "Pronto", "Audit di ogni chiamata LLM (input/prompt/output/latency/status) su generation_log."],
   ["Player Dashboard", "Pronto", "Per-player codici hashati, scoping campagna, rate limit, audit log, leakage tests, override (entity/truth_clue/entity_secret) con UI DM completa, smoke E2E Playwright."],
-  ["Session Prep Assistant", "Beta", "Agent LLM con 5 tool read-only (entities/plot/sessions/identities/truth-progress), output strutturato (hooks/npc seeds/encounter seeds/briciole/previously-on), salva come prep_notes della sessione. Mancano i tool generate_* agentici e lo streaming."],
+  ["Session Prep Assistant", "Pronto", "Agent LLM con 6 tool read-only (entities/plot/sessioni/identita'/truth-progress/pc-hooks), output strutturato + accept granulare: ogni briciola/NPC/encounter/hook accettato diventa record reale (truth_clue, entity stub dm_only, encounter draft, pc_hook). Streaming e tool generate_* rinviati a slice 3."],
   ["Rules Lookup", "Pianificato", "Documenti regole importati; UI/search dedicata da completare."],
   ["Procedural Dungeon Generator", "Pianificato", "Algoritmo + render mappa + content per room ancora da costruire."],
 ] as const;

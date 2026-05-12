@@ -33,6 +33,38 @@ interface GenerateResponse {
   iterations: number;
 }
 
+interface AcceptResponse {
+  session: { id: string; number: number; prepNotes: string | null };
+  created: {
+    clues: Array<{ id: string; description: string }>;
+    npcs: Array<{ id: string; name: string }>;
+    encounters: Array<{ id: string; title: string }>;
+    pcHooks: Array<{ id: string; pcName: string; targetName: string }>;
+  };
+  skipped: { hookInvalid: number; cluePlotThreadInvalid: number };
+  markdown: string;
+}
+
+interface SelectionState {
+  previouslyOn: boolean;
+  notes: boolean;
+  hooks: Set<number>;
+  npcSeeds: Set<number>;
+  encounterSeeds: Set<number>;
+  suggestedClues: Set<number>;
+}
+
+function fullSelection(output: SessionPrepOutput): SelectionState {
+  return {
+    previouslyOn: true,
+    notes: true,
+    hooks: new Set(output.hooks.map((_, i) => i)),
+    npcSeeds: new Set(output.npcSeeds.map((_, i) => i)),
+    encounterSeeds: new Set(output.encounterSeeds.map((_, i) => i)),
+    suggestedClues: new Set(output.suggestedClues.map((_, i) => i)),
+  };
+}
+
 interface DraftState {
   campaignId: string;
   locationId: string;
@@ -57,11 +89,34 @@ export function SessionPrepWorkbench() {
   const [sessionList, setSessionList] = useState<SessionRow[]>([]);
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
   const [result, setResult] = useState<GenerateResponse | null>(null);
+  const [selection, setSelection] = useState<SelectionState | null>(null);
   const [targetSessionId, setTargetSessionId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [lastAcceptResult, setLastAcceptResult] = useState<AcceptResponse | null>(
+    null,
+  );
+
+  function toggleSelectionFlag(key: "previouslyOn" | "notes") {
+    setSelection((current) =>
+      current ? { ...current, [key]: !current[key] } : current,
+    );
+  }
+
+  function toggleSelectionIndex(
+    key: "hooks" | "npcSeeds" | "encounterSeeds" | "suggestedClues",
+    index: number,
+  ) {
+    setSelection((current) => {
+      if (!current) return current;
+      const set = new Set(current[key]);
+      if (set.has(index)) set.delete(index);
+      else set.add(index);
+      return { ...current, [key]: set };
+    });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -149,6 +204,8 @@ export function SessionPrepWorkbench() {
         { method: "POST", body: JSON.stringify(body) },
       );
       setResult(response);
+      setSelection(fullSelection(response.output));
+      setLastAcceptResult(null);
       setMessage(
         `Prep generato in ${response.iterations} iterazioni (${response.trace.length} tool calls).`,
       );
@@ -159,26 +216,52 @@ export function SessionPrepWorkbench() {
     }
   }
 
-  async function saveToSession() {
-    if (!result || !targetSessionId) return;
+  async function acceptSelected() {
+    if (!result || !selection || !targetSessionId) return;
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
-      await apiFetch<unknown>("/api/session-prep/save", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: targetSessionId,
-          output: result.output,
-          vibe: draft.vibe.trim() || undefined,
-          focus: draft.focus.trim() || undefined,
-        }),
-      });
+      const response = await apiFetch<AcceptResponse>(
+        "/api/session-prep/accept",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            campaignId: draft.campaignId,
+            sessionId: targetSessionId,
+            output: result.output,
+            vibe: draft.vibe.trim() || undefined,
+            focus: draft.focus.trim() || undefined,
+            selected: {
+              previouslyOn: selection.previouslyOn,
+              notes: selection.notes,
+              hooks: Array.from(selection.hooks).sort((a, b) => a - b),
+              npcSeeds: Array.from(selection.npcSeeds).sort((a, b) => a - b),
+              encounterSeeds: Array.from(selection.encounterSeeds).sort(
+                (a, b) => a - b,
+              ),
+              suggestedClues: Array.from(selection.suggestedClues).sort(
+                (a, b) => a - b,
+              ),
+            },
+          }),
+        },
+      );
+      setLastAcceptResult(response);
       const target = sessionList.find((s) => s.id === targetSessionId);
+      const counts = response.created;
+      const created = [
+        counts.clues.length > 0 ? `${counts.clues.length} briciole` : null,
+        counts.npcs.length > 0 ? `${counts.npcs.length} NPC stub` : null,
+        counts.encounters.length > 0
+          ? `${counts.encounters.length} encounter draft`
+          : null,
+        counts.pcHooks.length > 0 ? `${counts.pcHooks.length} PC hook` : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
       setMessage(
-        target
-          ? `Prep aggiunto a Session #${target.number}${target.title ? ` (${target.title})` : ""} prep_notes.`
-          : "Prep aggiunto alle prep_notes.",
+        `${created || "Nessun record creato"} · prep_notes aggiornate per S#${target?.number ?? "?"}.`,
       );
     } catch (err) {
       setError(messageForError(err));
@@ -324,15 +407,23 @@ export function SessionPrepWorkbench() {
         </div>
       </form>
 
-      {result && (
+      {result && selection && (
         <div className="space-y-4">
           <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
             <header className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Previously on...</h2>
-              <span className="text-xs text-zinc-500">
-                Solo `recap`, mai `dm_notes`.
-              </span>
+              <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={selection.previouslyOn}
+                  onChange={() => toggleSelectionFlag("previouslyOn")}
+                />
+                Includi nelle prep_notes
+              </label>
             </header>
+            <p className="mt-1 text-xs text-zinc-500">
+              Solo `recap`, mai `dm_notes`.
+            </p>
             <p className="mt-3 whitespace-pre-wrap text-sm">
               {result.output.previouslyOn}
             </p>
@@ -340,7 +431,12 @@ export function SessionPrepWorkbench() {
 
           <PrepListSection title="Hooks proposti" empty="Nessun hook proposto.">
             {result.output.hooks.map((hook, i) => (
-              <li key={i} className="space-y-1 text-sm">
+              <SelectableItem
+                key={i}
+                checked={selection.hooks.has(i)}
+                onToggle={() => toggleSelectionIndex("hooks", i)}
+                acceptHint="→ pc_hooks (se PG e target esistono)"
+              >
                 <div className="font-semibold">
                   {hook.pcName} &rarr; {hook.targetName}
                 </div>
@@ -351,13 +447,22 @@ export function SessionPrepWorkbench() {
                 <p className="text-xs text-zinc-500">
                   <strong>Perche&apos;:</strong> {hook.rationale}
                 </p>
-              </li>
+              </SelectableItem>
             ))}
           </PrepListSection>
 
           <PrepListSection title="NPC seeds" empty="Nessun NPC proposto.">
             {result.output.npcSeeds.map((npc, i) => (
-              <li key={i} className="space-y-1 text-sm">
+              <SelectableItem
+                key={i}
+                checked={selection.npcSeeds.has(i)}
+                onToggle={() => toggleSelectionIndex("npcSeeds", i)}
+                acceptHint={
+                  npc.existingEntityId
+                    ? "(esistente: incluso solo nel prep_notes)"
+                    : "→ entity stub dm_only con tag session-prep-draft"
+                }
+              >
                 <div className="font-semibold">
                   {npc.name}{" "}
                   <span className="text-xs font-normal text-zinc-500">
@@ -371,13 +476,18 @@ export function SessionPrepWorkbench() {
                 <p className="text-xs text-zinc-500">
                   <strong>Perche&apos;:</strong> {npc.rationale}
                 </p>
-              </li>
+              </SelectableItem>
             ))}
           </PrepListSection>
 
           <PrepListSection title="Encounter seeds" empty="Nessun encounter proposto.">
             {result.output.encounterSeeds.map((enc, i) => (
-              <li key={i} className="space-y-1 text-sm">
+              <SelectableItem
+                key={i}
+                checked={selection.encounterSeeds.has(i)}
+                onToggle={() => toggleSelectionIndex("encounterSeeds", i)}
+                acceptHint="→ encounter draft (Encounter Builder per completarlo)"
+              >
                 <div className="font-semibold">
                   {enc.title}{" "}
                   <span className="text-xs font-normal text-zinc-500">
@@ -391,13 +501,18 @@ export function SessionPrepWorkbench() {
                 <p className="text-xs text-zinc-500">
                   <strong>Perche&apos;:</strong> {enc.rationale}
                 </p>
-              </li>
+              </SelectableItem>
             ))}
           </PrepListSection>
 
           <PrepListSection title="Briciole suggerite" empty="Nessuna briciola proposta.">
             {result.output.suggestedClues.map((clue, i) => (
-              <li key={i} className="space-y-1 text-sm">
+              <SelectableItem
+                key={i}
+                checked={selection.suggestedClues.has(i)}
+                onToggle={() => toggleSelectionIndex("suggestedClues", i)}
+                acceptHint="→ truth_clue (status=planted, planted_in_session=sessione scelta)"
+              >
                 <div className="font-semibold">
                   {clue.plotThreadTitle ?? "(nessun thread)"}
                 </div>
@@ -408,18 +523,29 @@ export function SessionPrepWorkbench() {
                 <p className="text-xs text-zinc-500">
                   <strong>Perche&apos;:</strong> {clue.rationale}
                 </p>
-              </li>
+              </SelectableItem>
             ))}
           </PrepListSection>
 
           {result.output.notes.length > 0 && (
-            <PrepListSection title="Note dell'agent" empty="">
-              {result.output.notes.map((note, i) => (
-                <li key={i} className="text-sm">
-                  {note}
-                </li>
-              ))}
-            </PrepListSection>
+            <section className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+              <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+                <span className="text-sm font-semibold">Note dell&apos;agent</span>
+                <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={selection.notes}
+                    onChange={() => toggleSelectionFlag("notes")}
+                  />
+                  Includi nelle prep_notes
+                </label>
+              </header>
+              <ul className="px-4 py-2 space-y-1 text-sm">
+                {result.output.notes.map((note, i) => (
+                  <li key={i}>{note}</li>
+                ))}
+              </ul>
+            </section>
           )}
 
           <section className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
@@ -445,10 +571,14 @@ export function SessionPrepWorkbench() {
           </section>
 
           <section className="space-y-3 rounded-lg border border-zinc-300 bg-zinc-50 p-5 dark:border-zinc-700 dark:bg-zinc-900/70">
-            <header className="text-sm font-semibold">Salva in una sessione</header>
+            <header className="text-sm font-semibold">
+              Accetta i pezzi selezionati
+            </header>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Il prep viene appeso a `prep_notes` della sessione scelta come
-              blocco Markdown.
+              Le proposte spuntate qui sopra vengono persistite nelle tabelle
+              relative (truth_clues, entities NPC dm_only, encounters draft,
+              pc_hooks). Il Markdown dei soli pezzi accettati viene appeso a
+              `prep_notes` della sessione scelta.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <select
@@ -470,17 +600,73 @@ export function SessionPrepWorkbench() {
               </select>
               <button
                 type="button"
-                onClick={saveToSession}
+                onClick={acceptSelected}
                 disabled={saving || !targetSessionId}
                 className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
               >
-                {saving ? "..." : "Salva prep_notes"}
+                {saving ? "..." : "Accetta selezionati"}
               </button>
             </div>
+            {lastAcceptResult && (
+              <div className="mt-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100">
+                <p className="font-semibold">Creati:</p>
+                <ul className="mt-1 list-inside list-disc">
+                  <li>
+                    Briciole: {lastAcceptResult.created.clues.length}
+                    {lastAcceptResult.skipped.cluePlotThreadInvalid > 0
+                      ? ` (skipped ${lastAcceptResult.skipped.cluePlotThreadInvalid} per plot thread invalido)`
+                      : ""}
+                  </li>
+                  <li>NPC stub: {lastAcceptResult.created.npcs.length}</li>
+                  <li>
+                    Encounter draft: {lastAcceptResult.created.encounters.length}
+                  </li>
+                  <li>
+                    PC hooks: {lastAcceptResult.created.pcHooks.length}
+                    {lastAcceptResult.skipped.hookInvalid > 0
+                      ? ` (skipped ${lastAcceptResult.skipped.hookInvalid} per entity non valide)`
+                      : ""}
+                  </li>
+                </ul>
+              </div>
+            )}
           </section>
         </div>
       )}
     </div>
+  );
+}
+
+interface SelectableItemProps {
+  checked: boolean;
+  onToggle: () => void;
+  acceptHint?: string;
+  children: React.ReactNode;
+}
+
+function SelectableItem({
+  checked,
+  onToggle,
+  acceptHint,
+  children,
+}: SelectableItemProps) {
+  return (
+    <li className="flex items-start gap-3 py-2 text-sm">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        className="mt-1 shrink-0"
+      />
+      <div className="flex-1 space-y-1">
+        {children}
+        {acceptHint && (
+          <p className="text-[11px] italic text-zinc-400 dark:text-zinc-500">
+            {acceptHint}
+          </p>
+        )}
+      </div>
+    </li>
   );
 }
 

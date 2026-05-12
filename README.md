@@ -35,7 +35,7 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | Truth Clue Tracker | Pronto | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
 | Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
 | Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
-| Session Prep Assistant | Beta | Agent LLM con 5 tool read-only (entities, plot threads, sessioni, identita' attive, truth progress), output strutturato (hooks/NPC seeds/encounter seeds/briciole/"previously on") + salva come `sessions.prep_notes`. Slice 1: niente streaming né `generate_npc/encounter/loot` agentici. |
+| Session Prep Assistant | Pronto | Agent LLM con 6 tool read-only (entities, plot threads, sessioni, identità attive, truth progress, PC hooks), output strutturato + accept granulare: ogni briciola/NPC/encounter/hook accettato diventa un record reale (`truth_clue`, entity NPC stub `dm_only`, encounter draft, `pc_hook`) e finisce nelle `prep_notes`. Streaming e tool `generate_*` agentici rinviati a slice 3. |
 | Rules Lookup | Pianificato | Import documenti regole presente, UI/search dedicata da completare |
 | Procedural Dungeon Generator | Pianificato | Non implementato |
 
@@ -522,8 +522,8 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 
 ## Priorità consigliate
 
-1. Rifinire il Session Prep Assistant (Fase 7): persistenza granulare con accept/reject per pezzo (briciola → `truth_clue` reale, NPC seed → draft entity, encounter seed → encounter draft), tool agentici `generate_npc/encounter/loot`, eventualmente streaming.
-2. Aggiungere le rotte player-facing per `truth_clues` e `entity_secret` (gli override visibility sono già pronti, manca solo l'API che li espone in modalità player-safe).
+1. Aggiungere le rotte player-facing per `truth_clues` e `entity_secret` (gli override visibility sono già pronti, manca solo l'API che li espone in modalità player-safe).
+2. Slice 3 del Session Prep Assistant: streaming dell'output dell'agent + tool `generate_npc/encounter/loot` agentici (oggi l'agent suggerisce seed che il DM accetta come stub/draft, ma non chiama i generator vivi).
 
 ---
 

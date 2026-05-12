@@ -606,9 +606,9 @@ Hai registrato 3-5 sessioni con recap + dm_notes, 5-10 plot threads tracciati co
 
 ---
 
-## Fase 7 — Session Prep Assistant (con tool Sherdan-aware)
+## Fase 7 — Session Prep Assistant (con tool Sherdan-aware) ✅
 
-**Durata**: 12-16 giorni · **Tool sbloccato**: ✅ Session Prep Assistant
+**Durata**: 12-16 giorni · **Tool sbloccato**: ✅ Session Prep Assistant · **Chiusa il 2026-05-12 (slice 2)**
 
 ### Goal
 Agent LLM che compone tutto il sistema: legge stato (incluse identità attive, briciole rivelate, plot threads doppi), propone hook/NPC/encounter calibrati sul momento narrativo della campagna, ti fa risparmiare ore di prep.
@@ -623,8 +623,8 @@ Agent LLM che compone tutto il sistema: legge stato (incluse identità attive, b
   - `get_active_identities(limit?)` ✓ — filtra `activeUntilSession IS NULL`, mostra prima la maschera poi la `is_true_identity` per ogni entity
   - `get_truth_progress(plot_thread_id?)` ✓
   - ~~`get_entity_details(id)`~~ rimandato (search_entities ritorna gia' descrizione GM + public)
-  - ~~`get_pc_hooks(pc_id?, status?)`~~ rimandato (search_entities tipo=pc + ricerca per nome PG copre per ora; tool dedicato in slice 2)
-  - ~~`generate_npc/encounter/loot`~~ rimandato a slice 2 (per ora l'agent propone seed che il DM poi gira ai generator esistenti)
+  - `get_pc_hooks(pcEntityId?, statuses?, limit?)` ✓ (slice 2)
+  - ~~`generate_npc/encounter/loot`~~ rinviati a slice 3 (per ora l'agent propone seed che il DM accetta come stub/draft veri, vedi sotto)
   - ~~`rules_search`~~ rinviato a Fase 9
   - _Note implementative: ogni tool e' un `SessionPrepTool<TArgs, TResult>` con name/description/argsSchema/execute. Toolbox iniettabile per i test. `campaignId` e' un parametro del runner, non un argomento dell'agent (LLM non puo' "pescare" da altre campagne neppure tentando)._
 - [x] System prompt: ruolo, principi DM, formato output, istruzioni esplicite su come gestire propaganda vs verita'
@@ -632,23 +632,24 @@ Agent LLM che compone tutto il sistema: legge stato (incluse identità attive, b
 - [x] Tool execution loop con safety (max iterations, gestione errori tool, audit via generation_log)
   - _Note implementative: agent loop "structured output ricorsivo" via `callStructuredOutputLogged` (no function calling SDK-level: compatibile sia con Gemini sia con Ollama). Schema decisione: `z.discriminatedUnion("action", ["call_tool", "respond"])`. Max iterations default 8, configurabile. Tool sconosciuto / args invalidi / tool exec error → messaggio inserito nel context history come `[errore ...]`, il loop continua. `SessionPrepAgentError` sollevato a max iterations. Ogni decisione finisce in `generation_log` (audit completo gia' attivo)._
 - [ ] Streaming response per UX
-  - _Slice 1: omesso. `stream()` non e' compatibile col structured output; il DM aspetta ~10-20s e vede l'output finale + la trace dei tool chiamati._
+  - _Slice 1+2: omesso. `stream()` non e' compatibile col structured output; il DM aspetta ~10-20s e vede l'output finale + la trace dei tool chiamati. Rinviato a slice 3._
 
 **Workflow**
 - [x] Input DM: location corrente, "vibe" desiderato della sessione, focus opzionale
   - _Note implementative: schema `sessionPrepInputSchema` (campaignId required, locationId/vibe/focus optional, partyLevel/partySize default 5/4). Form `/session-prep` raccoglie tutto._
 - [x] Agent legge contesto → propone hooks/NPC seeds/encounter seeds/briciole/"previously on"/notes
   - _Note implementative: schema output `sessionPrepOutputSchema` con `hooks` (max 5), `npcSeeds` (max 8, ogni seed indica se `existingEntityId` o nuovo), `encounterSeeds` (max 4, difficulty + creatureHints), `suggestedClues` (max 6, con `plotThreadTitle` e `truthRevealed`), `previouslyOn` (testo) e `notes` (max 5)._
-- [ ] DM rivede ogni proposta: accetta / rigetta / rigenera / modifica
-  - _Slice 1: omesso. Per ora l'output e' read-only nella UI con un singolo bottone "Salva come prep_notes". Slice 2 aggiunge accept/reject per pezzo._
-- [x] Pezzi accettati → persistiti come `sessions.prep_notes`
-  - _Note implementative: `formatSessionPrepAsMarkdown` serializza l'output come Markdown strutturato; `POST /api/session-prep/save` appende a `sessions.prep_notes` della sessione scelta (separatore `---` se gia' esiste un prep precedente)._
+- [x] DM rivede ogni proposta: accetta / rigetta / rigenera / modifica
+  - _Slice 2 (2026-05-12): aggiunto checkbox per ogni proposta nella UI + `SelectionState` (Set di indici per hooks/npcSeeds/encounterSeeds/suggestedClues + boolean per previouslyOn/notes). All'apertura tutto e' selezionato; il DM puo' deselezionare i pezzi che non vuole. Niente "rigenera per pezzo" (richiederebbe un nuovo loop sull'agent, slice 3); il DM puo' relanciare l'intero prep se non gli piace._
+- [x] Pezzi accettati → persistiti come entities/encounters/sessions.prep_notes/truth_clues
+  - _Note slice 1 (read-only save): `formatSessionPrepAsMarkdown` + `POST /api/session-prep/save` appendeva l'output completo a `prep_notes`._
+  - _Note slice 2 (2026-05-12): nuovo `POST /api/session-prep/accept` (sostituisce `save`). Schema `sessionPrepAcceptSchema` con `selected: { previouslyOn, notes, hooks, npcSeeds, encounterSeeds, suggestedClues }` indicizzati. Persistenza differenziata in una transazione: ogni briciola accettata → `truth_clues` con `status='planted'` + `plantedInSession=<sessione scelta>` (cross-ref plot thread validata, salto silenzioso con `skipped.cluePlotThreadInvalid` se invalido); ogni NPC seed con `existingEntityId=null` → entity stub `type='npc'`, `visibility='dm_only'`, `tags=['session-prep-draft']`, properties NPC minime (`race: "da definire"`, `appearance_summary` dal `narrativeRole`, `voice.tone` dal `tone`, `extra.session_prep_seed=true`); ogni encounter seed → `encounters` draft con `difficulty`/`tactical_notes` pre-popolato (no participants — il DM completera' nell'Encounter Builder); ogni hook con `pcEntityId` e `targetEntityId` validi nella campagna → `pc_hooks` con `status='available'` (salto silenzioso con `skipped.hookInvalid` se entity invalide). Il Markdown dei soli pezzi accettati viene appeso a `sessions.prep_notes`. Response include `created` con i nuovi id e `skipped` con i counter._
 
 **UI**
 - [x] Pagina prep dedicata con sezioni espandibili
   - _Note implementative: pagina `/session-prep` + `SessionPrepWorkbench` client. Sezioni: Previously on, Hooks, NPC seeds, Encounter seeds, Briciole, Note. Selector "Salva in sessione" col dropdown delle sessioni della campagna._
 - [ ] Streaming: vedi l'agent "pensare" e produrre risultati
-  - _Slice 1: omesso (vedi sopra)._
+  - _Slice 1+2: omesso (vedi sopra). Rinviato a slice 3._
 - [x] Trace view (debug): quali tool ha chiamato, con quali parametri
   - _Note implementative: la response `/api/session-prep/generate` include `trace[]` con `toolName`, `args`, `resultPreview` (200 char), `durationMs`. La UI mostra una sezione "Tool calls (N)" sotto le proposte._
 
@@ -801,13 +802,13 @@ Apri la sessione, i giocatori si connettono dal cellulare, vedono la scena, scop
 |-----------|------|----------------|
 | 1 | Fase 0 | infrastruttura |
 | 2-4 | Fase 1 | Campaign Wiki |
-| 4-5 | **Fase 1.5 ⭐** | **Bootstrap Sherdan (dataset reale)** |
+| 4-5 | Fase 1.5 | Bootstrap Sherdan (dataset reale) |
 | 5-6 | Fase 2 | Random Tables |
 | 7-8 | Fase 3 | NPC Generator |
 | 9 | Fase 4 | Loot Generator |
 | 10-11 | Fase 5 | Encounter Builder |
-| 12-13 | Fase 6 ✅ | Plot Thread Tracker + Truth Clue Tracker |
-| 14-15 | Fase 7 | Session Prep Assistant |
+| 12-13 | Fase 6 | Plot Thread Tracker + Truth Clue Tracker |
+| 14-15 | Fase 7 ✅ | Session Prep Assistant |
 | 16-17 | Fase 8 | Dungeon Generator |
 | 18 | Fase 9 | Rules Lookup |
 | 19-20 | Fase 10 | Player Dashboard |

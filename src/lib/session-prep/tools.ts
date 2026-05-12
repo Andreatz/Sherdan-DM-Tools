@@ -6,6 +6,7 @@ import {
   entities,
   entityIdentities,
   entityType,
+  pcHooks,
   plotThreadStatus,
   plotThreads,
   sessions,
@@ -380,6 +381,89 @@ export const getTruthProgressTool: SessionPrepTool<
   },
 };
 
+// ─── get_pc_hooks ─────────────────────────────────────────────────────
+const PC_HOOK_STATUSES = ["available", "in_progress", "resolved"] as const;
+
+const getPcHooksArgsSchema = z
+  .object({
+    pcEntityId: z.uuid().optional(),
+    /** Default ["available"]: l'agent quasi sempre cerca hook ancora liberi. */
+    statuses: z.array(z.enum(PC_HOOK_STATUSES)).optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+type GetPcHooksArgs = z.infer<typeof getPcHooksArgsSchema>;
+
+export interface PcHookRow {
+  id: string;
+  pcEntityId: string;
+  pcName: string;
+  targetEntityId: string;
+  targetName: string;
+  hookDescription: string;
+  potentialArc: string | null;
+  status: string;
+  /** ID della sessione in cui l'hook e' stato usato. Null = non ancora. */
+  usedInSession: string | null;
+}
+
+export const getPcHooksTool: SessionPrepTool<GetPcHooksArgs, PcHookRow[]> = {
+  name: "get_pc_hooks",
+  description:
+    "Lista hook narrativi PG -> entita' della campagna. Default: solo " +
+    "`status='available'`. Filtri opzionali: `pcEntityId` (hook di un " +
+    "singolo PG), `statuses` (override del default). Usa questo tool per " +
+    "scegliere hook che non hai ancora 'consumato' nelle sessioni recenti.",
+  argsSchema: getPcHooksArgsSchema,
+  async execute(campaignId, args) {
+    const statuses = args.statuses ?? ["available"];
+    const conditions: SQL[] = [
+      eq(pcHooks.campaignId, campaignId),
+      inArray(pcHooks.status, statuses),
+    ];
+    if (args.pcEntityId) {
+      conditions.push(eq(pcHooks.pcEntityId, args.pcEntityId));
+    }
+
+    // JOIN ai nomi delle entity PG e target cosi' l'agent non deve
+    // chiamare search_entities a parte per ricostruirli.
+    const pcAlias = entities;
+    const rows = await db
+      .select({
+        id: pcHooks.id,
+        pcEntityId: pcHooks.pcEntityId,
+        pcName: pcAlias.name,
+        targetEntityId: pcHooks.targetEntityId,
+        hookDescription: pcHooks.hookDescription,
+        potentialArc: pcHooks.potentialArc,
+        status: pcHooks.status,
+        usedInSession: pcHooks.usedInSession,
+      })
+      .from(pcHooks)
+      .innerJoin(pcAlias, eq(pcAlias.id, pcHooks.pcEntityId))
+      .where(and(...conditions))
+      .orderBy(asc(pcAlias.name))
+      .limit(args.limit);
+
+    // Risolviamo i target name con un secondo SELECT (Drizzle non
+    // supporta alias multipli sulla stessa tabella in single query in
+    // modo elegante; due query con un id-set sono comunque rapide).
+    const targetIds = Array.from(new Set(rows.map((r) => r.targetEntityId)));
+    const targetNameRows = targetIds.length
+      ? await db
+          .select({ id: entities.id, name: entities.name })
+          .from(entities)
+          .where(inArray(entities.id, targetIds))
+      : [];
+    const nameById = new Map(targetNameRows.map((r) => [r.id, r.name]));
+
+    return rows.map((row) => ({
+      ...row,
+      targetName: nameById.get(row.targetEntityId) ?? "(entita' cancellata)",
+    }));
+  },
+};
+
 // ─── Toolbox ──────────────────────────────────────────────────────────
 // Lista esportata pronta da iniettare nell'agent. Ordine: la priorita'
 // nello scegliere il prossimo tool e' "context > scoperte > dettagli".
@@ -388,6 +472,7 @@ export const sessionPrepTools = [
   getActivePlotThreadsTool,
   getActiveIdentitiesTool,
   getTruthProgressTool,
+  getPcHooksTool,
   searchEntitiesTool,
 ] as const;
 
