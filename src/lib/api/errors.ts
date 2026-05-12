@@ -63,3 +63,17 @@ export class ConflictError extends AppError {
     super(message, 409, "conflict", details);
   }
 }
+
+export class TooManyRequestsError extends AppError {
+  override readonly name: string = "TooManyRequestsError";
+  /** Secondi suggeriti prima di riprovare (per header Retry-After). */
+  readonly retryAfterSeconds: number;
+  constructor(
+    message = "Troppe richieste, riprova tra poco.",
+    retryAfterSeconds: number = 60,
+    details?: unknown,
+  ) {
+    super(message, 429, "too_many_requests", details);
+    this.retryAfterSeconds = Math.max(1, Math.ceil(retryAfterSeconds));
+  }
+}

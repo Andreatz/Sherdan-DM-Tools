@@ -776,6 +776,7 @@ Apri la sessione, i giocatori si connettono dal cellulare, vedono la scena, scop
 - **Migrations**: sempre additive (`ADD COLUMN NULLABLE` → backfill → eventuale `NOT NULL` in migration successiva).
 - **Observability**: log strutturati con request_id, metriche LLM (tokens, latency, cost) per detectare regressioni.
 - **Security**: anche se single-user, il Player Dashboard espone una surface esterna. Token signed, rate limiting, CORS stretto.
+  - _Hardening 2026-05-12: aggiunto rate-limit token-bucket sliding-window (`src/lib/security/rate-limit.ts`) applicato a `POST /api/player/access/login` (strict: 5/15min/IP) e a tutti i route player tramite `requirePlayerAccess` (loose: 120/min/IP). Restituisce `429 too_many_requests` con `Retry-After`. Audit log strutturato via pino (`audit.player`) su login granted/denied e su access denied (cookie mancante/invalido) con `ip`, `userAgent`, `path`, `outcome`. Test di leakage in `tests/unit/security/player-leakage.test.ts` che usano allow-list rigida di chiavi per ogni proiezione (entity/session/campaign) e falliscono se un campo GM-only (`dmNotes`/`prepNotes`/`tags`/`properties`/`embedding`/`secrets`/`identities`/`truthClues`/`publicDescription` raw) finisce in output. Restano da fare: ruoli per giocatore + scoping per campagna._
 - **Backup**: cron quotidiano `pg_dump` + sync su cloud storage personale.
 - **Documentation**: ogni fase aggiorna README + un breve "decisions log" (perché hai scelto X invece di Y).
 

@@ -3,6 +3,16 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NextRequest, NextResponse } from "next/server";
 
 import { ServiceUnavailableError, UnauthorizedError } from "@/lib/api/errors";
+import { getLogger } from "@/lib/logger";
+import { clientKey, enforceRateLimit } from "@/lib/security/rate-limit";
+
+const audit = getLogger("audit.player");
+
+const PLAYER_API_RATE_LIMIT = {
+  bucket: "player-api",
+  limit: 120,
+  windowMs: 60 * 1000, // 1 minuto
+};
 
 export const PLAYER_ACCESS_COOKIE = "sherdan_player_access";
 
@@ -13,6 +23,11 @@ export function isPlayerAccessConfigured(): boolean {
 }
 
 export function requirePlayerAccess(req: NextRequest): void {
+  // Rate limit applicato per ogni player route: protegge contro abuso anche
+  // quando il cookie e' valido. Configurato strict per `/access/login` (5
+  // tentativi / 15 minuti) e loose per il resto (120 req / minuto).
+  enforceRateLimit(req, PLAYER_API_RATE_LIMIT);
+
   const code = getAccessCode();
   if (!code) {
     throw new ServiceUnavailableError(
@@ -22,6 +37,14 @@ export function requirePlayerAccess(req: NextRequest): void {
 
   const cookieValue = req.cookies.get(PLAYER_ACCESS_COOKIE)?.value;
   if (!cookieValue || !verifySignedValue(cookieValue, code)) {
+    audit.warn(
+      {
+        ip: clientKey(req),
+        path: new URL(req.url).pathname,
+        outcome: "denied",
+      },
+      "player API access denied (cookie mancante o invalido)",
+    );
     throw new UnauthorizedError("Player access richiesto");
   }
 }

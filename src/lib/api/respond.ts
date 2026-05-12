@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 
 import { getLogger } from "@/lib/logger";
 
-import { AppError, ValidationFailedError } from "./errors";
+import { AppError, TooManyRequestsError, ValidationFailedError } from "./errors";
 
 const log = getLogger("api");
 
@@ -48,6 +48,10 @@ export function fail(err: unknown): NextResponse {
         "API error (4xx)",
       );
     }
+    const headers =
+      err instanceof TooManyRequestsError
+        ? { "Retry-After": String(err.retryAfterSeconds) }
+        : undefined;
     return NextResponse.json(
       {
         error: {
@@ -56,7 +60,7 @@ export function fail(err: unknown): NextResponse {
           ...(err.details !== undefined ? { details: err.details } : {}),
         },
       },
-      { status: err.status },
+      { status: err.status, ...(headers ? { headers } : {}) },
     );
   }
 
