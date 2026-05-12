@@ -76,8 +76,14 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Test
+      - name: Test (unit)
         run: pnpm test
+
+      - name: Test (integration)
+        # Riusa lo stesso DB del service container CI (`ci`): le migration
+        # sono gia' state applicate dallo step `Migrate database`, e
+        # `truncateAll` ripulisce le tabelle prima di ogni test.
+        run: pnpm test:integration
 
       - name: Build
         run: pnpm build

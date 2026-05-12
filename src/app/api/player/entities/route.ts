@@ -81,7 +81,16 @@ export async function GET(req: NextRequest) {
     // come nascoste per questo player.
     const filtered = applyEntityHidden(rows, overrides.hidden);
 
-    return ok(projectEntitiesForPlayer(filtered));
+    // Per le entita' fetchate via `revealed` con visibility base `dm_only`,
+    // il proiettore le scarterebbe. Le ricomponiamo a `discovered` cosi'
+    // restano visibili al player senza rompere il contratto player-safe.
+    const safeRows = filtered.map((row) =>
+      overrides.revealed.has(row.id) && row.visibility === "dm_only"
+        ? { ...row, visibility: "discovered" as const }
+        : row,
+    );
+
+    return ok(projectEntitiesForPlayer(safeRows));
   } catch (err) {
     return fail(err);
   }

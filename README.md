@@ -330,6 +330,21 @@ pnpm test
 pnpm build
 ```
 
+### Test integrazione DB/API
+
+```bash
+# 1. una tantum: crea un DB Postgres dedicato ai test
+docker exec sherdan-postgres psql -U sherdan -d sherdan_dm \
+  -c "CREATE DATABASE sherdan_dm_test OWNER sherdan"
+docker exec sherdan-postgres psql -U sherdan -d sherdan_dm_test \
+  -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
+# 2. esegui i test (il setup applica le migration + svuota le tabelle prima di ogni test)
+DATABASE_URL="postgres://sherdan:sherdan_dev@localhost:5432/sherdan_dm_test" pnpm test:integration
+```
+
+Il setup di sicurezza richiede che il DB usato dai test abbia `test` nel nome (o sia `ci`): è una guardia per evitare di TRUNCATE-are il DB di sviluppo per errore.
+
 ### Database
 
 ```bash
@@ -479,7 +494,7 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 
 ## Priorità consigliate
 
-1. Aggiungere test integrazione DB/API e almeno una smoke E2E browser.
+1. Smoke E2E browser per il flusso player (login per-player + visibility scoping in UI).
 2. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
 3. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
 
@@ -488,13 +503,13 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 ## Limitazioni note
 
 - Il progetto è ancora single-user e local-first: non è pronto come SaaS o app multiutente.
-- Il Player Dashboard esiste ma va considerato beta: la modalità per-player è attiva (codici individuali hashati, scoping per campagna, override visibilità per giocatore) ma manca ancora una smoke E2E browser end-to-end.
+- Il Player Dashboard esiste ma va considerato beta: la modalità per-player è attiva (codici individuali hashati, scoping per campagna, override visibilità per giocatore) e coperta da test di integrazione DB/API; manca ancora una smoke E2E browser end-to-end.
 - Accesso player: per-giocatore (tabella `players`, codici HMAC-hashed, UI DM in `/campaigns/[id]`) con fallback al codice globale `SHERDAN_PLAYER_ACCESS_CODE`.
 - Rate limit attivo: login `/api/player/access/login` 5 tentativi / 15 min per IP, altre API player 120 req / minuto per IP.
 - Override visibilità per giocatore: ogni entità può essere `hidden` o `revealed` per uno specifico player; `truth_clue` e `entity_secret` hanno enum + tabella ma la UI dedicata arriverà in un commit successivo.
 - `generation_log` ora cattura ogni chiamata LLM (NPC/Loot/Encounter assist) con input, prompt, output, status e latenza, ma `input_tokens`/`output_tokens`/`cost_usd` restano `null` finché `LLMProvider` non espone l'usage del provider.
 - Encounter Builder è ancora una prima slice, non un costruttore tattico completo.
-- Non ci sono ancora test E2E browser automatizzati.
+- Test di integrazione DB/API in posto (`pnpm test:integration`, 5 file, 19 test su campaigns/entities/player auth/leakage/truth-clues). Manca ancora la smoke E2E browser.
 - I seed delle Random Tables sono stato locale DB: rilanciare `pnpm db:seed:tables` dopo reset del database.
 
 ---

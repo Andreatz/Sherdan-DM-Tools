@@ -13,7 +13,9 @@ export default defineConfig({
   test: {
     // Tests vivono in tests/, separati da src/ (CLAUDE.md sec 6).
     // Convenzione: tests/unit/<area>/*.test.ts, tests/integration/...
-    include: ["tests/**/*.test.ts"],
+    // Gli integration test girano via `pnpm test:integration` (config
+    // separato + DB Postgres reale).
+    include: ["tests/unit/**/*.test.ts"],
     environment: "node",
     // Default reporter compatto; per l'UI: pnpm test:ui
     reporters: ["default"],
