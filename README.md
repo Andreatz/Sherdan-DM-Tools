@@ -31,7 +31,7 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | NPC Generator | Beta | Preview, re-roll parziale, salvataggio entity, embedding fail-forward |
 | Loot Generator | Beta | Workbench presente, da rifinire e collegare meglio al ciclo sessione |
 | Encounter Builder | Beta | Prima slice su mostri/browser; manca ancora builder tattico completo |
-| Player Dashboard | Beta | Accesso con codice e API player-safe; non ancora consigliato per deploy pubblico |
+| Player Dashboard | Beta | Per-player codici hashati, scoping per campagna, override visibilità per giocatore, rate limit e audit log; manca smoke E2E browser |
 | Truth Clue Tracker | Pronto | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
 | Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
 | Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
@@ -479,19 +479,19 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 
 ## Priorità consigliate
 
-1. Rendere il Player Dashboard pubblicabile: ruoli per giocatore e scoping per campagna (rate limit, audit log e test di leakage gia' attivi).
-2. Aggiungere test integrazione DB/API e almeno una smoke E2E browser.
-3. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
-4. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
+1. Aggiungere test integrazione DB/API e almeno una smoke E2E browser.
+2. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
+3. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
 
 ---
 
 ## Limitazioni note
 
 - Il progetto è ancora single-user e local-first: non è pronto come SaaS o app multiutente.
-- Il Player Dashboard esiste ma va considerato beta locale, non hardening definitivo.
-- L'accesso player usa un codice globale, non ruoli per giocatore/campagna.
+- Il Player Dashboard esiste ma va considerato beta: la modalità per-player è attiva (codici individuali hashati, scoping per campagna, override visibilità per giocatore) ma manca ancora una smoke E2E browser end-to-end.
+- Accesso player: per-giocatore (tabella `players`, codici HMAC-hashed, UI DM in `/campaigns/[id]`) con fallback al codice globale `SHERDAN_PLAYER_ACCESS_CODE`.
 - Rate limit attivo: login `/api/player/access/login` 5 tentativi / 15 min per IP, altre API player 120 req / minuto per IP.
+- Override visibilità per giocatore: ogni entità può essere `hidden` o `revealed` per uno specifico player; `truth_clue` e `entity_secret` hanno enum + tabella ma la UI dedicata arriverà in un commit successivo.
 - `generation_log` ora cattura ogni chiamata LLM (NPC/Loot/Encounter assist) con input, prompt, output, status e latenza, ma `input_tokens`/`output_tokens`/`cost_usd` restano `null` finché `LLMProvider` non espone l'usage del provider.
 - Encounter Builder è ancora una prima slice, non un costruttore tattico completo.
 - Non ci sono ancora test E2E browser automatizzati.

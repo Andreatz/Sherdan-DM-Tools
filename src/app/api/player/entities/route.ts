@@ -9,6 +9,10 @@ import {
   requirePlayerAccess,
 } from "@/lib/security/player-access";
 import { projectEntitiesForPlayer } from "@/lib/security/player-entities";
+import {
+  applyEntityHidden,
+  loadPlayerOverrides,
+} from "@/lib/security/player-overrides";
 import { listPlayerEntitiesQuerySchema } from "@/lib/validation/player-entity-input";
 
 const playerSafeColumns = {
@@ -32,21 +36,38 @@ export async function GET(req: NextRequest) {
     );
     const campaignId = assertCampaignScope(payload, q.campaign_id ?? null);
 
-    const conditions: SQL[] = [
-      eq(entities.campaignId, campaignId),
-      inArray(entities.visibility, ["public", "discovered"]),
-    ];
+    // Visibility overrides per il player corrente. In modalita' legacy
+    // (`playerId === null`) non ci sono override: la base resta intoccata.
+    const overrides = payload.playerId
+      ? (await loadPlayerOverrides(payload.playerId)).entity
+      : { hidden: new Set<string>(), revealed: new Set<string>() };
 
-    if (q.type) conditions.push(eq(entities.type, q.type));
-    if (q.parent_id) conditions.push(eq(entities.parentId, q.parent_id));
+    // La query base: visibilita' player-safe (public/discovered). In
+    // OR-condition includiamo le entita' `revealed` esplicitamente per
+    // questo player (mode=revealed sblocca anche dm_only).
+    const baseFilters: SQL[] = [eq(entities.campaignId, campaignId)];
+    if (q.type) baseFilters.push(eq(entities.type, q.type));
+    if (q.parent_id) baseFilters.push(eq(entities.parentId, q.parent_id));
     if (q.search) {
       const pattern = `%${q.search}%`;
       const searchCondition = or(
         ilike(entities.name, pattern),
         ilike(entities.publicDescription, pattern),
       );
-      if (searchCondition) conditions.push(searchCondition);
+      if (searchCondition) baseFilters.push(searchCondition);
     }
+
+    const revealedIds = Array.from(overrides.revealed);
+    const visibilityFilter =
+      revealedIds.length > 0
+        ? or(
+            inArray(entities.visibility, ["public", "discovered"]),
+            inArray(entities.id, revealedIds),
+          )
+        : inArray(entities.visibility, ["public", "discovered"]);
+
+    const conditions = [...baseFilters];
+    if (visibilityFilter) conditions.push(visibilityFilter);
 
     const rows = await db
       .select(playerSafeColumns)
@@ -56,7 +77,11 @@ export async function GET(req: NextRequest) {
       .limit(q.limit)
       .offset(q.offset);
 
-    return ok(projectEntitiesForPlayer(rows));
+    // Override `hidden`: rimuove entita' visibili per default ma marcate
+    // come nascoste per questo player.
+    const filtered = applyEntityHidden(rows, overrides.hidden);
+
+    return ok(projectEntitiesForPlayer(filtered));
   } catch (err) {
     return fail(err);
   }

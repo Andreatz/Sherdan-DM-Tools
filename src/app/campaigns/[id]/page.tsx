@@ -23,6 +23,8 @@ import { EntityGraphView } from "@/components/entity-graph-view";
 import { EntitySecretManager } from "@/components/entity-secret-manager";
 import { EntityTagEditor } from "@/components/entity-tag-editor";
 import { PcHookMatrix } from "@/components/pc-hook-matrix";
+import { PlayerAccessManager } from "@/components/player-access-manager";
+import { PlayerOverrideEditor } from "@/components/player-override-editor";
 import { SessionRecapEditor } from "@/components/session-recap-editor";
 import { WikiMarkdownEditor } from "@/components/wiki-markdown-editor";
 
@@ -47,7 +49,8 @@ type DetailTab =
   | "links"
   | "backlinks"
   | "pc-hooks"
-  | "plot-threads";
+  | "plot-threads"
+  | "visibility";
 
 interface EntityListFilters {
   type?: EntityType;
@@ -199,6 +202,7 @@ const DETAIL_TABS: Array<{ id: DetailTab; label: string }> = [
   { id: "backlinks", label: "Backlinks" },
   { id: "pc-hooks", label: "Hooks PG" },
   { id: "plot-threads", label: "Plot threads" },
+  { id: "visibility", label: "Visibility player" },
 ];
 
 const DETAIL_TAB_IDS = DETAIL_TABS.map((tab) => tab.id);
@@ -799,6 +803,8 @@ function EntityListSection({
         selectedEntityId={selectedEntityId}
       />
 
+      <PlayerAccessManager campaignId={campaignId} />
+
       {detailData ? (
         <EntityDetailPanel
           campaignId={campaignId}
@@ -971,6 +977,15 @@ function EntityDetailPanel({
           <EntityPlotThreadsPanel
             campaignId={campaignId}
             threads={data.plotThreads}
+          />
+        )}
+        {activeTab === "visibility" && (
+          <PlayerOverrideEditor
+            campaignId={campaignId}
+            targetType="entity"
+            targetId={entity.id}
+            targetLabel={entity.name}
+            baseVisibility={entity.visibility}
           />
         )}
       </div>

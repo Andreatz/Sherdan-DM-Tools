@@ -11,6 +11,7 @@ import {
   requirePlayerAccess,
 } from "@/lib/security/player-access";
 import { projectEntityForPlayer } from "@/lib/security/player-entities";
+import { loadPlayerOverrides } from "@/lib/security/player-overrides";
 
 const idParamSchema = z.object({ id: z.uuid() });
 
@@ -51,19 +52,44 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     );
     const campaignId = assertCampaignScope(payload, q.campaign_id ?? null);
 
+    const overrides = payload.playerId
+      ? (await loadPlayerOverrides(payload.playerId)).entity
+      : { hidden: new Set<string>(), revealed: new Set<string>() };
+
+    // Override `hidden`: blocca anche se la visibility base e' OK.
+    if (overrides.hidden.has(id)) {
+      throw new NotFoundError("player entity", id);
+    }
+
+    // Override `revealed`: il player puo' vedere questa entita' anche se
+    // dm_only. Se invece e' nel set, salta il filtro di visibility.
+    const isRevealed = overrides.revealed.has(id);
     const rows = await db
       .select(playerSafeColumns)
       .from(entities)
       .where(
-        and(
-          eq(entities.id, id),
-          eq(entities.campaignId, campaignId),
-          inArray(entities.visibility, ["public", "discovered"]),
-        ),
+        isRevealed
+          ? and(eq(entities.id, id), eq(entities.campaignId, campaignId))
+          : and(
+              eq(entities.id, id),
+              eq(entities.campaignId, campaignId),
+              inArray(entities.visibility, ["public", "discovered"]),
+            ),
       )
       .limit(1);
 
-    const projected = rows[0] ? projectEntityForPlayer(rows[0]) : null;
+    const source = rows[0];
+    if (!source) throw new NotFoundError("player entity", id);
+
+    // Se l'entita' viene dal reveal-bypass ma la sua visibility base e'
+    // `dm_only`, il proiettore di default la scarterebbe. Ricomponiamo con
+    // visibility "discovered" cosi' il contratto player resta valido.
+    const safeSource =
+      isRevealed && source.visibility === "dm_only"
+        ? { ...source, visibility: "discovered" as const }
+        : source;
+
+    const projected = projectEntityForPlayer(safeSource);
     if (!projected) throw new NotFoundError("player entity", id);
 
     return ok(projected);
