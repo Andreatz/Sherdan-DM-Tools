@@ -26,7 +26,7 @@ const featureRows = [
   ["Sessioni", "Pronto", "Lista, recap rendered, toggle DM notes, prep notes, plot/briciole per sessione."],
   ["Plot Thread Tracker", "Pronto", "Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline, stale alerts."],
   ["Truth Clue Tracker", "Pronto", "CRUD briciole, filtri, plant/update status, dashboard verita' rivelata per thread."],
-  ["NPC Generator", "Beta", "Preview, re-roll parziale, salvataggio entity, embedding fail-forward."],
+  ["NPC Generator", "Pronto", "Preview, re-roll parziale, salvataggio entity, embedding fail-forward + script backfill, link 'Storico generazioni LLM' nella entity detail."],
   ["Loot Generator", "Pronto", "Generator, link a encounter e sessione, lista bundles per campagna/sessione/encounter."],
   ["Encounter Builder", "Pronto", "Browser mostri, CR calculator, LLM assist, used_in_session, filtri list (sessione/location/plot)."],
   ["Generation log", "Pronto", "Audit di ogni chiamata LLM (input/prompt/output/latency/status) su generation_log."],

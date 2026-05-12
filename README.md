@@ -28,7 +28,7 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | Import Sherdan | Pronto | Parser + bootstrap idempotente dei markdown privati |
 | Content safety gate | Pronto | Blocca markdown Sherdan raw in `public/` |
 | Random Tables Engine | Pronto | CRUD, import, roll, subtabelle, template e history locale |
-| NPC Generator | Beta | Preview, re-roll parziale, salvataggio entity, embedding fail-forward |
+| NPC Generator | Pronto | Preview, re-roll parziale, salvataggio entity, embedding fail-forward + `pnpm db:embed:backfill`, link "Storico generazioni LLM" nella entity detail |
 | Loot Generator | Pronto | Generatore + salvataggio + link a encounter/sessione, lista bundle filtrabile per campagna/sessione/encounter |
 | Encounter Builder | Pronto | Browser mostri, CR calculator, LLM assist, marker "usato in sessione", lista filtrabile per sessione/location/plot |
 | Player Dashboard | Beta | Per-player codici hashati, scoping per campagna, override visibilità per giocatore, rate limit e audit log; manca smoke E2E browser |
@@ -354,6 +354,17 @@ pnpm db:push
 pnpm db:ping
 pnpm db:seed
 pnpm db:seed:tables
+```
+
+### Embedding backfill
+
+```bash
+# Ricalcola l'embedding per ogni entity con `embedding IS NULL`
+# (es. NPC salvati dal generator quando Ollama era offline).
+# Idempotente, può girare in qualsiasi momento.
+pnpm db:embed:backfill                      # tutte le campagne
+pnpm db:embed:backfill --campaign-id=<uuid> # solo una campagna
+pnpm db:embed:backfill --dry-run            # solo report, no scrittura
 ```
 
 ### Backup & export

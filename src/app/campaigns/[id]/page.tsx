@@ -192,6 +192,21 @@ const VISIBILITY_CLASSES: Record<Visibility, string> = {
 
 const ENTITY_TYPE_OPTIONS = entityType.enumValues;
 
+// Mapping entity type -> generator che potrebbe averla prodotta. Usato dal
+// link "Storico generazioni LLM" nella entity detail per filtrare il
+// generation_log alla campagna + tipo di generatore corretto. Per types
+// fuori da questo elenco non mostriamo il link (sarebbe rumore).
+function generatorForEntityType(type: EntityType): string | null {
+  switch (type) {
+    case "npc":
+      return "npc-generator";
+    case "item":
+      return "loot-generator";
+    default:
+      return null;
+  }
+}
+
 const DETAIL_TABS: Array<{ id: DetailTab; label: string }> = [
   { id: "gm", label: "Verita' GM" },
   { id: "public", label: "Versione pubblica" },
@@ -869,6 +884,20 @@ function EntityDetailPanel({
               Creata il {entity.createdAt.toLocaleDateString("it-IT")} &middot;
               aggiornata il {entity.updatedAt.toLocaleDateString("it-IT")}
             </p>
+            {generatorForEntityType(entity.type) && (
+              <p className="mt-1 text-xs">
+                <Link
+                  href={`/generation-log?campaign_id=${encodeURIComponent(
+                    campaignId,
+                  )}&generator=${encodeURIComponent(
+                    generatorForEntityType(entity.type) ?? "",
+                  )}`}
+                  className="text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+                >
+                  Storico generazioni LLM &rarr;
+                </Link>
+              </p>
+            )}
           </div>
           <EntityTagEditor
             entityId={entity.id}
