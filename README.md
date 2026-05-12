@@ -35,7 +35,7 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | Truth Clue Tracker | Pronto | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
 | Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
 | Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
-| Session Prep Assistant | Pianificato | Da costruire su sessioni, hooks, clues e generatori |
+| Session Prep Assistant | Beta | Agent LLM con 5 tool read-only (entities, plot threads, sessioni, identita' attive, truth progress), output strutturato (hooks/NPC seeds/encounter seeds/briciole/"previously on") + salva come `sessions.prep_notes`. Slice 1: niente streaming né `generate_npc/encounter/loot` agentici. |
 | Rules Lookup | Pianificato | Import documenti regole presente, UI/search dedicata da completare |
 | Procedural Dungeon Generator | Pianificato | Non implementato |
 
@@ -225,6 +225,7 @@ pnpm llm:ping
 | `/plot-threads` | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen, timeline, stale alerts |
 | `/truth-clues` | Pronto | Briciole filtrabili, plant/update status, dashboard verità rivelata |
 | `/generation-log` | Pronto | Audit di ogni chiamata LLM dei generators |
+| `/session-prep` | Beta | Agent LLM che legge stato campagna e propone prep di sessione (hooks, NPC seeds, encounter seeds, briciole, previously on) |
 | `/player` | Beta | Dashboard player con access code e API player-safe (rate limit + audit log attivi) |
 
 ---
@@ -521,7 +522,8 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 
 ## Priorità consigliate
 
-1. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues (Fase 7).
+1. Rifinire il Session Prep Assistant (Fase 7): persistenza granulare con accept/reject per pezzo (briciola → `truth_clue` reale, NPC seed → draft entity, encounter seed → encounter draft), tool agentici `generate_npc/encounter/loot`, eventualmente streaming.
+2. Aggiungere le rotte player-facing per `truth_clues` e `entity_secret` (gli override visibility sono già pronti, manca solo l'API che li espone in modalità player-safe).
 
 ---
 

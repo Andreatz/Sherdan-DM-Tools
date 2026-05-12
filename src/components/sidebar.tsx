@@ -55,7 +55,7 @@ const NAV: NavGroup[] = [
   {
     title: "Assistenti",
     items: [
-      { label: "Session Prep", status: "Pianificato" },
+      { label: "Session Prep", href: "/session-prep", status: "Beta" },
       { label: "Rules Lookup", status: "Pianificato" },
     ],
   },

@@ -616,37 +616,41 @@ Agent LLM che compone tutto il sistema: legge stato (incluse identità attive, b
 ### Task
 
 **Architettura agentic**
-- [ ] Tool definitions per l'agent:
-  - `search_entities(query, type?)`
-  - `get_active_plot_threads(status_filter)`
-  - `get_recent_sessions(n)`
-  - `get_entity_details(id)` — restituisce solo verità GM se chiamato dall'agent prep
-  - `get_active_identities()` — chi indossa quale maschera in questo momento della campagna
-  - `get_truth_progress(plot_thread_id?)` — quante briciole understood su totali
-  - `get_pc_hooks(pc_id?, status?)` — hook narrativi disponibili per i PG
-  - `generate_npc(context)` (chiama il generator NPC interno)
-  - `generate_encounter(context)`
-  - `generate_loot(context)`
-  - `rules_search(query)` (placeholder fino a Fase 9)
-- [ ] System prompt: ruolo, principi DM, formato output, **istruzioni esplicite su come gestire propaganda vs verità** (l'agent deve sapere che la sessione è una performance dove il party riceve la versione percepita, ma il prep deve coordinare cosa rivelare gradualmente)
-- [ ] Tool execution loop con safety (max iterations, timeout, cost cap per session)
+- [x] Tool definitions per l'agent (slice 1, read-only):
+  - `search_entities(query, type?, limit?)` ✓
+  - `get_active_plot_threads(statuses?, limit?)` ✓
+  - `get_recent_sessions(n)` ✓
+  - `get_active_identities(limit?)` ✓ — filtra `activeUntilSession IS NULL`, mostra prima la maschera poi la `is_true_identity` per ogni entity
+  - `get_truth_progress(plot_thread_id?)` ✓
+  - ~~`get_entity_details(id)`~~ rimandato (search_entities ritorna gia' descrizione GM + public)
+  - ~~`get_pc_hooks(pc_id?, status?)`~~ rimandato (search_entities tipo=pc + ricerca per nome PG copre per ora; tool dedicato in slice 2)
+  - ~~`generate_npc/encounter/loot`~~ rimandato a slice 2 (per ora l'agent propone seed che il DM poi gira ai generator esistenti)
+  - ~~`rules_search`~~ rinviato a Fase 9
+  - _Note implementative: ogni tool e' un `SessionPrepTool<TArgs, TResult>` con name/description/argsSchema/execute. Toolbox iniettabile per i test. `campaignId` e' un parametro del runner, non un argomento dell'agent (LLM non puo' "pescare" da altre campagne neppure tentando)._
+- [x] System prompt: ruolo, principi DM, formato output, istruzioni esplicite su come gestire propaganda vs verita'
+  - _Note implementative: in `src/lib/session-prep/agent.ts` il SYSTEM_PROMPT codifica i 5 pattern Sherdan, descrive il contratto dei tool, e ribadisce "nelle proposte player-facing usa solo la versione percepita; verita' GM in `rationale` e `truthRevealed`"._
+- [x] Tool execution loop con safety (max iterations, gestione errori tool, audit via generation_log)
+  - _Note implementative: agent loop "structured output ricorsivo" via `callStructuredOutputLogged` (no function calling SDK-level: compatibile sia con Gemini sia con Ollama). Schema decisione: `z.discriminatedUnion("action", ["call_tool", "respond"])`. Max iterations default 8, configurabile. Tool sconosciuto / args invalidi / tool exec error → messaggio inserito nel context history come `[errore ...]`, il loop continua. `SessionPrepAgentError` sollevato a max iterations. Ogni decisione finisce in `generation_log` (audit completo gia' attivo)._
 - [ ] Streaming response per UX
+  - _Slice 1: omesso. `stream()` non e' compatibile col structured output; il DM aspetta ~10-20s e vede l'output finale + la trace dei tool chiamati._
 
 **Workflow**
-- [ ] Input DM: location corrente, "vibe" desiderato della sessione, focus opzionale (es. "voglio piantare due briciole sull'identità di Malakor")
-- [ ] Agent legge contesto → propone:
-  - 3 hook narrativi (preferendo PC hooks `available` non ancora usati)
-  - 5 NPC pronti (alcuni esistenti riusati, alcuni nuovi)
-  - 2 encounter bilanciati
-  - "Previously on..." per giocatori (basato su `recap`, non `dm_notes`)
-  - **Briciole suggerite**: dato lo stato attuale dei plot threads, propone N briciole da piantare, con descrizione e collegamento al thread
+- [x] Input DM: location corrente, "vibe" desiderato della sessione, focus opzionale
+  - _Note implementative: schema `sessionPrepInputSchema` (campaignId required, locationId/vibe/focus optional, partyLevel/partySize default 5/4). Form `/session-prep` raccoglie tutto._
+- [x] Agent legge contesto → propone hooks/NPC seeds/encounter seeds/briciole/"previously on"/notes
+  - _Note implementative: schema output `sessionPrepOutputSchema` con `hooks` (max 5), `npcSeeds` (max 8, ogni seed indica se `existingEntityId` o nuovo), `encounterSeeds` (max 4, difficulty + creatureHints), `suggestedClues` (max 6, con `plotThreadTitle` e `truthRevealed`), `previouslyOn` (testo) e `notes` (max 5)._
 - [ ] DM rivede ogni proposta: accetta / rigetta / rigenera / modifica
-- [ ] Pezzi accettati → persistiti come entities/encounters/sessions.prep_notes/truth_clues
+  - _Slice 1: omesso. Per ora l'output e' read-only nella UI con un singolo bottone "Salva come prep_notes". Slice 2 aggiunge accept/reject per pezzo._
+- [x] Pezzi accettati → persistiti come `sessions.prep_notes`
+  - _Note implementative: `formatSessionPrepAsMarkdown` serializza l'output come Markdown strutturato; `POST /api/session-prep/save` appende a `sessions.prep_notes` della sessione scelta (separatore `---` se gia' esiste un prep precedente)._
 
 **UI**
-- [ ] Pagina prep dedicata con sezioni espandibili
+- [x] Pagina prep dedicata con sezioni espandibili
+  - _Note implementative: pagina `/session-prep` + `SessionPrepWorkbench` client. Sezioni: Previously on, Hooks, NPC seeds, Encounter seeds, Briciole, Note. Selector "Salva in sessione" col dropdown delle sessioni della campagna._
 - [ ] Streaming: vedi l'agent "pensare" e produrre risultati
-- [ ] Trace view (debug): quali tool ha chiamato, con quali parametri
+  - _Slice 1: omesso (vedi sopra)._
+- [x] Trace view (debug): quali tool ha chiamato, con quali parametri
+  - _Note implementative: la response `/api/session-prep/generate` include `trace[]` con `toolName`, `args`, `resultPreview` (200 char), `durationMs`. La UI mostra una sezione "Tool calls (N)" sotto le proposte._
 
 ### Definition of done
 Esegui prep di una sessione di Sherdan in 10-15 minuti invece di 2 ore. Le proposte sono coerenti con lo stato attuale (Malakor è ancora Dante, le briciole non rivelate non vengono accidentalmente esposte, gli hook scelti sono per i PG che non hanno avuto spotlight di recente). Accetti le proposte buone, scarti le scarse, lo stato della campagna si aggiorna automaticamente.
