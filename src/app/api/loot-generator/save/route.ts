@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { encounters, entities, lootBundles } from "@/db/schema";
+import { encounters, entities, lootBundles, sessions } from "@/db/schema";
 import { AppError, NotFoundError } from "@/lib/api/errors";
 import { created, fail } from "@/lib/api/respond";
 import {
@@ -21,6 +21,7 @@ const bundleColumns = {
   goldAmount: lootBundles.goldAmount,
   items: lootBundles.items,
   encounterId: lootBundles.encounterId,
+  sessionId: lootBundles.sessionId,
   createdAt: lootBundles.createdAt,
 } as const;
 
@@ -34,8 +35,10 @@ const itemEntityColumns = {
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as unknown;
-    const { output, encounterId } = lootGeneratorSaveRequestSchema.parse(body);
+    const { output, encounterId, sessionId } =
+      lootGeneratorSaveRequestSchema.parse(body);
     await assertEncounterMatchesCampaign(encounterId, output.metadata.campaignId);
+    await assertSessionMatchesCampaign(sessionId, output.metadata.campaignId);
     const resolved = await resolveLootItemsForSave(output);
 
     const saved = await db.transaction(async (tx) => {
@@ -82,6 +85,7 @@ export async function POST(req: NextRequest) {
           goldAmount: Math.round(output.baseGold.totalGp),
           items: savedItems,
           encounterId: encounterId ?? null,
+          sessionId: sessionId ?? null,
         })
         .returning(bundleColumns);
 
@@ -127,6 +131,26 @@ async function assertEncounterMatchesCampaign(
     throw new NotFoundError(
       "Encounter della campagna per il loot bundle",
       encounterId,
+    );
+  }
+}
+
+async function assertSessionMatchesCampaign(
+  sessionId: string | undefined,
+  campaignId: string,
+) {
+  if (!sessionId) return;
+
+  const [row] = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(and(eq(sessions.id, sessionId), eq(sessions.campaignId, campaignId)))
+    .limit(1);
+
+  if (!row) {
+    throw new NotFoundError(
+      "Sessione della campagna per il loot bundle",
+      sessionId,
     );
   }
 }

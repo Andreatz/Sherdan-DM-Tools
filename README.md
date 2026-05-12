@@ -29,8 +29,8 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | Content safety gate | Pronto | Blocca markdown Sherdan raw in `public/` |
 | Random Tables Engine | Pronto | CRUD, import, roll, subtabelle, template e history locale |
 | NPC Generator | Beta | Preview, re-roll parziale, salvataggio entity, embedding fail-forward |
-| Loot Generator | Beta | Workbench presente, da rifinire e collegare meglio al ciclo sessione |
-| Encounter Builder | Beta | Prima slice su mostri/browser; manca ancora builder tattico completo |
+| Loot Generator | Pronto | Generatore + salvataggio + link a encounter/sessione, lista bundle filtrabile per campagna/sessione/encounter |
+| Encounter Builder | Pronto | Browser mostri, CR calculator, LLM assist, marker "usato in sessione", lista filtrabile per sessione/location/plot |
 | Player Dashboard | Beta | Per-player codici hashati, scoping per campagna, override visibilità per giocatore, rate limit e audit log; manca smoke E2E browser |
 | Truth Clue Tracker | Pronto | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
 | Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
@@ -496,7 +496,6 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 
 1. Smoke E2E browser per il flusso player (login per-player + visibility scoping in UI).
 2. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
-3. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
 
 ---
 
@@ -508,7 +507,7 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 - Rate limit attivo: login `/api/player/access/login` 5 tentativi / 15 min per IP, altre API player 120 req / minuto per IP.
 - Override visibilità per giocatore: ogni entità può essere `hidden` o `revealed` per uno specifico player; `truth_clue` e `entity_secret` hanno enum + tabella ma la UI dedicata arriverà in un commit successivo.
 - `generation_log` ora cattura ogni chiamata LLM (NPC/Loot/Encounter assist) con input, prompt, output, status e latenza, ma `input_tokens`/`output_tokens`/`cost_usd` restano `null` finché `LLMProvider` non espone l'usage del provider.
-- Encounter Builder è ancora una prima slice, non un costruttore tattico completo.
+- Encounter Builder copre il flusso DM (browser mostri, CR calculator, LLM assist, marker "usato in sessione"); un combat tracker run-time (iniziativa, HP live, condizioni) resta fuori scope per ora.
 - Test di integrazione DB/API in posto (`pnpm test:integration`, 5 file, 19 test su campaigns/entities/player auth/leakage/truth-clues). Manca ancora la smoke E2E browser.
 - I seed delle Random Tables sono stato locale DB: rilanciare `pnpm db:seed:tables` dopo reset del database.
 

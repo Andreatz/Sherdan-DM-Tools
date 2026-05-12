@@ -58,6 +58,29 @@ interface EntityRow {
   type: string;
 }
 
+interface LootBundleRow {
+  id: string;
+  campaignId: string;
+  title: string | null;
+  description: string | null;
+  goldAmount: number | null;
+  items: unknown;
+  encounterId: string | null;
+  sessionId: string | null;
+  createdAt: string;
+}
+
+interface EncounterRow {
+  id: string;
+  title: string;
+  description: string | null;
+  difficulty: string | null;
+  partyLevel: number | null;
+  xpTotal: number | null;
+  locationId: string | null;
+  plotThreadId: string | null;
+}
+
 export function SessionsWorkbench() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [campaignId, setCampaignId] = useState("");
@@ -68,6 +91,10 @@ export function SessionsWorkbench() {
   const [events, setEvents] = useState<PlotThreadEventRow[]>([]);
   const [plantedClues, setPlantedClues] = useState<TruthClueRow[]>([]);
   const [sessionEntities, setSessionEntities] = useState<SessionEntityRow[]>(
+    [],
+  );
+  const [lootBundles, setLootBundles] = useState<LootBundleRow[]>([]);
+  const [sessionEncounters, setSessionEncounters] = useState<EncounterRow[]>(
     [],
   );
   const [entities, setEntities] = useState<EntityRow[]>([]);
@@ -160,10 +187,12 @@ export function SessionsWorkbench() {
         setEvents([]);
         setPlantedClues([]);
         setSessionEntities([]);
+        setLootBundles([]);
+        setSessionEncounters([]);
         return;
       }
       try {
-        const [evts, clues, sEnts] = await Promise.all([
+        const [evts, clues, sEnts, bundles, sessEnc] = await Promise.all([
           apiFetch<PlotThreadEventRow[]>(
             `/api/plot-thread-events?session_id=${encodeURIComponent(selectedId)}&limit=200`,
           ),
@@ -174,11 +203,19 @@ export function SessionsWorkbench() {
           // skippiamo finche' non serve: il recap parser sincronizza gia'
           // le menzioni automatiche tramite wikilink.
           Promise.resolve([] as SessionEntityRow[]),
+          apiFetch<LootBundleRow[]>(
+            `/api/loot-bundles?campaign_id=${encodeURIComponent(campaignId)}&session_id=${encodeURIComponent(selectedId)}`,
+          ),
+          apiFetch<EncounterRow[]>(
+            `/api/encounters?campaign_id=${encodeURIComponent(campaignId)}&used_in_session=${encodeURIComponent(selectedId)}`,
+          ),
         ]);
         if (cancelled) return;
         setEvents(evts);
         setPlantedClues(clues);
         setSessionEntities(sEnts);
+        setLootBundles(bundles);
+        setSessionEncounters(sessEnc);
       } catch (err) {
         if (!cancelled) setError(messageForError(err));
       }
@@ -407,6 +444,111 @@ export function SessionsWorkbench() {
                         </p>
                       </li>
                     ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+                <header className="border-b border-zinc-200 px-4 py-3 text-sm font-semibold dark:border-zinc-800">
+                  Encounter usati in questa sessione
+                </header>
+                {sessionEncounters.length === 0 ? (
+                  <p className="px-4 py-3 text-xs text-zinc-500">
+                    Nessun encounter marcato come usato in questa sessione.
+                    Spuntalo dall&apos;
+                    <a
+                      href="/encounter-builder"
+                      className="underline underline-offset-2"
+                    >
+                      Encounter Builder
+                    </a>
+                    {" "}al momento del salvataggio.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                    {sessionEncounters.map((enc) => (
+                      <li key={enc.id} className="px-4 py-3 text-xs">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-zinc-800 dark:text-zinc-100">
+                            {enc.title}
+                          </span>
+                          {enc.difficulty && (
+                            <span className="rounded bg-rose-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-rose-800 dark:bg-rose-900/40 dark:text-rose-200">
+                              {enc.difficulty}
+                            </span>
+                          )}
+                          {enc.partyLevel !== null && (
+                            <span className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                              party L{enc.partyLevel}
+                            </span>
+                          )}
+                          {enc.xpTotal !== null && (
+                            <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                              {enc.xpTotal} XP
+                            </span>
+                          )}
+                        </div>
+                        {enc.description && (
+                          <p className="mt-1 whitespace-pre-wrap text-zinc-600 dark:text-zinc-300">
+                            {enc.description}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+                <header className="border-b border-zinc-200 px-4 py-3 text-sm font-semibold dark:border-zinc-800">
+                  Loot consegnato in questa sessione
+                </header>
+                {lootBundles.length === 0 ? (
+                  <p className="px-4 py-3 text-xs text-zinc-500">
+                    Nessun loot bundle agganciato a questa sessione. Crea un
+                    bundle dal{" "}
+                    <a
+                      href="/loot-generator"
+                      className="underline underline-offset-2"
+                    >
+                      Loot Generator
+                    </a>{" "}
+                    selezionando questa sessione prima del salvataggio.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                    {lootBundles.map((bundle) => {
+                      const itemCount = Array.isArray(bundle.items)
+                        ? bundle.items.length
+                        : 0;
+                      return (
+                        <li key={bundle.id} className="px-4 py-3 text-xs">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-zinc-800 dark:text-zinc-100">
+                              {bundle.title ?? "Loot bundle"}
+                            </span>
+                            {bundle.goldAmount !== null && (
+                              <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                {bundle.goldAmount} gp
+                              </span>
+                            )}
+                            <span className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                              {itemCount} item
+                            </span>
+                            {bundle.encounterId && (
+                              <span className="text-zinc-500">
+                                · da encounter
+                              </span>
+                            )}
+                          </div>
+                          {bundle.description && (
+                            <p className="mt-1 whitespace-pre-wrap text-zinc-600 dark:text-zinc-300">
+                              {bundle.description}
+                            </p>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>

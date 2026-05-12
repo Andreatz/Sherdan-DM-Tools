@@ -33,12 +33,20 @@ interface EncounterRow {
   partyLevel: number | null;
 }
 
+interface SessionOptionRow {
+  id: string;
+  number: number;
+  title: string | null;
+  date: string | null;
+}
+
 interface SavedLootResponse {
   bundle: {
     id: string;
     title: string | null;
     goldAmount: number | null;
     encounterId: string | null;
+    sessionId: string | null;
   };
   createdEntities: Array<{
     id: string;
@@ -75,8 +83,10 @@ export function LootGeneratorWorkbench() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [entities, setEntities] = useState<EntityRow[]>([]);
   const [encounters, setEncounters] = useState<EncounterRow[]>([]);
+  const [sessionOptions, setSessionOptions] = useState<SessionOptionRow[]>([]);
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
   const [encounterId, setEncounterId] = useState("");
+  const [sessionId, setSessionId] = useState("");
   const [validatedInput, setValidatedInput] =
     useState<LootGeneratorInput | null>(null);
   const [preview, setPreview] = useState<LootGeneratorOutput | null>(null);
@@ -189,6 +199,32 @@ export function LootGeneratorWorkbench() {
     };
   }, [draft.campaignId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSessions() {
+      if (!draft.campaignId) {
+        setSessionOptions([]);
+        return;
+      }
+      try {
+        const rows = await apiFetch<SessionOptionRow[]>(
+          `/api/sessions?campaign_id=${encodeURIComponent(draft.campaignId)}`,
+        );
+        if (cancelled) return;
+        setSessionOptions(rows);
+        setSessionId((current) =>
+          rows.some((row) => row.id === current) ? current : "",
+        );
+      } catch (err) {
+        if (!cancelled) setError(messageForError(err));
+      }
+    }
+    void loadSessions();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.campaignId]);
+
   const selectedCampaign = useMemo(
     () => campaigns.find((campaign) => campaign.id === draft.campaignId),
     [campaigns, draft.campaignId],
@@ -264,6 +300,7 @@ export function LootGeneratorWorkbench() {
           body: JSON.stringify({
             output: preview,
             encounterId: encounterId || undefined,
+            sessionId: sessionId || undefined,
           }),
         },
       );
@@ -384,6 +421,34 @@ export function LootGeneratorWorkbench() {
                     <option key={encounter.id} value={encounter.id}>
                       {encounter.title}
                       {encounter.difficulty ? ` (${encounter.difficulty})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                  Sessione
+                </span>
+                <select
+                  value={sessionId}
+                  onChange={(event) => {
+                    setSessionId(event.target.value);
+                    setSavedLoot(null);
+                    setMessage(null);
+                    setError(null);
+                  }}
+                  disabled={!draft.campaignId}
+                  className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+                >
+                  <option value="">Nessuna sessione</option>
+                  {sessionOptions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      #{session.number}
+                      {session.title ? ` ${session.title}` : ""}
+                      {session.date
+                        ? ` (${new Date(session.date).toLocaleDateString()})`
+                        : ""}
                     </option>
                   ))}
                 </select>

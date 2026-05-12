@@ -10,6 +10,7 @@ import {
 
 import { campaigns } from "./campaigns";
 import { encounters } from "./encounters";
+import { sessions } from "./sessions";
 
 export const lootBundles = pgTable(
   "loot_bundles",
@@ -28,6 +29,13 @@ export const lootBundles = pgTable(
     encounterId: uuid("encounter_id").references(() => encounters.id, {
       onDelete: "set null",
     }),
+    // Collegamento opzionale alla sessione in cui il bundle e' stato dato
+    // al party. Permette di listare il loot per sessione e di mostrarlo
+    // nel recap. ON DELETE SET NULL: se la sessione viene cancellata, il
+    // bundle resta ma perde il collegamento.
+    sessionId: uuid("session_id").references(() => sessions.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -35,5 +43,6 @@ export const lootBundles = pgTable(
   (t) => [
     index("idx_loot_bundles_campaign").on(t.campaignId),
     index("idx_loot_bundles_encounter").on(t.encounterId),
+    index("idx_loot_bundles_session").on(t.sessionId),
   ],
 );

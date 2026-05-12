@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { type SQL, and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db/client";
@@ -20,6 +20,9 @@ import {
 const listEncountersQuerySchema = z
   .object({
     campaign_id: z.uuid(),
+    used_in_session: z.uuid().optional(),
+    location_id: z.uuid().optional(),
+    plot_thread_id: z.uuid().optional(),
   })
   .strict();
 
@@ -45,10 +48,21 @@ export async function GET(req: NextRequest) {
       Object.fromEntries(url.searchParams.entries()),
     );
 
+    const conditions: SQL[] = [eq(encounters.campaignId, q.campaign_id)];
+    if (q.used_in_session) {
+      conditions.push(eq(encounters.usedInSession, q.used_in_session));
+    }
+    if (q.location_id) {
+      conditions.push(eq(encounters.locationId, q.location_id));
+    }
+    if (q.plot_thread_id) {
+      conditions.push(eq(encounters.plotThreadId, q.plot_thread_id));
+    }
+
     const rows = await db
       .select(encounterListColumns)
       .from(encounters)
-      .where(eq(encounters.campaignId, q.campaign_id))
+      .where(and(...conditions))
       .orderBy(asc(encounters.title));
 
     return ok(rows);

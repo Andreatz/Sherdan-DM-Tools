@@ -4,15 +4,18 @@ import type { LootGeneratorInput } from "./loot-input";
 import { lootGeneratorOutputSchema } from "./loot-output";
 import type { ResolvedLootBundle, ResolvedLootItem } from "./loot-resolver";
 
+const optionalUuid = z
+  .preprocess(
+    (value) => (value === "" || value === null ? undefined : value),
+    z.uuid().optional(),
+  )
+  .optional();
+
 export const lootGeneratorSaveRequestSchema = z
   .object({
     output: lootGeneratorOutputSchema,
-    encounterId: z
-      .preprocess(
-        (value) => (value === "" || value === null ? undefined : value),
-        z.uuid().optional(),
-      )
-      .optional(),
+    encounterId: optionalUuid,
+    sessionId: optionalUuid,
   })
   .strict();
 
