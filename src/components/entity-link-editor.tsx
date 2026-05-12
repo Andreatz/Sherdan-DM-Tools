@@ -93,7 +93,7 @@ function isKnownRelation(value: string): boolean {
 }
 
 function entityHref(campaignId: string, entityId: string) {
-  return `/campaigns/${campaignId}?focus=${entityId}&detail_tab=links`;
+  return `/campaigns/${campaignId}?focus=${entityId}&detail_tab=links#entity-detail`;
 }
 
 function normalizeOptional(value: string): string | null {

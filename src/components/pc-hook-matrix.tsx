@@ -66,7 +66,7 @@ const STATUS_CLASSES: Record<HookStatus, string> = {
 const STATUS_OPTIONS: HookStatus[] = ["available", "in_progress", "resolved"];
 
 function entityHref(campaignId: string, entityId: string) {
-  return `/campaigns/${campaignId}?focus=${entityId}&detail_tab=pc-hooks`;
+  return `/campaigns/${campaignId}?focus=${entityId}&detail_tab=pc-hooks#entity-detail`;
 }
 
 function normalizeOptional(value: string): string | null {

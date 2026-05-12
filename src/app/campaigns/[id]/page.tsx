@@ -262,7 +262,12 @@ function buildCampaignHref(
   if (options.focus) params.set("focus", options.focus);
   if (options.tab && options.tab !== "gm") params.set("detail_tab", options.tab);
   const query = params.toString();
-  return query ? `/campaigns/${campaignId}?${query}` : `/campaigns/${campaignId}`;
+  const base = `/campaigns/${campaignId}`;
+  const url = query ? `${base}?${query}` : base;
+  // Quando il link punta a un'entita' specifica (focus o tab), aggiungiamo
+  // l'anchor `#entity-detail` cosi' il browser scrolla automaticamente al
+  // pannello dettaglio invece di restare in cima alla pagina.
+  return options.focus ? `${url}#entity-detail` : url;
 }
 
 async function fetchCampaignEntities(
@@ -811,32 +816,66 @@ function EntityListSection({
         </div>
       )}
 
-      <EntityGraphView
-        campaignId={campaignId}
-        entities={entityNames}
-        links={graphLinks}
-        selectedEntityId={selectedEntityId}
-      />
+      {/*
+        Detail panel posizionata SUBITO sotto la tabella: un click su
+        un'entita' della sidebar/tabella deve portare a un risultato
+        visibile senza scrollare in fondo. L'id `entity-detail` e'
+        l'anchor usato dai link `?focus=<id>#entity-detail`: il browser
+        scrolla automaticamente qui dopo la navigazione.
+      */}
+      <div id="entity-detail" className="scroll-mt-4">
+        {detailData ? (
+          <EntityDetailPanel
+            campaignId={campaignId}
+            filters={filters}
+            activeTab={detailTab}
+            data={detailData}
+            entityNameById={entityNameById}
+            sessions={campaignSessions}
+            pcHooks={campaignPcHooks}
+            allTags={allTags}
+          />
+        ) : rows.length > 0 ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+            L&apos;entita&apos; selezionata non appartiene a questa campagna oppure
+            non esiste piu&apos;.
+          </div>
+        ) : null}
+      </div>
+
+      {/*
+        Grafo entita': collassabile con `<details>`. Aperto di default cosi'
+        e' immediatamente visibile, ma il DM puo' chiuderlo quando
+        lavora sulla detail senza dover scrollare un blocco da 520px.
+      */}
+      <details
+        id="entity-graph"
+        open
+        className="group rounded-lg border border-zinc-200 bg-white scroll-mt-4 dark:border-zinc-800 dark:bg-zinc-900"
+      >
+        <summary className="flex cursor-pointer items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <span className="text-sm font-semibold">
+            Grafo entita&apos;{" "}
+            <span className="text-xs font-normal text-zinc-500">
+              ({entityNames.length} entita&apos;, {graphLinks.length} relazioni)
+            </span>
+          </span>
+          <span
+            aria-hidden="true"
+            className="text-xs text-zinc-500 transition-transform group-open:rotate-90"
+          >
+            ▸
+          </span>
+        </summary>
+        <EntityGraphView
+          campaignId={campaignId}
+          entities={entityNames}
+          links={graphLinks}
+          selectedEntityId={selectedEntityId}
+        />
+      </details>
 
       <PlayerAccessManager campaignId={campaignId} />
-
-      {detailData ? (
-        <EntityDetailPanel
-          campaignId={campaignId}
-          filters={filters}
-          activeTab={detailTab}
-          data={detailData}
-          entityNameById={entityNameById}
-          sessions={campaignSessions}
-          pcHooks={campaignPcHooks}
-          allTags={allTags}
-        />
-      ) : rows.length > 0 ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
-          L&apos;entita&apos; selezionata non appartiene a questa campagna oppure
-          non esiste piu&apos;.
-        </div>
-      ) : null}
     </section>
   );
 }

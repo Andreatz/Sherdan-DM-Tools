@@ -188,7 +188,7 @@ export function EntitySidebarSection() {
                 {recentEntities.map((entity) => (
                   <li key={entity.id}>
                     <Link
-                      href={`/campaigns/${entity.campaignId}?focus=${entity.id}`}
+                      href={`/campaigns/${entity.campaignId}?focus=${entity.id}#entity-detail`}
                       className="flex min-w-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                     >
                       <span
@@ -209,34 +209,47 @@ export function EntitySidebarSection() {
             </div>
           )}
 
-          {groupedEntities.map((group) => (
-            <div key={group.type}>
-              <div className="mb-1 flex items-center justify-between px-3">
-                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                  {TYPE_LABELS[group.type]}
-                </h3>
-                <span className="text-[10px] tabular-nums text-zinc-400 dark:text-zinc-600">
-                  {group.entities.length}
-                </span>
-              </div>
-              <ul className="space-y-0.5">
-                {group.entities.map((entity) => (
-                  <li key={entity.id}>
-                    <Link
-                      href={`/campaigns/${entity.campaignId}?focus=${entity.id}`}
-                      className="flex min-w-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          {groupedEntities.map((group) => {
+            // Apriamo automaticamente il gruppo se l'utente sta cercando
+            // (per non nascondere i risultati della ricerca). Altrimenti
+            // ogni tipo e' chiuso di default: con ~150 entita' tenere
+            // tutto aperto rende la sidebar non navigabile.
+            const open = query.trim().length > 0;
+            return (
+              <details key={group.type} open={open} className="group">
+                <summary className="mb-1 flex cursor-pointer items-center justify-between rounded-md px-3 py-1 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                  <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <span
+                      aria-hidden="true"
+                      className="transition-transform group-open:rotate-90"
                     >
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-full ${VISIBILITY_DOT[entity.visibility]}`}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 truncate">{entity.name}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+                      ▸
+                    </span>
+                    {TYPE_LABELS[group.type]}
+                  </h3>
+                  <span className="text-[10px] tabular-nums text-zinc-400 dark:text-zinc-600">
+                    {group.entities.length}
+                  </span>
+                </summary>
+                <ul className="space-y-0.5 pl-2">
+                  {group.entities.map((entity) => (
+                    <li key={entity.id}>
+                      <Link
+                        href={`/campaigns/${entity.campaignId}?focus=${entity.id}#entity-detail`}
+                        className="flex min-w-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      >
+                        <span
+                          className={`h-2 w-2 shrink-0 rounded-full ${VISIBILITY_DOT[entity.visibility]}`}
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 truncate">{entity.name}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            );
+          })}
         </div>
       )}
     </section>

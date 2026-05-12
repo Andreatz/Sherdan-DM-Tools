@@ -698,7 +698,7 @@ function WikiLinkPreview({
   return (
     <span className="group relative inline-block">
       <Link
-        href={`/campaigns/${campaignId}?focus=${preview.id}`}
+        href={`/campaigns/${campaignId}?focus=${preview.id}#entity-detail`}
         className="rounded bg-sky-50 px-1 font-medium text-sky-800 ring-1 ring-inset ring-sky-200 hover:bg-sky-100 dark:bg-sky-950/50 dark:text-sky-200 dark:ring-sky-900 dark:hover:bg-sky-900/70"
       >
         {name}

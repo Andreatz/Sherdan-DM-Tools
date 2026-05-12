@@ -353,7 +353,7 @@ export function EntityGraphView({
                     transform={`translate(${node.x},${node.y})`}
                     opacity={isUnlinked && shownLinksCount > 0 ? 0.62 : 1}
                   >
-                    <Link href={`/campaigns/${campaignId}?focus=${node.id}`}>
+                    <Link href={`/campaigns/${campaignId}?focus=${node.id}#entity-detail`}>
                       <circle
                         r={radius}
                         fill={colors.fill}

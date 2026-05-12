@@ -176,7 +176,9 @@ export function EntityQuickSwitch() {
 
   function navigateTo(entity: QuickSwitchEntity) {
     close();
-    router.push(`/campaigns/${entity.campaignId}?focus=${entity.id}`);
+    router.push(
+      `/campaigns/${entity.campaignId}?focus=${entity.id}#entity-detail`,
+    );
   }
 
   function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
