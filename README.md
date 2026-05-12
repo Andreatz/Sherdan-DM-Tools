@@ -31,7 +31,7 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | NPC Generator | Pronto | Preview, re-roll parziale, salvataggio entity, embedding fail-forward + `pnpm db:embed:backfill`, link "Storico generazioni LLM" nella entity detail |
 | Loot Generator | Pronto | Generatore + salvataggio + link a encounter/sessione, lista bundle filtrabile per campagna/sessione/encounter |
 | Encounter Builder | Pronto | Browser mostri, CR calculator, LLM assist, marker "usato in sessione", lista filtrabile per sessione/location/plot |
-| Player Dashboard | Beta | Per-player codici hashati, scoping per campagna, override visibilità per giocatore, rate limit e audit log; manca smoke E2E browser |
+| Player Dashboard | Beta | Per-player codici hashati, scoping per campagna, rate limit, audit log, override (entity/truth_clue/entity_secret) con UI DM; resta Beta fino allo smoke E2E browser |
 | Truth Clue Tracker | Pronto | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
 | Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
 | Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
@@ -516,7 +516,7 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 - Il Player Dashboard esiste ma va considerato beta: la modalità per-player è attiva (codici individuali hashati, scoping per campagna, override visibilità per giocatore) e coperta da test di integrazione DB/API; manca ancora una smoke E2E browser end-to-end.
 - Accesso player: per-giocatore (tabella `players`, codici HMAC-hashed, UI DM in `/campaigns/[id]`) con fallback al codice globale `SHERDAN_PLAYER_ACCESS_CODE`.
 - Rate limit attivo: login `/api/player/access/login` 5 tentativi / 15 min per IP, altre API player 120 req / minuto per IP.
-- Override visibilità per giocatore: ogni entità può essere `hidden` o `revealed` per uno specifico player; `truth_clue` e `entity_secret` hanno enum + tabella ma la UI dedicata arriverà in un commit successivo.
+- Override visibilità per giocatore: ogni entità, `truth_clue` o `entity_secret` può essere `hidden` o `revealed` per uno specifico player. UI DM disponibile nei pannelli "Visibilita' per giocatore" della entity detail, del Truth Clue Tracker e dell'Entity Secret Manager.
 - `generation_log` ora cattura ogni chiamata LLM (NPC/Loot/Encounter assist) con input, prompt, output, status e latenza, ma `input_tokens`/`output_tokens`/`cost_usd` restano `null` finché `LLMProvider` non espone l'usage del provider.
 - Encounter Builder copre il flusso DM (browser mostri, CR calculator, LLM assist, marker "usato in sessione"); un combat tracker run-time (iniziativa, HP live, condizioni) resta fuori scope per ora.
 - Test di integrazione DB/API in posto (`pnpm test:integration`, 5 file, 19 test su campaigns/entities/player auth/leakage/truth-clues). Manca ancora la smoke E2E browser.

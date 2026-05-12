@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { PlayerOverrideEditor } from "@/components/player-override-editor";
+
 type SecretLayer = "surface" | "intermediate" | "deep";
 
 interface EntitySecretRow {
@@ -230,6 +232,7 @@ function SecretLayerColumn({
             {secrets.map((secret) => (
               <SecretCard
                 key={secret.id}
+                campaignId={campaignId}
                 secret={secret}
                 sessions={sessions}
                 onChanged={() => startTransition(() => router.refresh())}
@@ -243,10 +246,12 @@ function SecretLayerColumn({
 }
 
 function SecretCard({
+  campaignId,
   secret,
   sessions,
   onChanged,
 }: {
+  campaignId: string;
   secret: EntitySecretRow;
   sessions: SessionOption[];
   onChanged: () => void;
@@ -381,6 +386,20 @@ function SecretCard({
           </p>
         )}
       </form>
+      <details className="mt-2">
+        <summary className="cursor-pointer text-xs uppercase tracking-wide text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100">
+          Visibilita&apos; per giocatore
+        </summary>
+        <div className="mt-2">
+          <PlayerOverrideEditor
+            campaignId={campaignId}
+            targetType="entity_secret"
+            targetId={secret.id}
+            targetLabel={`Segreto ${secret.layer}`}
+            baseVisibility="dm_only"
+          />
+        </div>
+      </details>
     </details>
   );
 }

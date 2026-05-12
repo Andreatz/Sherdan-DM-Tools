@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { clueStatus } from "@/db/schema";
+import { PlayerOverrideEditor } from "@/components/player-override-editor";
 
 const CLUE_STATUSES = clueStatus.enumValues;
 
@@ -799,6 +800,20 @@ export function TruthClueWorkbench() {
                           </button>
                         </div>
                       </div>
+                      <details>
+                        <summary className="cursor-pointer text-[11px] uppercase tracking-wide text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100">
+                          Visibilita&apos; per giocatore
+                        </summary>
+                        <div className="mt-2">
+                          <PlayerOverrideEditor
+                            campaignId={campaignId}
+                            targetType="truth_clue"
+                            targetId={clue.id}
+                            targetLabel={clue.description.slice(0, 60)}
+                            baseVisibility="dm_only"
+                          />
+                        </div>
+                      </details>
                     </li>
                   );
                 })}
