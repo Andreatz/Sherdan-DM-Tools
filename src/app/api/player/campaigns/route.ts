@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { campaigns } from "@/db/schema";
@@ -15,12 +15,13 @@ const playerSafeColumns = {
 
 export async function GET(req: NextRequest) {
   try {
-    requirePlayerAccess(req);
+    const payload = requirePlayerAccess(req);
 
-    const rows = await db
-      .select(playerSafeColumns)
-      .from(campaigns)
-      .orderBy(asc(campaigns.name));
+    // Per-player: filtra alla sola campagna scoped. Legacy: lista tutto.
+    const baseQuery = db.select(playerSafeColumns).from(campaigns);
+    const rows = await (payload.campaignId
+      ? baseQuery.where(eq(campaigns.id, payload.campaignId))
+      : baseQuery.orderBy(asc(campaigns.name)));
 
     return ok(projectCampaignsForPlayer(rows));
   } catch (err) {

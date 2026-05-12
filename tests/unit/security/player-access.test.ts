@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   isPlayerAccessConfigured,
-  verifyPlayerAccessCode,
+  verifyGlobalAccessCode,
 } from "@/lib/security/player-access";
 
 describe("player access helpers", () => {
@@ -10,17 +10,17 @@ describe("player access helpers", () => {
     vi.stubEnv("SHERDAN_PLAYER_ACCESS_CODE", "");
 
     expect(isPlayerAccessConfigured()).toBe(false);
-    expect(verifyPlayerAccessCode("anything")).toBe(false);
+    expect(verifyGlobalAccessCode("anything")).toBe(false);
 
     vi.unstubAllEnvs();
   });
 
-  it("validates the configured access code", () => {
+  it("validates the configured global access code (legacy mode)", () => {
     vi.stubEnv("SHERDAN_PLAYER_ACCESS_CODE", "sherdan-test-code");
 
     expect(isPlayerAccessConfigured()).toBe(true);
-    expect(verifyPlayerAccessCode("sherdan-test-code")).toBe(true);
-    expect(verifyPlayerAccessCode("wrong-code")).toBe(false);
+    expect(verifyGlobalAccessCode("sherdan-test-code")).toBe(true);
+    expect(verifyGlobalAccessCode("wrong-code")).toBe(false);
 
     vi.unstubAllEnvs();
   });

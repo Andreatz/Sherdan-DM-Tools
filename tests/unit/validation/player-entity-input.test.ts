@@ -5,8 +5,12 @@ import { listPlayerEntitiesQuerySchema } from "@/lib/validation/player-entity-in
 const campaignId = "00000000-0000-4000-8000-000000000001";
 
 describe("listPlayerEntitiesQuerySchema", () => {
-  it("requires campaign_id", () => {
-    expect(() => listPlayerEntitiesQuerySchema.parse({})).toThrow();
+  it("accepts an empty query: campaign_id arriva dal cookie in modalita' per-player; lo enforce e' nel route handler", () => {
+    expect(listPlayerEntitiesQuerySchema.parse({})).toMatchObject({
+      limit: 50,
+      offset: 0,
+      sort: "name_asc",
+    });
   });
 
   it("accepts safe player-facing list filters", () => {

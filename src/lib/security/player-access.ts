@@ -1,10 +1,19 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import type { NextRequest } from "next/server";
 
-import type { NextRequest, NextResponse } from "next/server";
-
-import { ServiceUnavailableError, UnauthorizedError } from "@/lib/api/errors";
+import { BadRequestError } from "@/lib/api/errors";
 import { getLogger } from "@/lib/logger";
 import { clientKey, enforceRateLimit } from "@/lib/security/rate-limit";
+
+import {
+  PLAYER_ACCESS_COOKIE,
+  clearPlayerAccessCookie,
+  hashPlayerCode,
+  isPlayerAccessConfigured,
+  readPlayerCookie,
+  setPlayerAccessCookie,
+  verifyGlobalAccessCode,
+  type PlayerCookiePayload,
+} from "./player-auth";
 
 const audit = getLogger("audit.player");
 
@@ -14,29 +23,21 @@ const PLAYER_API_RATE_LIMIT = {
   windowMs: 60 * 1000, // 1 minuto
 };
 
-export const PLAYER_ACCESS_COOKIE = "sherdan_player_access";
-
-const ONE_WEEK_SECONDS = 60 * 60 * 24 * 7;
-
-export function isPlayerAccessConfigured(): boolean {
-  return Boolean(getAccessCode());
-}
-
-export function requirePlayerAccess(req: NextRequest): void {
-  // Rate limit applicato per ogni player route: protegge contro abuso anche
-  // quando il cookie e' valido. Configurato strict per `/access/login` (5
-  // tentativi / 15 minuti) e loose per il resto (120 req / minuto).
+// Pre-condizione per ogni route player-facing:
+// 1. Rate limit (anche a cookie valido, per fermare abuso).
+// 2. Lettura + verifica firma cookie.
+// 3. Ritorna il payload (playerId/campaignId), cosi' chi chiama puo'
+//    applicare scoping per campagna ed eventuali override di visibilita'.
+//
+// `playerId === null` significa modalita' legacy "codice globale": il
+// chiamante puo' scoping per qualsiasi campagna dal query param.
+// `playerId !== null` significa per-player: il chiamante DEVE scoping
+// alla `campaignId` del payload (la enforce e' fatta dai route handler).
+export function requirePlayerAccess(req: NextRequest): PlayerCookiePayload {
   enforceRateLimit(req, PLAYER_API_RATE_LIMIT);
-
-  const code = getAccessCode();
-  if (!code) {
-    throw new ServiceUnavailableError(
-      "Player access non configurato. Imposta SHERDAN_PLAYER_ACCESS_CODE lato server.",
-    );
-  }
-
-  const cookieValue = req.cookies.get(PLAYER_ACCESS_COOKIE)?.value;
-  if (!cookieValue || !verifySignedValue(cookieValue, code)) {
+  try {
+    return readPlayerCookie(req);
+  } catch (err) {
     audit.warn(
       {
         ip: clientKey(req),
@@ -45,69 +46,46 @@ export function requirePlayerAccess(req: NextRequest): void {
       },
       "player API access denied (cookie mancante o invalido)",
     );
-    throw new UnauthorizedError("Player access richiesto");
+    throw err;
   }
 }
 
-export function verifyPlayerAccessCode(input: string): boolean {
-  const code = getAccessCode();
-  if (!code) return false;
-  return timingSafeStringEqual(input, code);
-}
-
-export function setPlayerAccessCookie(res: NextResponse): void {
-  const code = getAccessCode();
-  if (!code) {
-    throw new ServiceUnavailableError(
-      "Player access non configurato. Imposta SHERDAN_PLAYER_ACCESS_CODE lato server.",
+// Enforcer di scoping per campagna. In modalita' per-player, il payload del
+// cookie fissa la campagna: il route handler DEVE allinearsi. In modalita'
+// legacy (`payload.campaignId === null`) accetta qualsiasi `requested`,
+// preservando il comportamento pre-multi-player.
+//
+// Ritorna l'id della campagna effettiva (mai null), cosi' il route handler
+// puo' usarlo direttamente nel filtro WHERE.
+export function assertCampaignScope(
+  payload: PlayerCookiePayload,
+  requested: string | null | undefined,
+): string {
+  if (payload.campaignId) {
+    if (requested && requested !== payload.campaignId) {
+      throw new BadRequestError(
+        "Campaign scope: il cookie player e' scoped a un'altra campagna.",
+        { allowed: payload.campaignId },
+      );
+    }
+    return payload.campaignId;
+  }
+  if (!requested) {
+    throw new BadRequestError(
+      "Campaign scope: il parametro campaign_id e' richiesto in modalita' legacy.",
     );
   }
-
-  res.cookies.set({
-    name: PLAYER_ACCESS_COOKIE,
-    value: signValue("player", code),
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: ONE_WEEK_SECONDS,
-  });
+  return requested;
 }
 
-export function clearPlayerAccessCookie(res: NextResponse): void {
-  res.cookies.set({
-    name: PLAYER_ACCESS_COOKIE,
-    value: "",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 0,
-  });
-}
+export {
+  PLAYER_ACCESS_COOKIE,
+  clearPlayerAccessCookie,
+  hashPlayerCode,
+  isPlayerAccessConfigured,
+  readPlayerCookie,
+  setPlayerAccessCookie,
+  verifyGlobalAccessCode,
+};
 
-function getAccessCode(): string | undefined {
-  const value = process.env.SHERDAN_PLAYER_ACCESS_CODE?.trim();
-  return value && value.length > 0 ? value : undefined;
-}
-
-function signValue(value: string, code: string): string {
-  return `${value}.${hmac(value, code)}`;
-}
-
-function verifySignedValue(signedValue: string, code: string): boolean {
-  const [value, signature, extra] = signedValue.split(".");
-  if (!value || !signature || extra !== undefined) return false;
-  return timingSafeStringEqual(signature, hmac(value, code));
-}
-
-function hmac(value: string, code: string): string {
-  return createHmac("sha256", code).update(value).digest("base64url");
-}
-
-function timingSafeStringEqual(a: string, b: string): boolean {
-  const aBuffer = Buffer.from(a);
-  const bBuffer = Buffer.from(b);
-  if (aBuffer.length !== bBuffer.length) return false;
-  return timingSafeEqual(aBuffer, bBuffer);
-}
+export type { PlayerCookiePayload };

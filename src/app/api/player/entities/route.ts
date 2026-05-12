@@ -4,7 +4,10 @@ import { type SQL, and, asc, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { entities } from "@/db/schema";
 import { fail, ok } from "@/lib/api/respond";
-import { requirePlayerAccess } from "@/lib/security/player-access";
+import {
+  assertCampaignScope,
+  requirePlayerAccess,
+} from "@/lib/security/player-access";
 import { projectEntitiesForPlayer } from "@/lib/security/player-entities";
 import { listPlayerEntitiesQuerySchema } from "@/lib/validation/player-entity-input";
 
@@ -21,15 +24,16 @@ const playerSafeColumns = {
 
 export async function GET(req: NextRequest) {
   try {
-    requirePlayerAccess(req);
+    const payload = requirePlayerAccess(req);
 
     const url = new URL(req.url);
     const q = listPlayerEntitiesQuerySchema.parse(
       Object.fromEntries(url.searchParams.entries()),
     );
+    const campaignId = assertCampaignScope(payload, q.campaign_id ?? null);
 
     const conditions: SQL[] = [
-      eq(entities.campaignId, q.campaign_id),
+      eq(entities.campaignId, campaignId),
       inArray(entities.visibility, ["public", "discovered"]),
     ];
 

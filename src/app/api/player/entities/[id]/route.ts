@@ -6,14 +6,18 @@ import { db } from "@/db/client";
 import { entities } from "@/db/schema";
 import { NotFoundError } from "@/lib/api/errors";
 import { fail, ok } from "@/lib/api/respond";
-import { requirePlayerAccess } from "@/lib/security/player-access";
+import {
+  assertCampaignScope,
+  requirePlayerAccess,
+} from "@/lib/security/player-access";
 import { projectEntityForPlayer } from "@/lib/security/player-entities";
 
 const idParamSchema = z.object({ id: z.uuid() });
 
 const detailQuerySchema = z
   .object({
-    campaign_id: z.uuid(),
+    // Opzionale: in modalita' per-player il campaign_id arriva dal cookie.
+    campaign_id: z.uuid().optional(),
   })
   .strict();
 
@@ -38,13 +42,14 @@ async function resolveId(ctx: RouteContext): Promise<string> {
 
 export async function GET(req: NextRequest, ctx: RouteContext) {
   try {
-    requirePlayerAccess(req);
+    const payload = requirePlayerAccess(req);
 
     const id = await resolveId(ctx);
     const url = new URL(req.url);
     const q = detailQuerySchema.parse(
       Object.fromEntries(url.searchParams.entries()),
     );
+    const campaignId = assertCampaignScope(payload, q.campaign_id ?? null);
 
     const rows = await db
       .select(playerSafeColumns)
@@ -52,7 +57,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
       .where(
         and(
           eq(entities.id, id),
-          eq(entities.campaignId, q.campaign_id),
+          eq(entities.campaignId, campaignId),
           inArray(entities.visibility, ["public", "discovered"]),
         ),
       )

@@ -4,6 +4,7 @@ export * from "./entities";
 export * from "./enums";
 export * from "./generators";
 export * from "./loot";
+export * from "./players";
 export * from "./plot";
 export * from "./rules";
 export * from "./sessions";
