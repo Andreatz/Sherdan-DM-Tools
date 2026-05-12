@@ -541,9 +541,9 @@ Componi un encounter, vedi difficulty live, generi tactical notes, lo associ a u
 
 ---
 
-## Fase 6 — Sessions & Plot Threads (con doppio arco)
+## Fase 6 — Sessions & Plot Threads (con doppio arco) ✅
 
-**Durata**: 12-16 giorni · **Tool sbloccato**: ✅ Plot Thread Tracker, Truth Clue Tracker
+**Durata**: 12-16 giorni · **Tool sbloccato**: ✅ Plot Thread Tracker, Truth Clue Tracker · **Chiusa il 2026-05-12**
 
 ### Goal
 Dimensione temporale: sessioni con recap, plot threads con doppio arco (percepito vs reale), briciole di verità tracciate.
@@ -569,8 +569,10 @@ Dimensione temporale: sessioni con recap, plot threads con doppio arco (percepit
   - _Note implementative: aggiunte API `GET/POST /api/plot-thread-entities` e `GET/PATCH/DELETE /api/plot-thread-entities/[id]` per collegare entity ai plot thread con enum `plotRole`. La create valida che plot thread ed entity appartengano alla stessa campagna prima di inserire la relazione; gli update permettono role/notes. Test unitari coprono vocabolario ruoli, query list, update e normalizzazione note._
 - [x] PlotThreadEvent: timeline con event_type
   - _Note implementative: aggiunte API `GET/POST /api/plot-thread-events` e `GET/PATCH/DELETE /api/plot-thread-events/[id]` per una timeline ordinata per `occurredAt`, filtrabile per plot thread o sessione. Gli eventi hanno `eventType`, `description` GM, `publicDescription` opzionale, `sessionId` opzionale e validazione che sessione e thread appartengano alla stessa campagna. Test unitari coprono create/update/list, date coercion e normalizzazione descrizioni pubbliche._
-- [ ] **Visualizzazione "split-screen"**: per ogni thread, due colonne sincronizzate temporalmente — ciò che il party crede stia succedendo vs ciò che sta realmente succedendo. Vedi a colpo d'occhio la divergenza/convergenza.
-- [ ] Stale alerts: thread "hot" senza eventi da N sessioni → suggerisce demote a "warm" o "cold"
+- [x] **Visualizzazione "split-screen"**: per ogni thread, due colonne sincronizzate temporalmente — ciò che il party crede stia succedendo vs ciò che sta realmente succedendo. Vedi a colpo d'occhio la divergenza/convergenza.
+  - _Note implementative: nuova pagina `/plot-threads` con workbench `PlotThreadsWorkbench`. Nel detail del thread selezionato, due `DescriptionPanel` affiancati editano `plot_threads.description` (verita' GM) e `plot_threads.publicDescription` (percepito dal party) via `PATCH /api/plot-threads/[id]`. La timeline eventi sotto e' divisa in tre colonne sincronizzate (GM / Percepito / sessione), così a colpo d'occhio si vede dove i due archi divergono o convergono. I `DescriptionPanel` usano `key` per droppare lo stato locale al cambio di thread (evita `react-hooks/set-state-in-effect`)._
+- [x] Stale alerts: thread "hot" senza eventi da N sessioni → suggerisce demote a "warm" o "cold"
+  - _Note implementative: `POST /api/plot-thread-events` ora ribattezza `plot_threads.lastAdvancedAt` quando arriva un evento più recente (idempotente: skip se l'evento e' antecedente al valore attuale). Il workbench computa `isStale(thread)` client-side: thread con status `hot` o `warm` il cui `lastAdvancedAt` (o `createdAt` se non e' mai avanzato) e' piu' vecchio di 30 giorni. Banner globale in cima alla pagina con lista cliccabile dei thread stale + pulsante "Demote" che fa `PATCH status` a `warm` (per gli `hot`) o `cold` (per i `warm`). Ogni card Kanban mostra anche un badge `stale` accanto al titolo._
 
 **Truth Clue Tracker**
 - [x] CRUD `truth_clues`
@@ -585,10 +587,14 @@ Dimensione temporale: sessioni con recap, plot threads con doppio arco (percepit
   - _Note implementative: aggiunto endpoint dedicato `GET /api/truth-clues/dashboard` che fa `GROUP BY relatedPlotThreadId, status` sulla campagna e produce per ogni plot thread un breakdown completo (`planted`/`noticed`/`misinterpreted`/`understood`/`lost`) + `total` + `understoodPct = round(understood/total*100)`. Include una riga "Senza plot thread" per le briciole orfane (relazione `SET NULL` su delete). Sidebar destra del workbench renderizza una barra di progresso emerald per ogni thread, ordinata alfabeticamente, con badge dei contatori per gli stati non-understood (così si vede se il party sta solo "notando" senza connettere)._
 
 **UI**
-- [ ] Sessions list view, detail view con recap rendered + dm_notes toggle
-- [ ] Plot Threads board: Kanban per status (hot/warm/cold/resolved/abandoned)
-- [ ] Plot Thread detail: timeline orizzontale, doppio arco visibile, entità coinvolte con ruolo, briciole associate
-- [ ] Visualizzazione cross: "questa entità è in N plot threads"
+- [x] Sessions list view, detail view con recap rendered + dm_notes toggle
+  - _Note implementative: aggiunta pagina `/sessions` con `SessionsWorkbench`. Sidebar lista sessioni della campagna selezionata (con numero, titolo, data). Detail view server-rendered/client per la selezione: recap reso come testo Markdown `whitespace-pre-wrap`, toggle "Mostra DM notes" off-by-default che mostra/nasconde il pannello `dm_notes` (visivamente accentato amber per ricordare che e' GM-only), pannello dedicato per `prep_notes` quando presenti. Sotto, due aggregati derivati: gli eventi `plot_thread_events` di quella sessione (con il thread di provenienza e GM/percepito) e le briciole `truth_clues` piantate in quella sessione. Sidebar globale: "Sessioni" passa da Schema a Pronto e linka a `/sessions`._
+- [x] Plot Threads board: Kanban per status (hot/warm/cold/resolved/abandoned)
+  - _Note implementative: colonna sinistra del workbench `/plot-threads` ha 5 sezioni Kanban (Caldo/Tiepido/Freddo/Risolto/Abbandonato) con badge colorati e count. Card mostra titolo, priorita' e "ultimo evento" relativo (oggi/ieri/N giorni fa/N mesi fa). Click su una card seleziona il thread e popola il detail panel a destra._
+- [x] Plot Thread detail: timeline orizzontale, doppio arco visibile, entità coinvolte con ruolo, briciole associate
+  - _Note implementative: detail panel del workbench include: header con cambio status segmentato (cinque pulsanti per i 5 stati), priorita', ultimo evento, progresso `verita' rivelata` se ci sono briciole; split-screen GM vs percepito (vedi sopra); timeline eventi a tre colonne (GM / Percepito / sessione) con form inline per aggiungere eventi (tipo evento via datalist, sessione opzionale, occurredAt opzionale, descrizione GM + percepito), eventi cancellabili; pannello Entita' coinvolte con ruolo (`instigator/victim/target/mcguffin/witness`) e note, form inline per collegare nuove entita'; pannello Briciole correlate che listsa le truth_clues con relatedPlotThreadId puntato a questo thread, con status badge e verita' GM, link al Truth Clue Tracker per piantarne di nuove._
+- [x] Visualizzazione cross: "questa entità è in N plot threads"
+  - _Note implementative: aggiunta nuova tab "Plot threads" nella detail view delle entita' in `/campaigns/[id]?focus=<entity_id>`. La fetch `fetchEntityDetail` ora include un JOIN tra `plot_thread_entities` e `plot_threads` filtrato per `entityId` e `campaignId`, ordinato per titolo. Il pannello `EntityPlotThreadsPanel` mostra il count (N), e per ogni thread titolo, badge status (Caldo/Tiepido/...), badge ruolo (Istigatore/Vittima/...), note opzionali e link al workbench plot threads. Empty state con CTA al workbench. Tab navigabile via `detail_tab=plot-threads`._
 
 ### Definition of done
 Hai registrato 3-5 sessioni con recap + dm_notes, 5-10 plot threads tracciati con doppio arco, vedi la timeline, hai piantato 10+ briciole con stato aggiornato, ricevi alert su thread che si raffreddano.
@@ -785,7 +791,7 @@ Apri la sessione, i giocatori si connettono dal cellulare, vedono la scena, scop
 | 7-8 | Fase 3 | NPC Generator |
 | 9 | Fase 4 | Loot Generator |
 | 10-11 | Fase 5 | Encounter Builder |
-| 12-13 | Fase 6 | Plot Thread Tracker + Truth Clue Tracker |
+| 12-13 | Fase 6 ✅ | Plot Thread Tracker + Truth Clue Tracker |
 | 14-15 | Fase 7 | Session Prep Assistant |
 | 16-17 | Fase 8 | Dungeon Generator |
 | 18 | Fase 9 | Rules Lookup |

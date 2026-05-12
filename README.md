@@ -24,8 +24,9 @@ Il progetto non è più fermo alla Fase 1. La base, la Campaign Wiki, l'import S
 | Loot Generator | Beta | Workbench presente, da rifinire e collegare meglio al ciclo sessione |
 | Encounter Builder | Beta | Prima slice su mostri/browser; manca ancora builder tattico completo |
 | Player Dashboard | Beta locale | Accesso con codice e API player-safe; non ancora consigliato per deploy pubblico |
-| Truth Clue Tracker | Beta | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
-| Plot Thread Tracker | Schema pronto | Dati predisposti; split-screen, kanban e stale alerts ancora da fare |
+| Truth Clue Tracker | Pronto | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
+| Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
+| Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
 | Session Prep Assistant | Pianificato | Da costruire su sessioni, hooks, clues e generatori |
 | Rules Lookup | Pianificato | Import documenti regole presente, UI/search dedicata da completare |
 | Procedural Dungeon Generator | Pianificato | Non implementato |
@@ -451,10 +452,9 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 2. Rendere il Player Dashboard pubblicabile: ruoli, campaign scoping, rate limit, audit log e test di leakage.
 3. Collegare davvero `generation_log` al Generator Framework, non solo allo schema.
 4. Aggiungere test integrazione DB/API e almeno una smoke E2E browser.
-5. Completare la UI Plot Thread (split-screen percepito vs reale, kanban hot/warm/cold, stale alerts).
-6. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
-7. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
-8. Introdurre backup/restore locale del DB e export campagna.
+5. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
+6. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
+7. Introdurre backup/restore locale del DB e export campagna.
 
 ---
 

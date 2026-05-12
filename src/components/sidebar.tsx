@@ -36,8 +36,8 @@ const NAV: NavGroup[] = [
   {
     title: "Sessioni & Trama",
     items: [
-      { label: "Sessioni", status: "Schema" },
-      { label: "Plot Threads", status: "Schema" },
+      { label: "Sessioni", href: "/sessions", status: "Pronto" },
+      { label: "Plot Threads", href: "/plot-threads", status: "Pronto" },
       { label: "Briciole di Verita'", href: "/truth-clues", status: "Pronto" },
     ],
   },

@@ -12,6 +12,8 @@ import {
   entitySecrets,
   entityType,
   pcHooks,
+  plotThreadEntities,
+  plotThreads,
   sessions,
 } from "@/db/schema";
 import { getLogger } from "@/lib/logger";
@@ -44,7 +46,8 @@ type DetailTab =
   | "secrets"
   | "links"
   | "backlinks"
-  | "pc-hooks";
+  | "pc-hooks"
+  | "plot-threads";
 
 interface EntityListFilters {
   type?: EntityType;
@@ -140,6 +143,14 @@ interface CampaignSessionOption {
   prepNotes: string | null;
 }
 
+interface EntityPlotThreadRow {
+  threadId: string;
+  threadTitle: string;
+  threadStatus: string;
+  role: string;
+  notes: string | null;
+}
+
 interface EntityDetailData {
   entity: CampaignEntityDetail;
   identities: EntityIdentityRow[];
@@ -147,6 +158,7 @@ interface EntityDetailData {
   links: EntityLinkRow[];
   backlinks: EntityLinkRow[];
   pcHooks: PcHookRow[];
+  plotThreads: EntityPlotThreadRow[];
 }
 
 const TYPE_LABELS: Record<EntityType, string> = {
@@ -186,6 +198,7 @@ const DETAIL_TABS: Array<{ id: DetailTab; label: string }> = [
   { id: "links", label: "Links" },
   { id: "backlinks", label: "Backlinks" },
   { id: "pc-hooks", label: "Hooks PG" },
+  { id: "plot-threads", label: "Plot threads" },
 ];
 
 const DETAIL_TAB_IDS = DETAIL_TABS.map((tab) => tab.id);
@@ -370,7 +383,8 @@ async function fetchEntityDetail(
 
   if (!entity) return undefined;
 
-  const [identities, secrets, linksInvolving, hooks] = await Promise.all([
+  const [identities, secrets, linksInvolving, hooks, threadAssignments] =
+    await Promise.all([
     db
       .select({
         id: entityIdentities.id,
@@ -439,6 +453,26 @@ async function fetchEntityDetail(
         ),
       )
       .orderBy(asc(pcHooks.createdAt)),
+    db
+      .select({
+        threadId: plotThreads.id,
+        threadTitle: plotThreads.title,
+        threadStatus: plotThreads.status,
+        role: plotThreadEntities.role,
+        notes: plotThreadEntities.notes,
+      })
+      .from(plotThreadEntities)
+      .innerJoin(
+        plotThreads,
+        eq(plotThreads.id, plotThreadEntities.plotThreadId),
+      )
+      .where(
+        and(
+          eq(plotThreadEntities.entityId, entityId),
+          eq(plotThreads.campaignId, campaignId),
+        ),
+      )
+      .orderBy(asc(plotThreads.title)),
   ]);
 
   return {
@@ -448,6 +482,7 @@ async function fetchEntityDetail(
     links: linksInvolving.filter((link) => link.sourceEntityId === entityId),
     backlinks: linksInvolving.filter((link) => link.targetEntityId === entityId),
     pcHooks: hooks,
+    plotThreads: threadAssignments,
   };
 }
 
@@ -932,8 +967,95 @@ function EntityDetailPanel({
             selectedEntityId={entity.id}
           />
         )}
+        {activeTab === "plot-threads" && (
+          <EntityPlotThreadsPanel
+            campaignId={campaignId}
+            threads={data.plotThreads}
+          />
+        )}
       </div>
     </article>
+  );
+}
+
+interface EntityPlotThreadsPanelProps {
+  campaignId: string;
+  threads: EntityPlotThreadRow[];
+}
+
+const ROLE_LABEL: Record<string, string> = {
+  instigator: "Istigatore",
+  victim: "Vittima",
+  target: "Bersaglio",
+  mcguffin: "McGuffin",
+  witness: "Testimone",
+};
+
+const THREAD_STATUS_LABEL: Record<string, string> = {
+  hot: "Caldo",
+  warm: "Tiepido",
+  cold: "Freddo",
+  resolved: "Risolto",
+  abandoned: "Abbandonato",
+};
+
+function EntityPlotThreadsPanel({
+  campaignId,
+  threads,
+}: EntityPlotThreadsPanelProps) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-semibold">
+          Plot threads ({threads.length})
+        </h4>
+        <Link
+          href="/plot-threads"
+          className="text-xs text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+        >
+          Apri workbench
+        </Link>
+      </div>
+      {threads.length === 0 ? (
+        <p className="text-xs text-zinc-500">
+          Questa entita&apos; non figura in nessun plot thread. Aggiungila dal{" "}
+          <Link
+            href="/plot-threads"
+            className="underline underline-offset-2"
+          >
+            workbench plot threads
+          </Link>
+          .
+        </p>
+      ) : (
+        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {threads.map((thread) => (
+            <li
+              key={`${thread.threadId}-${thread.role}`}
+              className="flex flex-wrap items-center gap-3 py-2 text-sm"
+            >
+              <Link
+                href={`/plot-threads?campaign_id=${encodeURIComponent(
+                  campaignId,
+                )}`}
+                className="font-medium text-zinc-800 hover:underline dark:text-zinc-100"
+              >
+                {thread.threadTitle}
+              </Link>
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                {THREAD_STATUS_LABEL[thread.threadStatus] ?? thread.threadStatus}
+              </span>
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                {ROLE_LABEL[thread.role] ?? thread.role}
+              </span>
+              {thread.notes && (
+                <span className="text-xs text-zinc-500">{thread.notes}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

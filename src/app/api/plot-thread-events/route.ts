@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { type SQL, and, asc, eq } from "drizzle-orm";
+import { type SQL, and, asc, eq, isNull, lt, or } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { plotThreadEvents, plotThreads, sessions } from "@/db/schema";
@@ -66,6 +66,25 @@ export async function POST(req: NextRequest) {
         occurredAt: input.occurredAt,
       })
       .returning(plotThreadEventColumns);
+
+    // Ogni nuovo evento "fa avanzare" il thread: aggiorniamo lastAdvancedAt
+    // così la dashboard può segnalare i thread fermi senza dover aggregare
+    // gli eventi in lettura. Idempotente: se l'evento e' antecedente al
+    // valore attuale, lasciamo invariato.
+    if (row?.occurredAt) {
+      await db
+        .update(plotThreads)
+        .set({ lastAdvancedAt: row.occurredAt })
+        .where(
+          and(
+            eq(plotThreads.id, input.plotThreadId),
+            or(
+              isNull(plotThreads.lastAdvancedAt),
+              lt(plotThreads.lastAdvancedAt, row.occurredAt),
+            ),
+          ),
+        );
+    }
 
     return created(row);
   } catch (err) {
