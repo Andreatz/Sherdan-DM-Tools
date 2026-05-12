@@ -44,6 +44,12 @@ yarn-error.log*
 # privati, lore della campagna). Mai committare.
 conversation-export*.md
 
+# backup locali (pg_dump SQL + JSON export campagna). Possono contenere
+# segreti GM-only. Mantieni la cartella ma escludi i dump.
+/backups/*
+!/backups/.gitkeep
+!/backups/README.md
+
 # vercel
 .vercel
 

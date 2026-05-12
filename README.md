@@ -12,6 +12,14 @@ Il progetto nasce Sherdan-first, ma l'architettura è pensata per poter diventar
 
 Il progetto non è più fermo alla Fase 1. La base, la Campaign Wiki, l'import Sherdan, la sicurezza dei contenuti raw, il motore di Random Tables e i primi generatori sono già presenti. Alcune aree sono però ancora beta o solo predisposte a livello schema.
 
+Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
+
+- **Pronto** – feature usabile end-to-end, UI inclusa.
+- **Beta** – usabile ma con rifiniture o limitazioni note.
+- **Schema** – DB/API predisposti, UI dedicata ancora da costruire.
+- **Pianificato** – non iniziato.
+- **Bloccato** – volontariamente fermo finché una precondizione non è soddisfatta.
+
 | Area | Stato | Nota |
 |---|---|---|
 | Foundation progetto | Pronto | Next.js, TypeScript, DB, logging, env check, CI |
@@ -23,7 +31,7 @@ Il progetto non è più fermo alla Fase 1. La base, la Campaign Wiki, l'import S
 | NPC Generator | Beta | Preview, re-roll parziale, salvataggio entity, embedding fail-forward |
 | Loot Generator | Beta | Workbench presente, da rifinire e collegare meglio al ciclo sessione |
 | Encounter Builder | Beta | Prima slice su mostri/browser; manca ancora builder tattico completo |
-| Player Dashboard | Beta locale | Accesso con codice e API player-safe; non ancora consigliato per deploy pubblico |
+| Player Dashboard | Beta | Accesso con codice e API player-safe; non ancora consigliato per deploy pubblico |
 | Truth Clue Tracker | Pronto | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
 | Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
 | Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
@@ -213,7 +221,11 @@ pnpm llm:ping
 | `/npc-generator` | Beta | Generatore NPC contestuale |
 | `/loot-generator` | Beta | Generatore loot |
 | `/encounter-builder` | Beta | Prima slice encounter/monster browser |
-| `/player` | Beta locale | Dashboard player con access code e API player-safe |
+| `/sessions` | Pronto | Lista sessioni + recap, toggle DM notes, plot/briciole per sessione |
+| `/plot-threads` | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen, timeline, stale alerts |
+| `/truth-clues` | Pronto | Briciole filtrabili, plant/update status, dashboard verità rivelata |
+| `/generation-log` | Pronto | Audit di ogni chiamata LLM dei generators |
+| `/player` | Beta | Dashboard player con access code e API player-safe (rate limit + audit log attivi) |
 
 ---
 
@@ -328,6 +340,25 @@ pnpm db:ping
 pnpm db:seed
 pnpm db:seed:tables
 ```
+
+### Backup & export
+
+```bash
+# Dump SQL completo (via docker exec sul container sherdan-postgres):
+pnpm db:backup
+# → backups/sherdan-YYYYMMDD-HHMMSS.sql
+
+# Ripristino (DISTRUTTIVO, richiede conferma esplicita):
+CONFIRM=yes pnpm db:restore -- backups/sherdan-YYYYMMDD-HHMMSS.sql
+
+# Export JSON autoportante di una singola campagna:
+pnpm db:export:campaign -- --name "Sherdan"
+# oppure
+pnpm db:export:campaign -- --id <campaign-uuid>
+# → backups/campaign-<slug>-<timestamp>.json
+```
+
+La cartella `backups/` è git-ignored (i dump contengono segreti GM-only).
 
 ### Dataset Sherdan
 
@@ -448,12 +479,10 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 
 ## Priorità consigliate
 
-1. Allineare sidebar, status page e README sullo stesso vocabolario di stato.
-2. Rendere il Player Dashboard pubblicabile: ruoli per giocatore e scoping per campagna (rate limit, audit log e test di leakage gia' attivi).
-3. Aggiungere test integrazione DB/API e almeno una smoke E2E browser.
-4. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
-5. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
-6. Introdurre backup/restore locale del DB e export campagna.
+1. Rendere il Player Dashboard pubblicabile: ruoli per giocatore e scoping per campagna (rate limit, audit log e test di leakage gia' attivi).
+2. Aggiungere test integrazione DB/API e almeno una smoke E2E browser.
+3. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
+4. Rifinire Loot Generator ed Encounter Builder con salvataggio completo e collegamento a sessioni/plot.
 
 ---
 

@@ -760,7 +760,8 @@ Apri la sessione, i giocatori si connettono dal cellulare, vedono la scena, scop
 
 - [ ] Global search (entities + sessions + plot threads + rules + truth_clues) con Cmd-K
 - [ ] Command palette per quick actions
-- [ ] Backup automatico campagna (JSON dump + media)
+- [x] Backup automatico campagna (JSON dump + media)
+  - _Note implementative (hardening 2026-05-12): aggiunti `pnpm db:backup`, `pnpm db:restore -- <file>` (richiede `CONFIRM=yes`, distruttivo) e `pnpm db:export:campaign -- --name "Sherdan"` / `--id <uuid>`. I primi due spawnano `docker exec` sul container `sherdan-postgres` cosi' non serve `pg_dump`/`psql` lato host. L'export campagna usa Drizzle per produrre un JSON autoportante con entities (senza embedding), identita', segreti, link, hooks, sessioni, session_entities, plot_threads, plot_thread_entities, plot_thread_events, truth_clues, encounters, encounter_participants, loot_bundles; esclude generation_log, random_tables e rule_documents (globali o non scoped). Cartella `backups/` git-ignored salvo README + `.gitkeep`. Smoke live: dump SQL 3.3 MB, JSON 1.45 MB con 152 entita' / 81 identita' / 56 segreti / 45 link / 70 PC hooks / 10 plot threads / 6 sessioni._
 - [ ] Import/export (per migrazioni, per condividere)
 - [ ] Re-export verso Markdown nello stesso formato dei file originali (così la repo `public/` resta in sync con il sistema, opzionalmente)
 - [ ] Mobile responsive su tutto

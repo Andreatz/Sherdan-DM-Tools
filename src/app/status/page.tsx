@@ -12,15 +12,28 @@ const SHERDAN_SOURCE_FILES = [
   "Manuale del Giocatore.md",
 ] as const;
 
+// Vocabolario unico per status sidebar/status-page/README:
+// - Pronto: feature usabile end-to-end, UI inclusa.
+// - Beta: usabile ma con rifiniture o limitazioni note.
+// - Schema: DB/API predisposti, UI dedicata ancora da costruire.
+// - Pianificato: non iniziato.
+// - Bloccato: volontariamente fermo finche' una precondizione non e' soddisfatta.
 const featureRows = [
   ["Project foundation", "Pronto", "Setup, DB, schema, CI e app shell."],
-  ["Campaign Wiki", "Pronto", "CRUD entità, identità, segreti, link e PC hooks."],
+  ["Campaign Wiki", "Pronto", "CRUD entita', identita', segreti, link e PC hooks."],
   ["Sherdan import", "Pronto", "Parser e import idempotente dei sorgenti markdown privati."],
   ["Random Tables", "Pronto", "Roller, import, subtabelle, template e workbench UI."],
-  ["Generator Framework", "Beta", "NPC/Loot/Encounter sono utilizzabili ma ancora da rifinire."],
-  ["Plot + Truth Clues", "Schema", "Schema dati pronto; UI dedicata pianificata."],
+  ["Sessioni", "Pronto", "Lista, recap rendered, toggle DM notes, prep notes, plot/briciole per sessione."],
+  ["Plot Thread Tracker", "Pronto", "Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline, stale alerts."],
+  ["Truth Clue Tracker", "Pronto", "CRUD briciole, filtri, plant/update status, dashboard verita' rivelata per thread."],
+  ["NPC Generator", "Beta", "Preview, re-roll parziale, salvataggio entity, embedding fail-forward."],
+  ["Loot Generator", "Beta", "Workbench operativo, da rifinire e collegare meglio al ciclo sessione."],
+  ["Encounter Builder", "Beta", "Browser mostri, CR calculator e LLM assist; manca builder tattico avanzato."],
+  ["Generation log", "Pronto", "Audit di ogni chiamata LLM (input/prompt/output/latency/status) su generation_log."],
+  ["Player Dashboard", "Beta", "Codice globale + cookie HMAC + rate limit + leakage tests; manca ruoli per giocatore."],
   ["Session Prep", "Pianificato", "Assistente da costruire su sessioni, thread, clues e hooks."],
-  ["Player Dashboard", "Bloccato", "Serve proiezione player-safe + access gate prima di esporlo."],
+  ["Rules Lookup", "Pianificato", "Documenti regole importati; UI/search dedicata da completare."],
+  ["Procedural Dungeon Generator", "Pianificato", "Algoritmo + render mappa + content per room ancora da costruire."],
 ] as const;
 
 const statusClassName: Record<string, string> = {
@@ -50,7 +63,7 @@ export default function StatusPage() {
     <div className="space-y-8">
       <header>
         <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-          Fase 0 / Fase 1
+          Operativo · vocabolario stato unificato
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
           Stato progetto
@@ -80,9 +93,13 @@ export default function StatusPage() {
         />
         <StatusCard
           title="Player Dashboard"
-          value={isSafeForPlayers ? "Bloccato" : "Vietato"}
-          tone="bad"
-          description="Da sbloccare solo dopo proiezione player-safe e access gate."
+          value={isSafeForPlayers ? "Beta" : "Vietato"}
+          tone={isSafeForPlayers ? "warn" : "bad"}
+          description={
+            isSafeForPlayers
+              ? "Codice globale + cookie HMAC + rate limit + leakage tests. Manca ruoli per giocatore prima del go pubblico."
+              : "Sorgenti raw in public/: NON esporre il dashboard. Esegui pnpm content:check:safe."
+          }
         />
       </section>
 
