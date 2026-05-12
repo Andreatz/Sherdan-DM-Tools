@@ -30,7 +30,7 @@ const featureRows = [
   ["Loot Generator", "Pronto", "Generator, link a encounter e sessione, lista bundles per campagna/sessione/encounter."],
   ["Encounter Builder", "Pronto", "Browser mostri, CR calculator, LLM assist, used_in_session, filtri list (sessione/location/plot)."],
   ["Generation log", "Pronto", "Audit di ogni chiamata LLM (input/prompt/output/latency/status) su generation_log."],
-  ["Player Dashboard", "Pronto", "Per-player codici hashati, scoping campagna, rate limit, audit log, leakage tests + override visibilita' per giocatore (entity/truth_clue/entity_secret) con UI DM completa."],
+  ["Player Dashboard", "Pronto", "Per-player codici hashati, scoping campagna, rate limit, audit log, leakage tests, override (entity/truth_clue/entity_secret) con UI DM completa, smoke E2E Playwright."],
   ["Session Prep", "Pianificato", "Assistente da costruire su sessioni, thread, clues e hooks."],
   ["Rules Lookup", "Pianificato", "Documenti regole importati; UI/search dedicata da completare."],
   ["Procedural Dungeon Generator", "Pianificato", "Algoritmo + render mappa + content per room ancora da costruire."],

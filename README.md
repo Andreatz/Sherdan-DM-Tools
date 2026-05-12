@@ -31,7 +31,7 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | NPC Generator | Pronto | Preview, re-roll parziale, salvataggio entity, embedding fail-forward + `pnpm db:embed:backfill`, link "Storico generazioni LLM" nella entity detail |
 | Loot Generator | Pronto | Generatore + salvataggio + link a encounter/sessione, lista bundle filtrabile per campagna/sessione/encounter |
 | Encounter Builder | Pronto | Browser mostri, CR calculator, LLM assist, marker "usato in sessione", lista filtrabile per sessione/location/plot |
-| Player Dashboard | Beta | Per-player codici hashati, scoping per campagna, rate limit, audit log, override (entity/truth_clue/entity_secret) con UI DM; resta Beta fino allo smoke E2E browser |
+| Player Dashboard | Pronto | Per-player codici hashati, scoping per campagna, rate limit, audit log, leakage tests, override (entity/truth_clue/entity_secret) con UI DM, smoke E2E Playwright |
 | Truth Clue Tracker | Pronto | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
 | Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
 | Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
@@ -330,6 +330,22 @@ pnpm test
 pnpm build
 ```
 
+### Test E2E browser (Playwright)
+
+```bash
+# Una volta sola: installa Chromium (~110 MB, in cache utente)
+pnpm exec playwright install chromium
+
+# Esegui lo smoke E2E (avvia un dev server temporaneo sulla porta 3100)
+DATABASE_URL="postgres://sherdan:sherdan_dev@localhost:5432/sherdan_dm_test" \
+SHERDAN_PLAYER_ACCESS_CODE="e2e-fallback-secret" pnpm test:e2e
+
+# UI Playwright per debug
+pnpm test:e2e:ui
+```
+
+I test E2E coprono il flusso player end-to-end: login per-player → visibility scoping (solo entity public/discovered visibili) → override revealed (player vede `dm_only`) → override hidden (player non vede più entity public).
+
 ### Test integrazione DB/API
 
 ```bash
@@ -505,15 +521,14 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 
 ## Priorità consigliate
 
-1. Smoke E2E browser per il flusso player (login per-player + visibility scoping in UI).
-2. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues.
+1. Costruire Session Prep Assistant usando sessioni, hooks, plot thread e clues (Fase 7).
 
 ---
 
 ## Limitazioni note
 
 - Il progetto è ancora single-user e local-first: non è pronto come SaaS o app multiutente.
-- Il Player Dashboard esiste ma va considerato beta: la modalità per-player è attiva (codici individuali hashati, scoping per campagna, override visibilità per giocatore) e coperta da test di integrazione DB/API; manca ancora una smoke E2E browser end-to-end.
+- Il Player Dashboard è pronto: la modalità per-player è attiva (codici individuali hashati, scoping per campagna, override visibilità per giocatore) ed è coperta da test di integrazione DB/API + smoke E2E Playwright.
 - Accesso player: per-giocatore (tabella `players`, codici HMAC-hashed, UI DM in `/campaigns/[id]`) con fallback al codice globale `SHERDAN_PLAYER_ACCESS_CODE`.
 - Rate limit attivo: login `/api/player/access/login` 5 tentativi / 15 min per IP, altre API player 120 req / minuto per IP.
 - Override visibilità per giocatore: ogni entità, `truth_clue` o `entity_secret` può essere `hidden` o `revealed` per uno specifico player. UI DM disponibile nei pannelli "Visibilita' per giocatore" della entity detail, del Truth Clue Tracker e dell'Entity Secret Manager.
