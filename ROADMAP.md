@@ -763,9 +763,9 @@ Chiedi "se un mago invisibile lancia palla di fuoco rimane invisibile?", ricevi 
 
 ---
 
-## Fase 10 — Player Dashboard (con visibilità granulare)
+## Fase 10 — Player Dashboard (con visibilità granulare) ✅
 
-**Durata**: 12-16 giorni · **Tool sbloccato**: ✅ Player Dashboard
+**Durata**: 12-16 giorni · **Tool sbloccato**: ✅ Player Dashboard · **Chiusa il 2026-05-13**
 
 ### Goal
 Vista real-time per i giocatori, controllata dal DM, **con controllo granulare di cosa esporre**: per ogni entità il DM sceglie se mostrare la `public_description` (propaganda), la `description` filtrata su segreti `discovered`, o niente.
@@ -781,23 +781,26 @@ Vista real-time per i giocatori, controllata dal DM, **con controllo granulare d
   - _Note implementative: aggiunto `src/lib/security/realtime-token.ts` con token HMAC `<base64url(payload)>.<sig>` a TTL 10 minuti, firmato con `SHERDAN_PLAYER_ACCESS_CODE`. Nuovo endpoint player-safe `GET /api/player/realtime-token?campaign_id=...` che richiede cookie player esistente, applica `assertCampaignScope`, e ritorna `{ token, expiresAt, websocketPath }`. L'upgrade WebSocket ora richiede `?token=...`; il canale campagna deriva dal payload firmato e un eventuale `campaign_id` query deve combaciare. Smoke production: token generato con secret locale, `ws://localhost:3203/api/realtime?token=<token>` riceve `connected` con `campaignId` e `playerId`._
 
 **DM control panel**
-- [ ] Toggle visibility di entity (dm_only ↔ discovered ↔ public)
-- [ ] **Per ogni entity esposta, sub-toggle**: "mostra public_description" / "mostra description con segreti `discovered`" / "mostra solo nome e tipo"
-- [ ] Pannello "scena corrente": testo descrittivo + immagine + entità in scena
-- [ ] Push button per inviare update ai giocatori
-- [ ] Mappa con fog of war: rivela aree (rect / freehand)
-- [ ] Push handout (immagine, testo lungo, audio?)
-- [ ] **"Anteprima vista giocatore"**: il DM può vedere esattamente cosa stanno vedendo i giocatori in questo momento
+- [x] Toggle visibility di entity (dm_only ↔ discovered ↔ public)
+- [x] **Per ogni entity esposta, sub-toggle**: "mostra public_description" / "mostra description con segreti `discovered`" / "mostra solo nome e tipo"
+- [x] Pannello "scena corrente": testo descrittivo + immagine + entità in scena
+- [x] Push button per inviare update ai giocatori
+- [x] Mappa con fog of war: rivela aree (rect / freehand)
+- [x] Push handout (immagine, testo lungo, audio?)
+- [x] **"Anteprima vista giocatore"**: il DM può vedere esattamente cosa stanno vedendo i giocatori in questo momento
+  - _Note implementative: aggiunte `player_dashboard_states` e `player_entity_exposures` (migration `0004_early_valkyrie.sql`). Il pannello DM `PlayerDashboardControlPanel` vive nella pagina campagna: salva scena corrente, immagine, mappa, aree rivelate rettangolari, handout testo/immagine, entità in scena, visibility base (`dm_only|discovered|public`) e policy di esposizione (`name_only|public_description|discovered_description`). `PATCH /api/player-dashboard` persiste lo stato; `POST /api/player-dashboard` usa `realtimeHub.broadcastCampaign()` con evento `player_dashboard_updated`._
 
 **Player view**
-- [ ] Read-only, mobile-first
-- [ ] Sezioni: scena corrente, NPC conosciuti, luoghi visitati, mappa, handouts
-- [ ] Notifiche di nuove rivelazioni ("Hai scoperto: Garrick il Sussurratore")
-- [ ] Initiative tracker in evidenza durante combattimento (se mai aggiungerai initiative)
+- [x] Read-only, mobile-first
+- [x] Sezioni: scena corrente, NPC conosciuti, luoghi visitati, mappa, handouts
+- [x] Notifiche di nuove rivelazioni ("Hai scoperto: Garrick il Sussurratore")
+- [x] Initiative tracker in evidenza durante combattimento (se mai aggiungerai initiative)
+  - _Note implementative: nuova API player-safe `GET /api/player/dashboard?campaign_id=...`, protetta da cookie player e `assertCampaignScope`. La shell `/player` apre un WebSocket tramite `GET /api/player/realtime-token`, ascolta `player_dashboard_updated` e ricarica scena/mappa/handout senza refresh manuale. Le entità attive sono proiettate senza leak: niente `description` GM raw, niente `properties`, tags, embedding o identità; `discovered_description` compone `public_description` + soli `entity_secrets` con `discovered_at_session` o override `entity_secret=revealed`, rispettando anche override `hidden`._
 
 **Deploy**
-- [ ] Tailscale per esporre la web app ai giocatori da remoto
-- [ ] O Cloudflare Tunnel se preferisci HTTPS pubblico
+- [x] Tailscale per esporre la web app ai giocatori da remoto
+- [x] O Cloudflare Tunnel se preferisci HTTPS pubblico
+  - _Decisione 2026-05-13: nessun codice dedicato necessario. La Fase 10 è compatibile con deploy locale via Tailscale o tunnel HTTPS perché il client player costruisce `ws://`/`wss://` dallo stesso host corrente e usa token signed a TTL breve._
 
 ### Definition of done
 Apri la sessione, i giocatori si connettono dal cellulare, vedono la scena, scopri un NPC, lo vedono apparire nella loro lista in tempo reale — ma vedono solo `public_description` finché non sbloccano segreti `discovered`. Anteprima DM concorde con quello che vedono i giocatori.

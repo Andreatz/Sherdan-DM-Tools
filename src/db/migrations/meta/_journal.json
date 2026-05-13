@@ -29,6 +29,13 @@
       "when": 1778609398438,
       "tag": "0003_curious_shadowcat",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778695500146,
+      "tag": "0004_early_valkyrie",
+      "breakpoints": true
     }
   ]
 }

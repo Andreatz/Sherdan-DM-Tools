@@ -24,6 +24,7 @@ import { EntitySecretManager } from "@/components/entity-secret-manager";
 import { EntityTagEditor } from "@/components/entity-tag-editor";
 import { PcHookMatrix } from "@/components/pc-hook-matrix";
 import { PlayerAccessManager } from "@/components/player-access-manager";
+import { PlayerDashboardControlPanel } from "@/components/player-dashboard-control-panel";
 import { PlayerOverrideEditor } from "@/components/player-override-editor";
 import { SessionRecapEditor } from "@/components/session-recap-editor";
 import { WikiMarkdownEditor } from "@/components/wiki-markdown-editor";
@@ -875,6 +876,7 @@ function EntityListSection({
         />
       </details>
 
+      <PlayerDashboardControlPanel campaignId={campaignId} />
       <PlayerAccessManager campaignId={campaignId} />
     </section>
   );

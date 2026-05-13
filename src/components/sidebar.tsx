@@ -61,7 +61,7 @@ const NAV: NavGroup[] = [
   },
   {
     title: "Tavolo",
-    items: [{ label: "Player Dashboard", href: "/player", status: "Beta" }],
+    items: [{ label: "Player Dashboard", href: "/player", status: "Pronto" }],
   },
 ];
 

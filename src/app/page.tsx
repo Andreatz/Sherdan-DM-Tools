@@ -35,7 +35,7 @@ export default function HomePage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Stato del progetto</h2>
         <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
-          Wiki, import Sherdan e Random Tables sono operativi. NPC, Loot ed Encounter Generator sono in beta. Player Dashboard resta bloccata finche&apos; non esiste un layer player-safe.
+          Wiki, import Sherdan, generators, Rules Lookup, Dungeon Generator e Player Dashboard live sono operativi.
         </div>
       </section>
     </div>

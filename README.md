@@ -31,7 +31,7 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | NPC Generator | Pronto | Preview, re-roll parziale, salvataggio entity, embedding fail-forward + `pnpm db:embed:backfill`, link "Storico generazioni LLM" nella entity detail |
 | Loot Generator | Pronto | Generatore + salvataggio + link a encounter/sessione, lista bundle filtrabile per campagna/sessione/encounter |
 | Encounter Builder | Pronto | Browser mostri, CR calculator, LLM assist, marker "usato in sessione", lista filtrabile per sessione/location/plot |
-| Player Dashboard | Pronto | Per-player codici hashati, scoping per campagna, rate limit, audit log, leakage tests, override (entity/truth_clue/entity_secret) con UI DM, smoke E2E Playwright |
+| Player Dashboard | Pronto | Per-player codici hashati, scoping per campagna, rate limit, audit log, leakage tests, override granulari, scena corrente realtime, handout/mappa/fog, push WebSocket e smoke E2E Playwright |
 | Truth Clue Tracker | Pronto | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
 | Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
 | Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
@@ -226,7 +226,7 @@ pnpm llm:ping
 | `/truth-clues` | Pronto | Briciole filtrabili, plant/update status, dashboard verità rivelata |
 | `/generation-log` | Pronto | Audit di ogni chiamata LLM dei generators |
 | `/session-prep` | Beta | Agent LLM che legge stato campagna e propone prep di sessione (hooks, NPC seeds, encounter seeds, briciole, previously on) |
-| `/player` | Beta | Dashboard player con access code e API player-safe (rate limit + audit log attivi) |
+| `/player` | Pronto | Dashboard player read-only/mobile con scena realtime, entità in scena, mappa, handout, access code e API player-safe |
 | `/dungeon-generator` | Pronto | Layout BSP + contenuto LLM per stanza con StyleCalibrator opzionale + re-roll per stanza + salvataggio nel Wiki come root location + room children + encounter draft. |
 | `/rules` | Pronto | Q&A LLM sul corpus regole homebrew di Sherdan con citazioni cliccabili + history locale. Shortcut globale `Cmd+/`. |
 
@@ -296,13 +296,15 @@ pnpm db:seed:tables
 - Salvataggio come entity + secrets.
 - Embedding fail-forward: l'NPC viene salvato anche se Ollama non è disponibile.
 
-### Player Dashboard beta locale
+### Player Dashboard locale
 
 - Accesso tramite codice server-side.
 - Cookie HTTP-only firmato.
 - API dedicate `/api/player/*`.
-- Proiezione player-safe per campagne, recap ed entità conosciute.
-- Nessuna esposizione diretta di `description`, `properties`, `tags`, embedding, segreti, identità o note GM.
+- WebSocket signed-token per push realtime dal DM.
+- Proiezione player-safe per campagne, recap, scena corrente, handout, mappa ed entità conosciute.
+- Policy per entità: solo nome/tipo, descrizione pubblica, oppure descrizione pubblica + soli segreti scoperti.
+- Nessuna esposizione diretta di `description` GM raw, `properties`, `tags`, embedding, segreti non scoperti, identità o note GM.
 
 ---
 
@@ -530,21 +532,21 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 
 ## Priorità consigliate
 
-1. Aggiungere le rotte player-facing per `truth_clues` e `entity_secret` (gli override visibility sono già pronti, manca solo l'API che li espone in modalità player-safe).
-2. Slice 3 del Session Prep Assistant: streaming dell'output dell'agent + tool `generate_npc/encounter/loot` agentici (oggi l'agent suggerisce seed che il DM accetta come stub/draft, ma non chiama i generator vivi).
+1. Slice 3 del Session Prep Assistant: streaming dell'output dell'agent + tool `generate_npc/encounter/loot` agentici (oggi l'agent suggerisce seed che il DM accetta come stub/draft, ma non chiama i generator vivi).
+2. Polish Fase 11: global search/command palette e performance sulle liste lunghe.
 
 ---
 
 ## Limitazioni note
 
 - Il progetto è ancora single-user e local-first: non è pronto come SaaS o app multiutente.
-- Il Player Dashboard è pronto: la modalità per-player è attiva (codici individuali hashati, scoping per campagna, override visibilità per giocatore) ed è coperta da test di integrazione DB/API + smoke E2E Playwright.
+- Il Player Dashboard è pronto: modalità per-player, realtime, scena live, handout/mappa/fog, override visibilità per giocatore e policy di esposizione entity sono attivi.
 - Accesso player: per-giocatore (tabella `players`, codici HMAC-hashed, UI DM in `/campaigns/[id]`) con fallback al codice globale `SHERDAN_PLAYER_ACCESS_CODE`.
 - Rate limit attivo: login `/api/player/access/login` 5 tentativi / 15 min per IP, altre API player 120 req / minuto per IP.
-- Override visibilità per giocatore: ogni entità, `truth_clue` o `entity_secret` può essere `hidden` o `revealed` per uno specifico player. UI DM disponibile nei pannelli "Visibilita' per giocatore" della entity detail, del Truth Clue Tracker e dell'Entity Secret Manager.
+- Override visibilità per giocatore: ogni entità, `truth_clue` o `entity_secret` può essere `hidden` o `revealed` per uno specifico player. UI DM disponibile nei pannelli "Visibilita' per giocatore" della entity detail, del Truth Clue Tracker e dell'Entity Secret Manager. Il pannello live della campagna aggiunge anche la policy globale per ogni entity esposta (`name_only`, `public_description`, `discovered_description`).
 - `generation_log` ora cattura ogni chiamata LLM (NPC/Loot/Encounter assist) con input, prompt, output, status e latenza, ma `input_tokens`/`output_tokens`/`cost_usd` restano `null` finché `LLMProvider` non espone l'usage del provider.
 - Encounter Builder copre il flusso DM (browser mostri, CR calculator, LLM assist, marker "usato in sessione"); un combat tracker run-time (iniziativa, HP live, condizioni) resta fuori scope per ora.
-- Test di integrazione DB/API in posto (`pnpm test:integration`, 5 file, 19 test su campaigns/entities/player auth/leakage/truth-clues). Manca ancora la smoke E2E browser.
+- Test di integrazione DB/API in posto (`pnpm test:integration`, 5 file, 19 test su campaigns/entities/player auth/leakage/truth-clues) + smoke E2E browser player.
 - I seed delle Random Tables sono stato locale DB: rilanciare `pnpm db:seed:tables` dopo reset del database.
 
 ---
