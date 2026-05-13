@@ -17,6 +17,7 @@ export type RealtimeServerMessage =
       type: "connected";
       connectionId: string;
       campaignId: string;
+      playerId: string | null;
       serverTime: string;
     }
   | {
@@ -34,8 +35,14 @@ export type RealtimeServerMessage =
 interface RealtimeConnection {
   id: string;
   campaignId: string;
+  playerId: string | null;
   socket: Socket;
   remaining: Buffer;
+}
+
+export interface RealtimeConnectionContext {
+  campaignId: string;
+  playerId: string | null;
 }
 
 export class RealtimeHub {
@@ -50,17 +57,18 @@ export class RealtimeHub {
     return this.campaignConnections.get(campaignId)?.size ?? 0;
   }
 
-  add(socket: Socket, campaignId: string): string {
+  add(socket: Socket, context: RealtimeConnectionContext): string {
     const id = createConnectionId();
     const connection: RealtimeConnection = {
       id,
-      campaignId,
+      campaignId: context.campaignId,
+      playerId: context.playerId,
       socket,
       remaining: Buffer.alloc(0),
     };
 
     this.connections.set(id, connection);
-    this.addToCampaign(campaignId, id);
+    this.addToCampaign(context.campaignId, id);
     socket.setNoDelay(true);
     socket.on("data", (chunk) => this.handleData(connection, chunk));
     socket.on("close", () => this.remove(id));
@@ -76,11 +84,15 @@ export class RealtimeHub {
     this.send(id, {
       type: "connected",
       connectionId: id,
-      campaignId,
+      campaignId: context.campaignId,
+      playerId: context.playerId,
       serverTime: new Date().toISOString(),
     });
 
-    logger.debug({ connectionId: id, campaignId }, "websocket connected");
+    logger.debug(
+      { connectionId: id, campaignId: context.campaignId, playerId: context.playerId },
+      "websocket connected",
+    );
     return id;
   }
 

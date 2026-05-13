@@ -11,7 +11,10 @@ describe("RealtimeHub campaign channels", () => {
   it("tracks connections by campaign and removes empty channels", () => {
     const hub = new RealtimeHub();
     const socket = new FakeSocket();
-    const id = hub.add(socket.asSocket(), campaignA);
+    const id = hub.add(socket.asSocket(), {
+      campaignId: campaignA,
+      playerId: "player-a",
+    });
 
     expect(hub.connectionCount).toBe(1);
     expect(hub.campaignConnectionCount(campaignA)).toBe(1);
@@ -29,8 +32,8 @@ describe("RealtimeHub campaign channels", () => {
     const hub = new RealtimeHub();
     const socketA = new FakeSocket();
     const socketB = new FakeSocket();
-    hub.add(socketA.asSocket(), campaignA);
-    hub.add(socketB.asSocket(), campaignB);
+    hub.add(socketA.asSocket(), { campaignId: campaignA, playerId: "player-a" });
+    hub.add(socketB.asSocket(), { campaignId: campaignB, playerId: "player-b" });
     socketA.clearWrites();
     socketB.clearWrites();
 
