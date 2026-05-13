@@ -207,15 +207,16 @@ export function EntityGraphView({
     };
   }, []);
 
-  const handleWheel = useCallback(
-    (event: React.WheelEvent<SVGSVGElement>) => {
-      event.preventDefault();
-      const { x: mouseX, y: mouseY } = viewportToSvg(event.clientX, event.clientY);
-      const factor = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+  // React aggancia onWheel al root come passive listener, quindi
+  // preventDefault non funziona da li'. Attacchiamo il wheel
+  // direttamente all'svg con passive:false via useEffect (vedi sotto).
+  const applyWheelZoom = useCallback(
+    (clientX: number, clientY: number, deltaY: number) => {
+      const { x: mouseX, y: mouseY } = viewportToSvg(clientX, clientY);
+      const factor = deltaY < 0 ? 1.15 : 1 / 1.15;
       setTransform((current) => {
         const newK = Math.min(4, Math.max(0.3, current.k * factor));
         const ratio = newK / current.k;
-        // Mantieni il punto sotto il cursore fisso durante lo zoom.
         return {
           k: newK,
           x: mouseX - (mouseX - current.x) * ratio,
@@ -225,6 +226,19 @@ export function EntityGraphView({
     },
     [viewportToSvg],
   );
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      applyWheelZoom(event.clientX, event.clientY, event.deltaY);
+    };
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      svg.removeEventListener("wheel", onWheel);
+    };
+  }, [applyWheelZoom]);
 
   const handleMouseDown = useCallback(
     (event: React.MouseEvent<SVGSVGElement>) => {
@@ -416,11 +430,51 @@ export function EntityGraphView({
         </div>
       ) : (
         <div className="relative h-[520px] bg-zinc-50 dark:bg-zinc-950">
+          <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col gap-1">
+            <div className="pointer-events-auto inline-flex overflow-hidden rounded-md border border-zinc-300 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+              <button
+                type="button"
+                onClick={() => zoomBy(1.2)}
+                aria-label="Zoom in"
+                title="Zoom in"
+                className="px-2 py-1 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => zoomBy(1 / 1.2)}
+                aria-label="Zoom out"
+                title="Zoom out"
+                className="border-l border-zinc-300 px-2 py-1 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                &minus;
+              </button>
+              <button
+                type="button"
+                onClick={resetTransform}
+                aria-label="Reset vista"
+                title="Reset vista"
+                className="border-l border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                Reset
+              </button>
+            </div>
+            <div className="pointer-events-none rounded bg-white/80 px-2 py-0.5 text-[10px] text-zinc-500 shadow-sm dark:bg-zinc-900/80 dark:text-zinc-400">
+              {Math.round(transform.k * 100)}%
+            </div>
+          </div>
           <svg
+            ref={svgRef}
             role="img"
             aria-label="Grafo delle entita' della campagna"
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-            className="h-full w-full"
+            className="h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={endPan}
+            onMouseLeave={endPan}
+            onClickCapture={handleClickCapture}
           >
             <defs>
               <marker
@@ -436,7 +490,8 @@ export function EntityGraphView({
               </marker>
             </defs>
 
-            <g>
+            <g transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
+              <g>
               {renderGraph.links.map((link) => (
                 <g key={link.id}>
                   <line
@@ -463,7 +518,7 @@ export function EntityGraphView({
               ))}
             </g>
 
-            <g>
+              <g>
               {renderGraph.nodes.map((node) => {
                 const colors = TYPE_COLORS[node.type];
                 const radius = getNodeRadius(node);
@@ -500,6 +555,7 @@ export function EntityGraphView({
                   </g>
                 );
               })}
+              </g>
             </g>
           </svg>
         </div>
