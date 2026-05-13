@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { EntityQuickSwitch } from "@/components/entity-quick-switch";
+import { RulesShortcut } from "@/components/rules-shortcut";
 import { Sidebar } from "@/components/sidebar";
 
 interface AppShellProps {
@@ -16,6 +17,7 @@ export function AppShell({ children }: AppShellProps) {
     <div className="flex min-h-screen">
       <Sidebar />
       <EntityQuickSwitch />
+      <RulesShortcut />
       <main className="flex-1 overflow-x-hidden">
         <div className="mx-auto w-full max-w-6xl px-8 py-10">{children}</div>
       </main>

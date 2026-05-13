@@ -25,6 +25,7 @@
     "db:bootstrap:sherdan": "tsx scripts/bootstrap-sherdan.ts",
     "db:embed:sherdan": "tsx scripts/embed-sherdan-entities.ts",
     "db:embed:backfill": "tsx scripts/embed-backfill.ts",
+    "db:embed:rules": "tsx scripts/embed-rule-documents.ts",
     "db:report:sherdan": "tsx scripts/report-sherdan-import.ts",
     "db:validate:sherdan": "tsx scripts/validate-sherdan-phase-1-5.ts",
     "db:import:srd-monsters": "tsx scripts/import-srd-monsters.ts",

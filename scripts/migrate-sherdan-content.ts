@@ -8,6 +8,7 @@ const SHERDAN_SOURCE_FILES = [
   "Campagna.md",
   "Background Personaggi.md",
   "Manuale del Giocatore.md",
+  "La Forgia di Sherdan - Sistema di Crafting.md",
 ] as const;
 
 const root = process.cwd();

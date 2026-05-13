@@ -32,6 +32,12 @@ const SHERDAN_SOURCE_FILES = [
   "Background Personaggi.md",
   "Manuale del Giocatore.md",
 ] as const;
+// File opzionali: se presenti vengono inclusi nel bootstrap, se mancano
+// il bootstrap procede senza warning bloccanti. La Forgia copre il
+// sistema di crafting homebrew (Fase 9 slice 1).
+const SHERDAN_OPTIONAL_FILES = [
+  "La Forgia di Sherdan - Sistema di Crafting.md",
+] as const;
 
 type Db = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -42,6 +48,7 @@ interface SherdanSources {
   campaign: string;
   backgrounds: string;
   playerManual: string;
+  forgia: string | null;
   sourceDir: string;
 }
 
@@ -75,7 +82,15 @@ async function main() {
 
   try {
     const sources = readSherdanSources();
-    const plan = buildSherdanBootstrapPlan(sources);
+    const plan = buildSherdanBootstrapPlan({
+      npc: sources.npc,
+      factions: sources.factions,
+      lore: sources.lore,
+      campaign: sources.campaign,
+      backgrounds: sources.backgrounds,
+      playerManual: sources.playerManual,
+      ...(sources.forgia ? { forgia: sources.forgia } : {}),
+    });
     const stats = await importPlan(db, plan, sources.sourceDir);
 
     console.log("[ok] Bootstrap Sherdan completato");
@@ -239,8 +254,22 @@ function readSherdanSourcesFrom(sourceDir: string): SherdanSources {
       path.join(sourceDir, "Manuale del Giocatore.md"),
       "utf8",
     ),
+    forgia: readOptionalSource(sourceDir, SHERDAN_OPTIONAL_FILES[0]),
     sourceDir: path.relative(process.cwd(), sourceDir) || ".",
   };
+}
+
+function readOptionalSource(
+  sourceDir: string,
+  filename: string,
+): string | null {
+  const primary = path.join(sourceDir, filename);
+  if (existsSync(primary)) return readFileSync(primary, "utf8");
+  // Fallback: file opzionale puo' restare in public/ anche dopo la
+  // migrazione del corpus principale a content/sherdan/.
+  const fallback = path.join(process.cwd(), "public", filename);
+  if (existsSync(fallback)) return readFileSync(fallback, "utf8");
+  return null;
 }
 
 function hasAllSherdanSources(sourceDir: string): boolean {

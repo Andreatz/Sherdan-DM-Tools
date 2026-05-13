@@ -710,35 +710,53 @@ Generi un dungeon di 15 room, vedi la mappa, ogni room ha contenuto coerente con
 
 ---
 
-## Fase 9 — Rules Lookup (RAG)
+## Fase 9 — Rules Lookup (RAG) ✅ (completata 2026-05-13)
 
 **Durata**: 7-10 giorni · **Tool sbloccato**: ✅ Rules Lookup
 
 ### Goal
 Q&A sulle regole con citazioni accurate. Bonus: integrazione come tool dell'agent prep, **incluso il manuale del giocatore homebrew di Sherdan**.
 
+### Strategia (3 slice verticali)
+
+Decisione 2026-05-13: SRD esterno *out-of-scope* per V1 (corpus Sherdan-first sufficiente al goal della campagna, SRD aggiungerebbe tempo + rumore senza valore immediato); rinviato a backlog. Slice 1 chiude ingestion + hybrid search RRF; slice 2 aggiunge UI Q&A LLM con citazioni; slice 3 integra il search come tool dell'agent prep + shortcut globale.
+
 ### Task
 
-**Ingestion**
-- [ ] Loader per SRD (markdown o JSON da open source repos)
-- [ ] **Loader per manuali homebrew di Sherdan** (`Manuale del Giocatore.md`, `La Forgia di Sherdan.md`) — già parsati in Fase 1.5, qui li indicizzi come `rule_documents` con source='sherdan-custom'
-- [ ] Chunking semantico: split per sezione, max ~500 token con overlap
-- [ ] Embedding generation in batch
-- [ ] Storage con metadata (source, section, page)
+**Slice 1 — Ingestion + hybrid search (no UI, no LLM Q&A)**
+- [x] **Loader per manuali homebrew di Sherdan** (`Manuale del Giocatore.md`, `La Forgia di Sherdan - Sistema di Crafting.md`) — indicizzati come `rule_documents` con `source='sherdan-custom'`.
+  - _Note implementative: il parser del Manuale del Giocatore esisteva gia' dalla Fase 1.5. Aggiunto `parseSherdanForgiaMarkdown` in `src/lib/parsers/sherdan-forgia.ts`. Estratti i helper di pulizia Homebrewery condivisi (`stripHomebreweryDirectives`, `collectSectionDrafts` parametrizzato su `isChapterHeading`/`isDocumentChromeHeading`, `cleanInlineMarkup`, ecc.) in `src/lib/parsers/_homebrewery.ts`. Il parser Forgia produce chunk per item-ricetta (level 3) + sezioni regole (level 2). `metadata.source_kind='forgia'`, `category` inferita dal path (`potions`/`poisons`/`ammunition`/`weapons-armor`/`wondrous`/`scrolls`/`rules`/`obsidium`/`crafting`). Chrome skipped: "La Forgia di Sherdan", "Sistema di Crafting", "Indice", "OGGETTI COMUNI" (re-statement della parte). Chapter: "PARTE I/II/III", "Regole". Bootstrap esteso: `SherdanBootstrapSources.forgia` opzionale, bootstrap-sherdan.ts carica la Forgia da `content/sherdan/` o fallback `public/`, salta silenziosamente se mancante (file opzionale, no break su dataset parziali). Migrate-sherdan-content.ts include la Forgia tra i file copiati da public a content/sherdan._
+- [x] Chunking semantico: split per sezione, max ~500 token con overlap
+  - _Note implementative: chunk = singola sezione del path heading. Niente overlap esplicito (le sezioni sono gia' atomiche per design — una ricetta = un chunk, una regola = un chunk). `metadata.path` (lista dei titoli antenati) + `metadata.heading_line` permettono di navigare al chunk originale dall'UI. La struttura gerarchica del path rimane nel `section` ("Pozioni e Consumabili > Potion of Healing")._
+- [x] Embedding generation in batch
+  - _Note implementative: `scripts/embed-rule-documents.ts` con flag `--source`, `--limit`, `--batch-size`, `--dry-run`, `--force`. Idempotente: di default tocca solo `embedding IS NULL`. `--force` rifa' tutto (post-cambio modello). Testo embeddato: `title + section + content` (title/section migliorano recall su query che cercano sezioni note). Provider Ollama via `OllamaProvider.embedBatch`. Npm script: `pnpm db:embed:rules`. Skippa se Ollama non e' raggiungibile o modello mancante con messaggio diagnostico (fail-loud sul setup, no silenziosi)._
+- [x] Storage con metadata (source, section, page)
+  - _Note implementative: tabella `rule_documents` esisteva dalla Fase 0 (`source`, `title`, `section`, `content`, `chunkIndex`, `embedding vector(1024)`, `metadata jsonb`). Idempotenza dell'import via composite key `(source, title, section, chunkIndex)`. Indice GIN trgm su `content` per BM25-ish, indice ivfflat su `embedding` rinviato (utile solo a corpus > 1000 doc; oggi ~70-100)._
 
-**Search**
-- [ ] Hybrid search: BM25 (FTS Postgres) + vector cosine, RRF (reciprocal rank fusion) per merging
-- [ ] Re-ranker opzionale (Cohere rerank o LLM-based) per query difficili
-- [ ] Filtro per source (solo SRD / solo Sherdan custom / entrambi)
+**Search (slice 1)**
+- [x] Hybrid search: BM25 (FTS Postgres) + vector cosine, RRF (reciprocal rank fusion) per merging
+  - _Note implementative: `src/lib/rules/rrf.ts` funzione pura `reciprocalRankFusion(rankings, {k=60, limit=20})` testata in isolation. `src/lib/rules/search.ts`: `searchRules(input, deps)` con `deps.embedQuery` iniettabile (no Ollama in unit). Pipeline: (a) vector ranker — `<=>` pgvector su embedding query, top-K = 20 default; (b) trigram ranker — `pg_trgm.similarity(content, query)` con soglia esplicita (default 0.05) + fallback `ILIKE %query%` su title/section per query corte; (c) RRF merge con k=60 (paper Cormack 2009). Vector ranker e' best-effort: se embed fallisce (Ollama down) degradiamo a solo trigram, log warn. Endpoint `POST /api/rules/search` con Zod gate (`rulesSearchInputSchema`)._
+- [ ] Re-ranker opzionale (Cohere rerank o LLM-based) per query difficili — *rinviato a backlog* (decisione 2026-05-13: RRF e' sufficiente per V1; LLM re-rank introduce latenza + costo, da rivalutare se la qualita' di search non basta)
+- [x] Filtro per source (solo SRD / solo Sherdan custom / entrambi)
+  - _Note implementative: `rulesSearchInputSchema.sources?: string[]` opzionale. Senza filtro, cerca su tutti i source. SRD non e' caricato in V1 (vedi backlog), ma il filtro e' generico cosi' aggiungere `srd-5.1` in futuro non richiede modifiche al search._
 
-**Q&A**
-- [ ] UI: input domanda, risposta in markdown con citazioni inline
-- [ ] Citazioni cliccabili → espandono il chunk originale
-- [ ] History delle query
+**Slice 2 — Q&A UI (LLM answer + citazioni)**
+- [x] UI: input domanda, risposta in markdown con citazioni inline
+  - _Note implementative: pagina server `/rules` delega a `<RulesLookup>` client. Input textarea con `Cmd+Enter` per inviare. `POST /api/rules/qa` esegue search + LLM con structured output (`rulesQaLLMOutputSchema`). Prompt builder vincola il modello a usare SOLO il contesto (no allucinazioni), citare con `[N]`, e dichiarare `noAnswer:true` se la regola non c'e' nel corpus. Composer (`composeRulesQaResult`) filtra silenziosamente citazioni con chunkId invalido (no surprise rewrites), deduplica per index, ordina ascending. Risposta resa con `[N]` inline cliccabili che scrollano alla citazione corrispondente._
+- [x] Citazioni cliccabili → espandono il chunk originale
+  - _Note implementative: ogni entry `RulesQaCitation` mostra `[N] title · section` + snippet (estratto < 280 char). Bottone "Mostra chunk" espande il contenuto completo del `rule_document` recuperato dal contesto. Doppio collegamento: `[N]` inline nell'answer scrolla all'entry citation via `data-citation-id`, e l'entry mostra titolo/sezione/snippet sempre, contenuto on-demand. UI mostra anche il riepilogo "Altri chunk nel contesto (non citati)" con `rrfScore` per debug della search._
+- [x] History delle query (locale)
+  - _Note implementative: `localStorage` con chiave `sherdan-rules-history-v1`, limite 20 entry. Salva query + result completo (o errore) + timestamp. Sidebar destra mostra "ora/N min fa/N h fa/N g fa" + breve indicatore stato ("3 citazioni"/"errore"/"niente nel corpus"). Click su entry ricarica state senza re-invocare LLM. Bottone "Pulisci" reset. Best-effort: storage pieno o JSON corrotto = reset silenzioso._
 
-**Integrazione**
-- [ ] Esposto come tool `rules_search` all'agent prep (Fase 7)
-- [ ] Bottone "ask the rules" globale (Cmd-Shift-R)
+**Slice 3 — Integrazione**
+- [x] Esposto come tool `rules_search` all'agent prep (Fase 7)
+  - _Note implementative: nuovo `rulesSearchTool` in `src/lib/session-prep/tools.ts`, aggiunto a `sessionPrepTools`. Args: `query` (min 2 char), `sources?` opzionale, `limit` (default 6). Il `campaignId` iniettato dal runner viene ignorato (le regole sono globali, non per-campagna). Internamente chiama `searchRules` con `embedQuery` su `getLLMProvider()`. Ritorna `{chunkId, source, title, section, content, rrfScore}[]` per ogni chunk top. Description al modello: "Cerca nel corpus regole homebrew di Sherdan via hybrid search. Usalo quando una domanda di prep dipende da una regola specifica (es. CD di crafting, ricetta di un oggetto, regola di un'abilita')."_
+- [x] Bottone "ask the rules" globale (Cmd+/) — sidebar entry "Rules Lookup" Pianificato → Pronto
+  - _Note implementative: aggiunto `<RulesShortcut>` invisibile in `<AppShell>`. Listener globale `keydown` su `Cmd+/` (mac) o `Ctrl+/` (win/linux) come binding primario — `Cmd+Shift+R` originalmente in ROADMAP non e' intercettabile perche' bound dal browser a "hard reload". Fallback `Cmd+Shift+K` (Ctrl+K e' gia' EntityQuickSwitch). Naviga a `/rules` via Next router. Sidebar "Rules Lookup" passa a Pronto con href `/rules`._
+
+**Backlog (post-V1)**
+- [ ] Loader SRD: import via Open5e API V2 di sezioni PHB chiave (filtrabile per source = `srd-2014`). Aggiungere chunking + embedding analoghi a quelli homebrew. Decisione 2026-05-13: rimandato perche' DoD V1 e' sul corpus Sherdan e l'aggiunta SRD ha tempo + rumore non giustificati subito.
+- [ ] Re-ranker LLM su top-20 RRF (rivalutare se qualita' search insufficiente).
 
 ### Definition of done
 Chiedi "se un mago invisibile lancia palla di fuoco rimane invisibile?", ricevi risposta corretta con citazione PHB. Chiedi "come funziona il crafting di Obsidium raffinato a Sherdan?", ricevi risposta dal Manuale del Giocatore custom.
@@ -826,7 +844,7 @@ Apri la sessione, i giocatori si connettono dal cellulare, vedono la scena, scop
 | 9 | Fase 4 | Loot Generator |
 | 10-11 | Fase 5 | Encounter Builder |
 | 12-13 | Fase 6 | Plot Thread Tracker + Truth Clue Tracker |
-| 14-15 | Fase 7 ✅ | Session Prep Assistant |
+| 14-15 | Fase 7 | Session Prep Assistant |
 | 16-17 | Fase 8 | Dungeon Generator |
 | 18 | Fase 9 | Rules Lookup |
 | 19-20 | Fase 10 | Player Dashboard |

@@ -36,7 +36,7 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
 | Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
 | Session Prep Assistant | Pronto | Agent LLM con 6 tool read-only (entities, plot threads, sessioni, identità attive, truth progress, PC hooks), output strutturato + accept granulare: ogni briciola/NPC/encounter/hook accettato diventa un record reale (`truth_clue`, entity NPC stub `dm_only`, encounter draft, `pc_hook`) e finisce nelle `prep_notes`. Streaming e tool `generate_*` agentici rinviati a slice 3. |
-| Rules Lookup | Pianificato | Import documenti regole presente, UI/search dedicata da completare |
+| Rules Lookup | Pronto | Fase 9 completa: ingestion 2 manuali homebrew + hybrid search RRF (vector + pg_trgm) + UI Q&A `/rules` con citazioni cliccabili + history locale + tool `rules_search` esposto al Session Prep agent + shortcut globale `Cmd+/`. |
 | Procedural Dungeon Generator | Pronto | Fase 8 completa: layout BSP deterministico + contenuto LLM per stanza con `StyleCalibrator` opzionale + persistenza come grafo entity (root location `kind='dungeon'` con `map_data`, child rooms `kind='room'` con `parentId`, encounter draft con `locationId` su ogni room con `encounterHook`). Navigabile dal grafo entità campagna. |
 
 Snapshot import Sherdan validato:
@@ -228,6 +228,7 @@ pnpm llm:ping
 | `/session-prep` | Beta | Agent LLM che legge stato campagna e propone prep di sessione (hooks, NPC seeds, encounter seeds, briciole, previously on) |
 | `/player` | Beta | Dashboard player con access code e API player-safe (rate limit + audit log attivi) |
 | `/dungeon-generator` | Pronto | Layout BSP + contenuto LLM per stanza con StyleCalibrator opzionale + re-roll per stanza + salvataggio nel Wiki come root location + room children + encounter draft. |
+| `/rules` | Pronto | Q&A LLM sul corpus regole homebrew di Sherdan con citazioni cliccabili + history locale. Shortcut globale `Cmd+/`. |
 
 ---
 
@@ -383,6 +384,12 @@ pnpm db:seed:tables
 pnpm db:embed:backfill                      # tutte le campagne
 pnpm db:embed:backfill --campaign-id=<uuid> # solo una campagna
 pnpm db:embed:backfill --dry-run            # solo report, no scrittura
+
+# Embedding dei rule_documents (Manuale del Giocatore, La Forgia di Sherdan).
+# Idempotente: tocca solo le righe con embedding IS NULL.
+pnpm db:embed:rules                         # tutti i source
+pnpm db:embed:rules --source=sherdan-custom # solo il corpus Sherdan
+pnpm db:embed:rules --force                 # rifa' tutto (dopo cambio modello)
 ```
 
 ### Backup & export

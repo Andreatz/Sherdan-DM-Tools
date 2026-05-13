@@ -12,6 +12,8 @@ import {
   sessions,
   truthClues,
 } from "@/db/schema";
+import { getLLMProvider } from "@/lib/llm";
+import { searchRules } from "@/lib/rules";
 
 // Tool read-only del Session Prep Assistant. Ogni tool ha:
 // - `name` (univoco, usato dall'agent per chiamarlo);
@@ -464,9 +466,69 @@ export const getPcHooksTool: SessionPrepTool<GetPcHooksArgs, PcHookRow[]> = {
   },
 };
 
+// ─── rules_search ─────────────────────────────────────────────────────
+const rulesSearchArgsSchema = z
+  .object({
+    query: z.string().trim().min(2).max(500),
+    sources: z.array(z.string().trim().min(1)).optional(),
+    limit: z.coerce.number().int().min(1).max(15).default(6),
+  })
+  .strict();
+type RulesSearchArgs = z.infer<typeof rulesSearchArgsSchema>;
+
+export interface RulesSearchResultRow {
+  chunkId: string;
+  source: string;
+  title: string | null;
+  section: string | null;
+  content: string;
+  rrfScore: number;
+}
+
+export const rulesSearchTool: SessionPrepTool<
+  RulesSearchArgs,
+  RulesSearchResultRow[]
+> = {
+  name: "rules_search",
+  description:
+    "Cerca nel corpus regole homebrew di Sherdan (Manuale del Giocatore, La " +
+    "Forgia di Sherdan) via hybrid search (vector + trigram, RRF). Usalo " +
+    "quando una domanda di prep dipende da una regola specifica (es. CD di " +
+    "crafting, ricetta di un oggetto, regola di un'abilita'). Ritorna i " +
+    "chunk piu' rilevanti con id, source, title, section e contenuto.",
+  argsSchema: rulesSearchArgsSchema,
+  async execute(_campaignId, args) {
+    // Le regole sono globali (no campaignId). _campaignId e' iniettato
+    // dal runner per coerenza interface ma non viene usato qui.
+    void _campaignId;
+    const result = await searchRules(
+      {
+        query: args.query,
+        ...(args.sources && args.sources.length > 0
+          ? { sources: args.sources }
+          : {}),
+        topKVector: 20,
+        topKTrigram: 20,
+        limit: args.limit,
+        trigramThreshold: 0.05,
+      },
+      { embedQuery: (text) => getLLMProvider().embed(text) },
+    );
+    return result.hits.map((hit) => ({
+      chunkId: hit.id,
+      source: hit.source,
+      title: hit.title,
+      section: hit.section,
+      content: hit.content,
+      rrfScore: hit.rrfScore,
+    }));
+  },
+};
+
 // ─── Toolbox ──────────────────────────────────────────────────────────
 // Lista esportata pronta da iniettare nell'agent. Ordine: la priorita'
-// nello scegliere il prossimo tool e' "context > scoperte > dettagli".
+// nello scegliere il prossimo tool e' "context > scoperte > dettagli >
+// regole".
 export const sessionPrepTools = [
   getRecentSessionsTool,
   getActivePlotThreadsTool,
@@ -474,6 +536,7 @@ export const sessionPrepTools = [
   getTruthProgressTool,
   getPcHooksTool,
   searchEntitiesTool,
+  rulesSearchTool,
 ] as const;
 
 export type SessionPrepToolName = (typeof sessionPrepTools)[number]["name"];

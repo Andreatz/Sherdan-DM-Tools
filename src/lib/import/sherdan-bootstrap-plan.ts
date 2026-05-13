@@ -1,5 +1,6 @@
 import { parseSherdanCampaignMarkdown } from "@/lib/parsers/sherdan-campaign";
 import { parseSherdanFactionsMarkdown } from "@/lib/parsers/sherdan-factions";
+import { parseSherdanForgiaMarkdown } from "@/lib/parsers/sherdan-forgia";
 import { parseSherdanLoreMarkdown } from "@/lib/parsers/sherdan-lore";
 import { parseSherdanNpcMarkdown } from "@/lib/parsers/sherdan-npc";
 import { parseSherdanPcMarkdown } from "@/lib/parsers/sherdan-pc";
@@ -33,6 +34,10 @@ export interface SherdanBootstrapSources {
   campaign: string;
   backgrounds: string;
   playerManual: string;
+  // Manuale crafting homebrew. Opzionale: se il file non esiste o e'
+  // vuoto, l'import salta silenziosamente (bootstrap rimane idempotente
+  // per dataset parziali).
+  forgia?: string;
 }
 
 export interface BootstrapIdentity {
@@ -246,6 +251,9 @@ export function buildSherdanBootstrapPlan(
 
   const campaign = parseSherdanCampaignMarkdown(sources.campaign);
   const playerManual = parseSherdanPlayerManualMarkdown(sources.playerManual);
+  const forgia = sources.forgia
+    ? parseSherdanForgiaMarkdown(sources.forgia)
+    : [];
   const entities = [
     ...pcEntities,
     ...npcEntities,
@@ -316,14 +324,24 @@ export function buildSherdanBootstrapPlan(
       priority: thread.priority,
       visibility: thread.visibility,
     })),
-    ruleDocuments: playerManual.map((document) => ({
-      source: document.source,
-      title: document.title,
-      section: document.section,
-      content: document.content,
-      chunkIndex: document.chunkIndex,
-      metadata: document.metadata,
-    })),
+    ruleDocuments: [
+      ...playerManual.map((document) => ({
+        source: document.source,
+        title: document.title,
+        section: document.section,
+        content: document.content,
+        chunkIndex: document.chunkIndex,
+        metadata: document.metadata as Record<string, unknown>,
+      })),
+      ...forgia.map((document) => ({
+        source: document.source,
+        title: document.title,
+        section: document.section,
+        content: document.content,
+        chunkIndex: document.chunkIndex,
+        metadata: document.metadata as Record<string, unknown>,
+      })),
+    ],
   };
 }
 
