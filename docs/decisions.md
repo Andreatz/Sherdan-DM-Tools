@@ -409,3 +409,7 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 **Tradeoff.** Il server real-time e' in-process: non scala su piu' istanze e perde connessioni su restart. Accettabile per localhost + Tailscale. Quando arriveranno channel per campagna e token signed, il layer `RealtimeHub` verra' esteso senza cambiare handshake/protocollo.
 
 **Test.** Unit test sui helper protocollo (accept key RFC6455, encode text frame, decode masked frame, partial frame buffering). Smoke manuale: dev server su `:3200`, connessione `ws://localhost:3200/api/realtime`, messaggio `connected`, round-trip `{type:"ping"}` -> `pong`.
+
+**Estensione channel per campagna.** Il canale e' scelto all'upgrade tramite `campaign_id` UUID nella query string. `RealtimeHub` mantiene due indici in memoria: `connectionId -> connection` e `campaignId -> Set<connectionId>`. Questo basta per `broadcastCampaign(campaignId, event, payload)` dai futuri route handler DM-side. La validazione qui e' solo strutturale (UUID): l'autorizzazione resta al task successivo dei token URL signed, cosi' non mescoliamo routing e security nello stesso slice.
+
+**Test channel.** Unit test su tracking per campagna, cleanup canale vuoto e broadcast isolato per campagna. Smoke manuale production su `:3201`: `ws://localhost:3201/api/realtime?campaign_id=<uuid>` ritorna `connected` con lo stesso `campaignId`.

@@ -9,6 +9,8 @@ import { createWebSocketAcceptKey } from "./protocol";
 
 const logger = getLogger("realtime.server");
 const DEFAULT_REALTIME_PATH = "/api/realtime";
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface RealtimeServerOptions {
   path?: string;
@@ -27,11 +29,12 @@ export function attachRealtimeServer(
     const netSocket = socket as Socket;
 
     try {
+      const campaignId = getCampaignId(req);
       if (head.length > 0) {
         throw new BadRequestError("WebSocket upgrade body non supportato.");
       }
       completeHandshake(req, netSocket);
-      hub.add(netSocket);
+      hub.add(netSocket, campaignId);
     } catch (err) {
       logger.warn({ err, path }, "websocket upgrade rejected");
       rejectUpgrade(netSocket);
@@ -73,6 +76,18 @@ function completeHandshake(req: IncomingMessage, socket: Socket): void {
       "",
     ].join("\r\n"),
   );
+}
+
+function getCampaignId(req: IncomingMessage): string {
+  const host = req.headers.host ?? "localhost";
+  const url = new URL(req.url ?? "/", `http://${host}`);
+  const campaignId = url.searchParams.get("campaign_id") ?? url.searchParams.get("campaignId");
+  if (!campaignId || !UUID_RE.test(campaignId)) {
+    throw new BadRequestError(
+      "Parametro campaign_id UUID richiesto per il canale realtime.",
+    );
+  }
+  return campaignId;
 }
 
 function rejectUpgrade(socket: Socket): void {

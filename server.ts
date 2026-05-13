@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import next from "next";
 
 import { getLogger } from "@/lib/logger";
-import { attachRealtimeServer } from "@/lib/realtime/server";
+import { attachRealtimeServer, realtimeHub } from "@/lib/realtime";
 
 const logger = getLogger("server");
 const args = new Set(process.argv.slice(2));
@@ -27,7 +27,7 @@ async function main(): Promise<void> {
     void handle(req, res);
   });
 
-  attachRealtimeServer(server);
+  attachRealtimeServer(server, { hub: realtimeHub });
 
   server.listen(port, hostname, () => {
     logger.info(
