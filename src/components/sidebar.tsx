@@ -49,7 +49,7 @@ const NAV: NavGroup[] = [
       { label: "NPC", href: "/npc-generator", status: "Beta" },
       { label: "Loot", href: "/loot-generator", status: "Beta" },
       { label: "Encounter", href: "/encounter-builder", status: "Beta" },
-      { label: "Dungeon", status: "Pianificato" },
+      { label: "Dungeon", href: "/dungeon-generator", status: "Pronto" },
     ],
   },
   {

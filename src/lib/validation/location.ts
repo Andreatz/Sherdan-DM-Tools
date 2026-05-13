@@ -14,6 +14,7 @@ export const locationKindSchema = z.enum([
   "region",
   "plane",
   "structure", // landmark, rovina, torre isolata, ecc.
+  "room", // sottocomponente di un dungeon procedurale (Fase 8 slice 3).
 ]);
 
 // Multi-sensorialita' applicata alla location (atmosfera, suoni, odori).

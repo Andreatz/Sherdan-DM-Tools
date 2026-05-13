@@ -37,7 +37,7 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
 | Session Prep Assistant | Pronto | Agent LLM con 6 tool read-only (entities, plot threads, sessioni, identità attive, truth progress, PC hooks), output strutturato + accept granulare: ogni briciola/NPC/encounter/hook accettato diventa un record reale (`truth_clue`, entity NPC stub `dm_only`, encounter draft, `pc_hook`) e finisce nelle `prep_notes`. Streaming e tool `generate_*` agentici rinviati a slice 3. |
 | Rules Lookup | Pianificato | Import documenti regole presente, UI/search dedicata da completare |
-| Procedural Dungeon Generator | Pianificato | Non implementato |
+| Procedural Dungeon Generator | Pronto | Fase 8 completa: layout BSP deterministico + contenuto LLM per stanza con `StyleCalibrator` opzionale + persistenza come grafo entity (root location `kind='dungeon'` con `map_data`, child rooms `kind='room'` con `parentId`, encounter draft con `locationId` su ogni room con `encounterHook`). Navigabile dal grafo entità campagna. |
 
 Snapshot import Sherdan validato:
 
@@ -227,6 +227,7 @@ pnpm llm:ping
 | `/generation-log` | Pronto | Audit di ogni chiamata LLM dei generators |
 | `/session-prep` | Beta | Agent LLM che legge stato campagna e propone prep di sessione (hooks, NPC seeds, encounter seeds, briciole, previously on) |
 | `/player` | Beta | Dashboard player con access code e API player-safe (rate limit + audit log attivi) |
+| `/dungeon-generator` | Pronto | Layout BSP + contenuto LLM per stanza con StyleCalibrator opzionale + re-roll per stanza + salvataggio nel Wiki come root location + room children + encounter draft. |
 
 ---
 

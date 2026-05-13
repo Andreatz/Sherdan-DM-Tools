@@ -660,34 +660,50 @@ Esegui prep di una sessione di Sherdan in 10-15 minuti invece di 2 ore. Le propo
 
 ---
 
-## Fase 8 — Procedural Dungeon Generator
+## Fase 8 — Procedural Dungeon Generator ✅ (completata 2026-05-13)
 
 **Durata**: 10-14 giorni · **Tool sbloccato**: ✅ Procedural Dungeon Generator
 
 ### Goal
 Generatore algoritmico di dungeon con contenuto narrativo coerente.
 
+### Strategia (3 slice verticali)
+
+Decisione 2026-05-13: la fase viene divisa in 3 slice end-to-end. Slice 1 chiude layout + UI senza LLM e senza persistenza, slice 2 aggiunge il contenuto LLM per stanza, slice 3 persiste il dungeon come grafo di entities.
+
 ### Task
 
-**Layout**
-- [ ] Algoritmo scelto (graph-based, BSP, o cellular automata): produce nodes + edges
-- [ ] Parametri: dimensione, densità, complessità, theme
-- [ ] Validazione: connessione completa, no rooms isolate
+**Slice 1 — Layout + UI (no LLM, no persistenza)**
+- [x] Algoritmo scelto: BSP (Binary Space Partitioning). Decisione 2026-05-13: classico D&D "costruito dall'uomo" (fortezze, complessi), coerente con l'estetica industrial-arcane di Sherdan. Implementazione pura in `src/lib/dungeons/bsp.ts` (no I/O, deterministica con seed). Schema Zod `dungeonMapDataSchema` in `src/lib/dungeons/schema.ts` formalizza la forma di `entities.properties.map_data` per `kind='dungeon'` (rinviata in precedenza con `z.unknown()`).
+  - _Note implementative: PRNG `mulberry32` seedable in `src/lib/dungeons/rng.ts`. BSP: parte da una singola partizione, splitta sempre la foglia piu' grande splittabile lungo la dimensione piu' lunga, fino a `roomCount` foglie o impossibilita' di split. In ogni foglia scava una stanza random entro `[minRoomSize, maxRoomSize]` con padding 1. Connessione: ogni nodo interno crea un edge tra il rappresentante della sotto-foglia sinistra e quello della destra (path manhattan a 3 punti). Risultato: spanning tree (edges = rooms - 1), sempre connesso, niente isolate._
+- [x] Parametri: roomCount (4-40), gridWidth/Height (20-200), minRoomSize/maxRoomSize, seed, theme. Validati da `dungeonGenerationParamsSchema` con clamp Zod.
+- [x] Validazione: connessione completa, no rooms isolate. Test unitari verificano `connected components = 1`, `degree >= 1 per ogni room`, `edges = rooms - 1` (proprieta' di spanning tree).
+- [x] Identifica boss room, treasure room, trick room basandosi sul layout
+  - _Note implementative: entry = stanza top-left (deterministica). BFS dal entry per distanze. Boss = stanza piu' lontana. Treasure = dead-end (degree 1) piu' lontano escludendo entry/boss. Trick = junction di grado >= 3 (se esiste) escludendo entry/boss/treasure. Altre restano `standard`._
+- [x] SVG mappa con room cliccabili + side panel dettaglio (slice 1 mostra solo metadata layout: id, kind, posizione, dimensione. Lo slice 2 popolera' descrizione/encounter/trap/treasure).
+  - _Note implementative: pagina server `/dungeon-generator` delega al client component `DungeonGenerator` in `src/components/dungeon-generator.tsx`. Tre colonne: form parametri, mappa SVG con rooms colorate per kind + corridoi polyline + griglia di sfondo, side panel dettaglio room selezionata. ViewBox in coordinate griglia (`0 0 gridWidth gridHeight`), scaling via CSS. Endpoint `POST /api/dungeons/generate` valida i params con Zod e ritorna `{ dungeon: DungeonMapData }`. Sidebar globale: "Dungeon" passa da `Pianificato` a `Beta` (link a `/dungeon-generator`)._
+- [x] Test unitari BSP: 11 test (schema parse, connessione, no-isolate, determinismo per seed identico, layout diverso per seed diversi, vincoli min/max, bounds griglia, 1-entry/at-most-1 boss/treasure/trick, entry top-left, spanning tree, room count, edge case griglia minima).
 
-**Content per room**
-- [ ] LLM-assist: dato theme + room type → descrizione, encounter possibile, trap, treasure, lore
-- [ ] Coerenza tematica: tutte le room consistenti con il theme generale
-- [ ] Identifica boss room, treasure room, trick room basandosi sul layout
-- [ ] **Stile-coerenza con la campagna**: usa StyleCalibrator (Fase 3) per generare descrizioni room nello stile della campagna corrente
+**Slice 2 — Content per room (LLM, ephemeral)**
+- [x] LLM-assist: dato theme + room kind → descrizione, encounter possibile, trap, treasure, lore (structured output Zod)
+  - _Note implementative: `dungeonRoomContentSchema` (in `src/lib/dungeons/content-schema.ts`) modella `{roomId, title, description, encounterHook, trap, treasure, lore, gmNotes}` con limiti di char per campo e nullable per gli optional. Output batch `dungeonContentLLMOutputSchema = { rooms: DungeonRoomContent[] }`. Generator `generateDungeonContent` in `src/lib/dungeons/content-generator.ts` chiama un'unica volta il modello con TUTTE le room target nel prompt (1 round-trip per dungeon -> coerenza tematica naturale, no N call per N room). Prompt diretto (no `PromptBuilder` con anchor entity, qui non c'e' un'entita' singola da ancorare) ma usa `callStructuredOutputLogged` per audit in `generation_log`. Endpoint `POST /api/dungeons/content` con Zod gate._
+- [x] Coerenza tematica: prompt riusa `StyleCalibrator` (Fase 3) per allineare descrizioni alla campagna selezionata
+  - _Note implementative: se `campaignId` e' presente, il generator fetcha fino a 60 entita' della campagna via `DrizzleNpcGeneratorContextStore.getCampaignStyleEntities` (riusato dal NPC generator) e le passa a `StyleCalibrator`. Il `promptBlock` risultante (statistiche descrizione, feature ratio sensory/voice/tics, tone signals, guidance, few-shot examples) e' appeso al prompt utente. Se la campagna non e' selezionata, il prompt cade su solo theme (mode generico). Lo `styleEntitiesAnalyzed` torna nella metadata e in UI._
+- [x] Re-roll per stanza (riusa il pattern NPC re-roll parziale)
+  - _Note implementative: `dungeonContentInputSchema.targetRoomIds` opzionale + `existingContent` opzionale. Lo stesso endpoint serve sia "genera tutto" (no targetRoomIds) sia re-roll subset. Composer `composeDungeonContent` impone che le room targeted siano coperte (errore loud se l'LLM ne salta una) e ignora qualunque room non-targeted nell'output del modello (no surprise rewrites). UI: bottone "Genera contenuti LLM" -> tutte le room; bottone "Rigenera" nel side panel -> solo la room selezionata, passando il content corrente come `existingContent` per dare al modello coerenza con le room non toccate._
+- [x] Side panel mostra il contenuto generato; persistenza ancora assente
+  - _Note implementative: side panel di `DungeonGenerator` ora ha sezioni Descrizione (player-facing), Encounter, Trappola, Tesoro, Lore, Note GM (evidenziate amber come gli altri pannelli DM-only). Mappa SVG mostra un dot blu nell'angolo della room quando c'e' content disponibile. Campaign selector opzionale in alto al pannello parametri con counter "N entita' analizzate" quando lo StyleCalibrator e' attivo._
 
-**Render**
-- [ ] SVG/Canvas mappa con room IDs cliccabili
-- [ ] Click su room → side panel con dettaglio
-
-**Persistence**
-- [ ] Save root come entity type='location', kind='dungeon', con map_data in properties
-- [ ] Save ogni room come entity figlia con parent_id
-- [ ] Encounter pre-generati salvati e linkati alle room
+**Slice 3 — Persistence**
+- [x] Save root come entity `type='location'`, `properties.kind='dungeon'`, `properties.map_data` validato da `dungeonMapDataSchema`
+  - _Note implementative: nuovo `POST /api/dungeons/save`. Input: `campaignId`, `name`, `dungeon`, `content`, `parentLocationId` opzionale, `visibility` (default `dm_only`). Lo Zod gate verifica che ogni `content.roomId` corrisponda a una room nella mappa. Composer puro `composeDungeonSavePayload` in `src/lib/dungeons/save.ts` produce `{root, rooms, encounters}` con `parentLocalRef`/`roomLocalRef` come placeholder che la route risolve dopo gli insert. Root: `type='location'`, `properties.kind='dungeon'`, `properties.map_data=<DungeonMapData>` (inclusi params, rooms, edges, grid), `properties.extra={ procedural, generator:'bsp', generated_at, theme, seed, room_count }`, tag `procedural-dungeon` + `theme:<slug>`. `description` = markdown GM con indice stanze. La route valida le properties via `validateEntityProperties("location", ...)` prima del DB._
+- [x] Save ogni room come entity figlia con `parentId = root.id`, tag `procedural-dungeon-room`
+  - _Note implementative: `locationKindSchema` esteso con `'room'` (additivo, no migration DB). Room come entity `type='location'`, `properties.kind='room'`, `parentId=<rootId>`, tag `procedural-dungeon-room` + `room-kind:<entry|standard|boss|treasure|trick>`. `publicDescription` = `content.description` (player-facing leggibile al tavolo); `description` (GM) = markdown che include encounter hook, trap, treasure, lore, gmNotes. `properties.extra.room_id`, `position`, `center`, `room_kind` per future query/recall. La transaction inserisce root, poi room iterando con `parentId=rootRow.id`._
+- [x] Encounter pre-generati salvati come `encounters` con `locationId = room.id`
+  - _Note implementative: per ogni room con `content.encounterHook != null`, la route crea un `encounters` draft con `title="<room title> — Encounter"`, `description = encounterHook`, `locationId = roomEntityId`, `tacticalNotes` composto da hook + lore + gmNotes. `difficulty`/`partyLevel`/`xpTotal`/participants restano null: il DM li completera' nell'Encounter Builder, dove l'encounter draft compare automaticamente filtrando per `location_id`._
+- [x] Link dal Wiki: la root entity diventa navigabile dal grafo entita' della campagna
+  - _Note implementative: la root entity e' una `location` regolare della campagna, quindi compare nel grafo entita', nella sidebar "Modificate di recente", nei wikilink autocomplete e nella ricerca FTS. La UI `/dungeon-generator` mostra il link `Apri nel Wiki` (`/campaigns/{campaignId}?focus={rootId}#entity-detail`) subito dopo il salvataggio. Le child room sono anch'esse `location` con `parentId=rootId`, quindi navigabili come sub-entity._
+- [x] Test unitari composer (12 test): schema input gate (rejection di content.roomId orfani, default visibility), composer produce root con kind=dungeon e map_data, propaga parentLocationId, una room per ogni room della mappa con parentLocalRef='ROOT', separazione publicDescription vs description GM, encounter solo per room con encounterHook, root+room properties passano `locationPropertiesSchema`, slug theme ASCII no diacritics, visibility propagata.
 
 ### Definition of done
 Generi un dungeon di 15 room, vedi la mappa, ogni room ha contenuto coerente con lo stile Sherdan se generato in quella campagna, tutto è salvato come grafo di entities navigabile dal Wiki.
