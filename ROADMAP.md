@@ -773,7 +773,8 @@ Vista real-time per i giocatori, controllata dal DM, **con controllo granulare d
 ### Task
 
 **Real-time setup**
-- [ ] WebSocket server (Socket.io o nativo Next.js con ws)
+- [x] WebSocket server (Socket.io o nativo Next.js con ws)
+  - _Note implementative: server custom `server.ts` che avvia Next e intercetta l'HTTP upgrade solo su `/api/realtime`. Implementazione WebSocket nativa senza nuove dipendenze: handshake RFC6455, frame text masked client-side, ping/pong, close frame, hub in memoria (`src/lib/realtime/*`). Script `pnpm dev` e `pnpm start` passano dal custom server; `next build` resta invariato. Smoke manuale: `ws://localhost:3200/api/realtime` riceve `connected`, invia `{type:"ping"}` e riceve `pong`._
 - [ ] Channel per campagna
 - [ ] Auth lightweight: token URL signed per giocatore (no account)
 

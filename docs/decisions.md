@@ -392,3 +392,20 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - **Shortcut naviga a `/rules` invece di aprire modal palette.** Pattern entity-quick-switch (modal) richiede un secondo input separato e duplica la logica della pagina. Per Q&A la pagina ha gia' input + storia + risultati visibili insieme: navigare e' piu' diretto. EntityQuickSwitch resta modal perche' il caso d'uso ("salta a entity X") e' una transizione, non un workflow.
 
 **Test.** Slice 2: 9 test QA (prompt include question/chunks/output-contract/no-context-placeholder, options temp+thinking, composer enriches valid citations, drops unknown chunkIds, dedupes index, propagates noAnswer, returns full context, sorts citations ascending). Slice 3: il tool `rules_search` e' coperto indirettamente dai test RRF + integration con searchRules; nessun test specifico per il tool standalone (e' un wrapper thin). Shortcut: nessun test (DOM event listener, manuale). Suite totale 365/365. Sidebar: "Rules Lookup" `Pianificato → Pronto`. Fase 9 marcata completata 2026-05-13.
+
+---
+
+## 2026-05-13 - Fase 10 real-time: WebSocket nativo senza dipendenze
+
+**Contesto.** Primo task della Fase 10: aprire una surface real-time per il Player Dashboard. La ROADMAP lasciava aperta la scelta tra Socket.io e WebSocket nativi.
+
+**Decisione.** Usare un custom server Node (`server.ts`) che avvia Next e intercetta solo l'upgrade HTTP su `/api/realtime`. Il protocollo WebSocket minimo e' implementato in `src/lib/realtime/protocol.ts` usando API Node standard: handshake RFC6455, frame text, ping/pong, close. Nessuna nuova dipendenza.
+
+**Motivazione.**
+- Socket.io sarebbe comodo, ma aggiunge protocollo, client e dipendenza prima di sapere se servono stanze, fallback long-polling o acknowledgement complessi.
+- Il Player Dashboard e' single-user/small-party: un hub in memoria basta per il primo slice locale/Tailscale.
+- Il custom server mantiene Next come applicazione principale e lascia `next build` invariato. `pnpm dev` e `pnpm start` passano da `tsx server.ts --dev|--prod`.
+
+**Tradeoff.** Il server real-time e' in-process: non scala su piu' istanze e perde connessioni su restart. Accettabile per localhost + Tailscale. Quando arriveranno channel per campagna e token signed, il layer `RealtimeHub` verra' esteso senza cambiare handshake/protocollo.
+
+**Test.** Unit test sui helper protocollo (accept key RFC6455, encode text frame, decode masked frame, partial frame buffering). Smoke manuale: dev server su `:3200`, connessione `ws://localhost:3200/api/realtime`, messaggio `connected`, round-trip `{type:"ping"}` -> `pong`.
