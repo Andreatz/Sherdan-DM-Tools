@@ -46,8 +46,8 @@ export interface GenerationLogSink {
 // Wrapper attorno a `callStructuredOutput` che persiste ogni chiamata LLM in
 // `generation_log` per audit, cost monitoring e debug. La persistenza e'
 // fire-and-forget rispetto al risultato: un errore di logging non rompe la
-// route (loggato come warning). Tokens / cost USD restano `null` finche'
-// l'astrazione LLMProvider non espone l'usage del provider.
+// route (loggato come warning). Se il provider non espone usage nativo,
+// salviamo una stima token/costo marcata in metadata.
 export async function callStructuredOutputLogged<T>(
   args: CallStructuredOutputLoggedOptions<T>,
 ): Promise<T> {
@@ -64,6 +64,11 @@ export async function callStructuredOutputLogged<T>(
       runOptions ?? {},
       callOptions,
     );
+    const usage = estimateUsage({
+      model: modelHint,
+      prompt: prompt.input,
+      output,
+    });
     void safePersist(activeSink, {
       generatorName: logContext.generatorName,
       campaignId: logContext.campaignId ?? null,
@@ -72,16 +77,27 @@ export async function callStructuredOutputLogged<T>(
       input: jsonbSafe(logContext.input),
       prompt: jsonbSafe(prompt.input),
       output: jsonbSafe(output),
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      costUsd: usage.costUsd,
       status: "succeeded",
       error: null,
       metadata: jsonbSafeObject({
         ...(logContext.metadata ?? {}),
         latencyMs: Date.now() - startedAt,
         promptOptions: prompt.options ?? null,
+        usageEstimated: true,
+        costAlert: usage.costUsdNumber >= COST_ALERT_USD,
       }),
     });
     return output;
   } catch (err) {
+    const usage = estimateUsage({
+      model: modelHint,
+      prompt: prompt.input,
+      output: "",
+    });
     void safePersist(activeSink, {
       generatorName: logContext.generatorName,
       campaignId: logContext.campaignId ?? null,
@@ -90,12 +106,18 @@ export async function callStructuredOutputLogged<T>(
       input: jsonbSafe(logContext.input),
       prompt: jsonbSafe(prompt.input),
       output: null,
+      inputTokens: usage.inputTokens,
+      outputTokens: 0,
+      totalTokens: usage.inputTokens,
+      costUsd: usage.inputCostUsd,
       status: "failed",
       error: serializeError(err),
       metadata: jsonbSafeObject({
         ...(logContext.metadata ?? {}),
         latencyMs: Date.now() - startedAt,
         promptOptions: prompt.options ?? null,
+        usageEstimated: true,
+        costAlert: usage.inputCostUsdNumber >= COST_ALERT_USD,
       }),
     });
     throw err;
@@ -110,6 +132,10 @@ export interface PersistLogRow {
   input: unknown;
   prompt: unknown;
   output: unknown;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costUsd: string;
   status: "succeeded" | "failed";
   error: unknown;
   metadata: Record<string, unknown>;
@@ -125,6 +151,10 @@ const defaultSink: GenerationLogSink = {
       input: row.input,
       prompt: row.prompt,
       output: row.output,
+      inputTokens: row.inputTokens,
+      outputTokens: row.outputTokens,
+      totalTokens: row.totalTokens,
+      costUsd: row.costUsd,
       status: row.status,
       error: row.error,
       metadata: row.metadata,
@@ -182,4 +212,68 @@ function jsonbSafeObject(value: Record<string, unknown>): Record<string, unknown
     return clone as Record<string, unknown>;
   }
   return {};
+}
+
+const COST_ALERT_USD = 0.05;
+
+const MODEL_PRICING_USD_PER_1M: Record<
+  string,
+  { input: number; output: number }
+> = {
+  "gemini-3-flash-preview": { input: 0.5, output: 3 },
+  "gemini-2.5-flash": { input: 0.3, output: 2.5 },
+  "gemini-2.5-flash-preview": { input: 0.3, output: 2.5 },
+  "gemini-2.5-pro": { input: 1.25, output: 10 },
+  ollama: { input: 0, output: 0 },
+};
+
+const ZERO_PRICE = { input: 0, output: 0 };
+
+interface UsageEstimateInput {
+  model: string;
+  prompt: unknown;
+  output: unknown;
+}
+
+function estimateUsage(input: UsageEstimateInput) {
+  const inputTokens = estimateTokens(input.prompt);
+  const outputTokens = estimateTokens(input.output);
+  const totalTokens = inputTokens + outputTokens;
+  const pricing = priceForModel(input.model);
+  const inputCostUsdNumber = (inputTokens / 1_000_000) * pricing.input;
+  const outputCostUsdNumber = (outputTokens / 1_000_000) * pricing.output;
+  const costUsdNumber = inputCostUsdNumber + outputCostUsdNumber;
+
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    inputCostUsd: formatUsd(inputCostUsdNumber),
+    costUsd: formatUsd(costUsdNumber),
+    inputCostUsdNumber,
+    costUsdNumber,
+  };
+}
+
+function estimateTokens(value: unknown) {
+  const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+function priceForModel(model: string) {
+  const normalized = model.toLowerCase();
+  for (const [key, pricing] of Object.entries(MODEL_PRICING_USD_PER_1M)) {
+    if (normalized.includes(key)) return pricing;
+  }
+  if (normalized.includes("ollama")) {
+    return MODEL_PRICING_USD_PER_1M.ollama ?? ZERO_PRICE;
+  }
+  if (normalized.includes("gemini")) {
+    return MODEL_PRICING_USD_PER_1M["gemini-2.5-flash"] ?? ZERO_PRICE;
+  }
+  return ZERO_PRICE;
+}
+
+function formatUsd(value: number) {
+  return value.toFixed(6);
 }

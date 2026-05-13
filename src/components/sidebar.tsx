@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { EntitySidebarSection } from "@/components/entity-sidebar-section";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface NavItem {
   label: string;
@@ -75,25 +76,30 @@ const statusClassName: Record<NonNullable<NavItem["status"]>, string> = {
 
 export function Sidebar() {
   return (
-    <aside className="w-64 shrink-0 border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+    <aside className="border-b border-zinc-200 bg-white lg:min-h-screen lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex h-full flex-col">
-        <div className="px-6 py-6">
-          <Link
-            href="/"
-            className="block text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
-          >
-            Sherdan
-          </Link>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            DM Tools
-          </p>
+        <div className="flex items-center justify-between gap-4 px-4 py-4 lg:block lg:px-6 lg:py-6">
+          <div>
+            <Link
+              href="/"
+              className="block text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
+            >
+              Sherdan
+            </Link>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              DM Tools
+            </p>
+          </div>
+          <div className="lg:mt-4">
+            <ThemeToggle />
+          </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 pb-6">
+        <nav className="flex max-h-[45vh] gap-4 overflow-x-auto overflow-y-auto px-3 pb-4 lg:block lg:max-h-none lg:flex-1 lg:overflow-x-hidden lg:pb-6">
           <EntitySidebarSection />
 
           {NAV.map((group) => (
-            <div key={group.title} className="mb-6">
+            <div key={group.title} className="mb-4 min-w-48 lg:mb-6 lg:min-w-0">
               <h2 className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                 {group.title}
               </h2>

@@ -41,6 +41,7 @@ export function GenerationLogWorkbench() {
   const [generator, setGenerator] = useState("");
   const [status, setStatus] = useState<"all" | "succeeded" | "failed">("all");
   const [rows, setRows] = useState<GenerationLogRow[]>([]);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -69,7 +70,10 @@ export function GenerationLogWorkbench() {
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams({ limit: "100" });
+        const params = new URLSearchParams({
+          limit: "50",
+          offset: String(offset),
+        });
         if (campaignId) params.set("campaign_id", campaignId);
         if (generator) params.set("generator", generator);
         if (status !== "all") params.set("status", status);
@@ -88,7 +92,7 @@ export function GenerationLogWorkbench() {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, generator, status]);
+  }, [campaignId, generator, offset, status]);
 
   const generatorOptions = useMemo(() => {
     const set = new Set<string>();
@@ -101,6 +105,9 @@ export function GenerationLogWorkbench() {
     let failed = 0;
     let totalLatency = 0;
     let withLatency = 0;
+    let totalTokens = 0;
+    let totalCost = 0;
+    let hasCostAlert = false;
     for (const row of rows) {
       if (row.status === "succeeded") succeeded += 1;
       else if (row.status === "failed") failed += 1;
@@ -112,12 +119,20 @@ export function GenerationLogWorkbench() {
         totalLatency += latency;
         withLatency += 1;
       }
+      totalTokens += row.totalTokens ?? 0;
+      totalCost += row.costUsd ? Number(row.costUsd) : 0;
+      hasCostAlert =
+        hasCostAlert ||
+        Boolean(row.metadata && row.metadata.costAlert === true);
     }
     return {
       total: rows.length,
       succeeded,
       failed,
       avgLatencyMs: withLatency === 0 ? null : Math.round(totalLatency / withLatency),
+      totalTokens,
+      totalCost,
+      hasCostAlert,
     };
   }, [rows]);
 
@@ -167,7 +182,10 @@ export function GenerationLogWorkbench() {
           </span>
           <select
             value={campaignId}
-            onChange={(e) => setCampaignId(e.target.value)}
+            onChange={(e) => {
+              setOffset(0);
+              setCampaignId(e.target.value);
+            }}
             className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           >
             <option value="">Tutte</option>
@@ -185,7 +203,10 @@ export function GenerationLogWorkbench() {
           <input
             value={generator}
             list="generator-options"
-            onChange={(e) => setGenerator(e.target.value)}
+            onChange={(e) => {
+              setOffset(0);
+              setGenerator(e.target.value);
+            }}
             placeholder="es. npc-generator"
             className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           />
@@ -201,9 +222,10 @@ export function GenerationLogWorkbench() {
           </span>
           <select
             value={status}
-            onChange={(e) =>
-              setStatus(e.target.value as "all" | "succeeded" | "failed")
-            }
+            onChange={(e) => {
+              setOffset(0);
+              setStatus(e.target.value as "all" | "succeeded" | "failed");
+            }}
             className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           >
             <option value="all">Tutti</option>
@@ -226,13 +248,54 @@ export function GenerationLogWorkbench() {
                 ? "—"
                 : `${aggregate.avgLatencyMs} ms`}
             </div>
+            <div>Token: {aggregate.totalTokens.toLocaleString()}</div>
+            <div
+              className={
+                aggregate.hasCostAlert
+                  ? "font-semibold text-amber-700 dark:text-amber-300"
+                  : undefined
+              }
+            >
+              Costo stimato: ${aggregate.totalCost.toFixed(4)}
+            </div>
           </div>
         </div>
       </div>
 
+      {aggregate.hasCostAlert && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+          Almeno una chiamata supera la soglia di alert costo stimato. Apri il
+          dettaglio per capire prompt, modello e output.
+        </div>
+      )}
+
       <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <header className="border-b border-zinc-200 px-4 py-3 text-sm font-semibold dark:border-zinc-800">
-          {loading ? "Caricamento..." : `${rows.length} chiamate registrate`}
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 text-sm font-semibold dark:border-zinc-800">
+          <span>
+            {loading
+              ? "Caricamento..."
+              : `${rows.length} chiamate registrate · pagina ${
+                  Math.floor(offset / 50) + 1
+                }`}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={offset === 0 || loading}
+              onClick={() => setOffset((current) => Math.max(0, current - 50))}
+              className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200"
+            >
+              Precedenti
+            </button>
+            <button
+              type="button"
+              disabled={rows.length < 50 || loading}
+              onClick={() => setOffset((current) => current + 50)}
+              className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-700 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-200"
+            >
+              Successive
+            </button>
+          </div>
         </header>
         {rows.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-zinc-500">
@@ -269,6 +332,17 @@ export function GenerationLogWorkbench() {
                     {row.totalTokens !== null && (
                       <span className="text-xs text-zinc-500">
                         {row.totalTokens} tok
+                      </span>
+                    )}
+                    {row.costUsd !== null && (
+                      <span
+                        className={`text-xs ${
+                          row.metadata?.costAlert
+                            ? "font-semibold text-amber-700 dark:text-amber-300"
+                            : "text-zinc-500"
+                        }`}
+                      >
+                        ${Number(row.costUsd).toFixed(4)}
                       </span>
                     )}
                     <span className="ml-auto text-xs text-zinc-500">

@@ -807,18 +807,28 @@ Apri la sessione, i giocatori si connettono dal cellulare, vedono la scena, scop
 
 ---
 
-## Fase 11 — Polish & integrazione (ongoing)
+## Fase 11 — Polish & integrazione ✅
 
-- [ ] Global search (entities + sessions + plot threads + rules + truth_clues) con Cmd-K
-- [ ] Command palette per quick actions
+**Chiusa il 2026-05-14**
+
+- [x] Global search (entities + sessions + plot threads + rules + truth_clues) con Cmd-K
+  - _Note implementative: sostituito `EntityQuickSwitch` con `CommandPalette` globale (`src/components/command-palette.tsx`) montata in `AppShell`. Nuova route `GET /api/search/global` con search per entita', sessioni, plot thread, truth clues e rule documents. Ogni risultato porta a una route concreta; le regole aprono `/rules?q=<query>`. La palette mantiene navigazione tastiera, Escape/Enter, debounce leggero e badge per categoria._
+- [x] Command palette per quick actions
+  - _Note implementative: la stessa palette espone azioni rapide statiche e contestuali: nuova campagna, nuova sessione, nuova briciola, Rules Lookup con query corrente e Generation log/costi LLM._
 - [x] Backup automatico campagna (JSON dump + media)
   - _Note implementative (hardening 2026-05-12): aggiunti `pnpm db:backup`, `pnpm db:restore -- <file>` (richiede `CONFIRM=yes`, distruttivo) e `pnpm db:export:campaign -- --name "Sherdan"` / `--id <uuid>`. I primi due spawnano `docker exec` sul container `sherdan-postgres` cosi' non serve `pg_dump`/`psql` lato host. L'export campagna usa Drizzle per produrre un JSON autoportante con entities (senza embedding), identita', segreti, link, hooks, sessioni, session_entities, plot_threads, plot_thread_entities, plot_thread_events, truth_clues, encounters, encounter_participants, loot_bundles; esclude generation_log, random_tables e rule_documents (globali o non scoped). Cartella `backups/` git-ignored salvo README + `.gitkeep`. Smoke live: dump SQL 3.3 MB, JSON 1.45 MB con 152 entita' / 81 identita' / 56 segreti / 45 link / 70 PC hooks / 10 plot threads / 6 sessioni._
-- [ ] Import/export (per migrazioni, per condividere)
-- [ ] Re-export verso Markdown nello stesso formato dei file originali (così la repo `public/` resta in sync con il sistema, opzionalmente)
-- [ ] Mobile responsive su tutto
-- [ ] Theme dark/light
-- [ ] Performance: paginazione liste, lazy loading, query optimization
-- [ ] Cost monitoring LLM con alerting
+- [x] Import/export (per migrazioni, per condividere)
+  - _Note implementative: `pnpm db:export:campaign` resta il formato JSON canonico. Aggiunto `pnpm db:import:campaign -- <file> [--name "..."]`, che importa un export come nuova campagna e rigenera gli UUID rimappando tutte le FK principali (entities, identities, secrets, links, hooks, sessions, plot, clues, encounters, loot)._
+- [x] Re-export verso Markdown nello stesso formato dei file originali (così la repo `public/` resta in sync con il sistema, opzionalmente)
+  - _Note implementative: aggiunto `pnpm db:export:campaign:markdown -- --name "Sherdan"` che produce `NPC.md`, `Fazioni.md`, `Lore.md`, `Campagna.md` sotto `exports/markdown/<campaign-slug>-<timestamp>/`. Non e' un round-trip byte-perfect dei sorgenti originali, ma preserva sezioni editoriali, descrizioni pubbliche/GM, identita', segreti, link, hook, sessioni, thread e briciole in Markdown leggibile._
+- [x] Mobile responsive su tutto
+  - _Note implementative: `AppShell` ora usa sidebar top/collassata su viewport piccoli e padding responsive. La sidebar scorre orizzontalmente/verticalmente su mobile senza bloccare il contenuto principale._
+- [x] Theme dark/light
+  - _Note implementative: aggiunto `ThemeToggle` con modalita' light/dark/auto, persistenza `localStorage` e variante Tailwind dark class-based (`@custom-variant dark`)._
+- [x] Performance: paginazione liste, lazy loading, query optimization
+  - _Note implementative: la command palette usa limiti per categoria e debounce; `generation-log` passa a pagine da 50 con offset; la route globale seleziona solo colonne compatte e limita ogni collezione._
+- [x] Cost monitoring LLM con alerting
+  - _Note implementative: `callStructuredOutputLogged` ora stima token/costo quando l'usage provider non e' disponibile, salva `input_tokens`, `output_tokens`, `total_tokens`, `cost_usd`, marca `metadata.usageEstimated=true` e alza `metadata.costAlert` sopra soglia. La UI Generation log aggrega token/costo di pagina, mostra costo per riga e banner alert._
 
 ---
 

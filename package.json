@@ -32,6 +32,8 @@
     "db:backup": "tsx scripts/db-backup.ts",
     "db:restore": "tsx scripts/db-restore.ts",
     "db:export:campaign": "tsx scripts/export-campaign.ts",
+    "db:import:campaign": "tsx scripts/import-campaign.ts",
+    "db:export:campaign:markdown": "tsx scripts/export-campaign-markdown.ts",
     "content:check": "tsx scripts/check-sherdan-content-location.ts",
     "content:check:safe": "tsx scripts/check-sherdan-content-location.ts --public-forbidden",
     "content:check:strict": "tsx scripts/check-sherdan-content-location.ts --strict",

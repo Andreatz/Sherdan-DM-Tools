@@ -34,6 +34,7 @@ const featureRows = [
   ["Session Prep Assistant", "Pronto", "Agent LLM con 6 tool read-only (entities/plot/sessioni/identita'/truth-progress/pc-hooks), output strutturato + accept granulare: ogni briciola/NPC/encounter/hook accettato diventa record reale (truth_clue, entity stub dm_only, encounter draft, pc_hook). Streaming e tool generate_* rinviati a slice 3."],
   ["Rules Lookup", "Pronto", "Hybrid search + Q&A con citazioni cliccabili e shortcut globale."],
   ["Procedural Dungeon Generator", "Pronto", "Layout BSP, contenuto LLM per stanza, re-roll e salvataggio nel Wiki."],
+  ["Polish Fase 11", "Pronto", "Command palette Cmd-K globale, tema dark/light, import/export JSON, re-export Markdown, paginazione log e cost monitoring LLM."],
 ] as const;
 
 const statusClassName: Record<string, string> = {

@@ -50,6 +50,9 @@ conversation-export*.md
 !/backups/.gitkeep
 !/backups/README.md
 
+# re-export Markdown locali. Possono contenere segreti GM-only.
+/exports/
+
 # vercel
 .vercel
 

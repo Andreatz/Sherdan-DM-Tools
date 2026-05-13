@@ -38,6 +38,7 @@ Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
 | Session Prep Assistant | Pronto | Agent LLM con 6 tool read-only (entities, plot threads, sessioni, identità attive, truth progress, PC hooks), output strutturato + accept granulare: ogni briciola/NPC/encounter/hook accettato diventa un record reale (`truth_clue`, entity NPC stub `dm_only`, encounter draft, `pc_hook`) e finisce nelle `prep_notes`. Streaming e tool `generate_*` agentici rinviati a slice 3. |
 | Rules Lookup | Pronto | Fase 9 completa: ingestion 2 manuali homebrew + hybrid search RRF (vector + pg_trgm) + UI Q&A `/rules` con citazioni cliccabili + history locale + tool `rules_search` esposto al Session Prep agent + shortcut globale `Cmd+/`. |
 | Procedural Dungeon Generator | Pronto | Fase 8 completa: layout BSP deterministico + contenuto LLM per stanza con `StyleCalibrator` opzionale + persistenza come grafo entity (root location `kind='dungeon'` con `map_data`, child rooms `kind='room'` con `parentId`, encounter draft con `locationId` su ogni room con `encounterHook`). Navigabile dal grafo entità campagna. |
+| Polish & integrazione | Pronto | Fase 11 completa: command palette globale `Cmd+K`, quick actions, tema dark/light persistente, shell responsive, import/export JSON campagna, re-export Markdown, paginazione log e cost monitoring LLM stimato. |
 
 Snapshot import Sherdan validato:
 
@@ -409,9 +410,17 @@ pnpm db:export:campaign -- --name "Sherdan"
 # oppure
 pnpm db:export:campaign -- --id <campaign-uuid>
 # → backups/campaign-<slug>-<timestamp>.json
+
+# Import di un export JSON come nuova campagna (UUID rimappati):
+pnpm db:import:campaign -- backups/campaign-sherdan-YYYYMMDD-HHMMSS.json
+pnpm db:import:campaign -- backups/campaign-sherdan-YYYYMMDD-HHMMSS.json --name "Sherdan copia"
+
+# Re-export Markdown leggibile, in file vicini ai sorgenti originali:
+pnpm db:export:campaign:markdown -- --name "Sherdan"
+# → exports/markdown/<campaign-slug>-<timestamp>/
 ```
 
-La cartella `backups/` è git-ignored (i dump contengono segreti GM-only).
+Le cartelle `backups/` ed `exports/` sono git-ignored (i dump contengono segreti GM-only).
 
 ### Dataset Sherdan
 
@@ -533,7 +542,7 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 ## Priorità consigliate
 
 1. Slice 3 del Session Prep Assistant: streaming dell'output dell'agent + tool `generate_npc/encounter/loot` agentici (oggi l'agent suggerisce seed che il DM accetta come stub/draft, ma non chiama i generator vivi).
-2. Polish Fase 11: global search/command palette e performance sulle liste lunghe.
+2. Hardening post-uso al tavolo: raccogli attriti reali su mobile, search, dashboard player e tempi LLM dopo una o due sessioni giocate con la build corrente.
 
 ---
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { EntityQuickSwitch } from "@/components/entity-quick-switch";
+import { CommandPalette } from "@/components/command-palette";
 import { RulesShortcut } from "@/components/rules-shortcut";
 import { Sidebar } from "@/components/sidebar";
 
@@ -8,18 +8,17 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-// Layout principale: sidebar fissa + area main scrollabile.
-// Single-user, niente top-bar di auth/profilo. Niente responsive collapse
-// per ora: il target e' desktop al tavolo. Si adatta in Fase 10 (Player
-// Dashboard) quando arriva il mobile-first.
+// Layout principale: sidebar + area main scrollabile, con collapse mobile.
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen lg:flex">
       <Sidebar />
-      <EntityQuickSwitch />
+      <CommandPalette />
       <RulesShortcut />
-      <main className="flex-1 overflow-x-hidden">
-        <div className="mx-auto w-full max-w-6xl px-8 py-10">{children}</div>
+      <main className="min-w-0 flex-1 overflow-x-hidden">
+        <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+          {children}
+        </div>
       </main>
     </div>
   );

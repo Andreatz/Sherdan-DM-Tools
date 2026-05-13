@@ -46,6 +46,13 @@ export function RulesLookup() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (!q) return;
+    window.setTimeout(() => setQuery(q), 0);
+  }, []);
+
   // Auto-focus su input al mount (la pagina e' single-purpose).
   useEffect(() => {
     inputRef.current?.focus();
