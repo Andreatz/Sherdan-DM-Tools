@@ -21,7 +21,7 @@ export interface RulesQaDependencies {
     hits: RuleSearchHit[];
     metadata: {
       sources: string[] | null;
-      rankersUsed: ("vector" | "trigram")[];
+      rankersUsed: ("vector" | "trigram" | "rerank")[];
       embeddingStatus: "available" | "unavailable" | "skipped";
     };
   }>;
@@ -78,7 +78,7 @@ export function composeRulesQaResult(args: {
   llmOutput: import("./qa-schema").RulesQaLLMOutput;
   metadata: {
     sources: string[] | null;
-    rankersUsed: ("vector" | "trigram")[];
+    rankersUsed: ("vector" | "trigram" | "rerank")[];
     embeddingStatus: "available" | "unavailable" | "skipped";
   };
 }): RulesQaResult {

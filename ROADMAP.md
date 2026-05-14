@@ -610,7 +610,7 @@ Hai registrato 3-5 sessioni con recap + dm_notes, 5-10 plot threads tracciati co
 
 ## Fase 7 — Session Prep Assistant (con tool Sherdan-aware) ✅
 
-**Durata**: 12-16 giorni · **Tool sbloccato**: ✅ Session Prep Assistant · **Chiusa il 2026-05-12 (slice 2)**
+**Durata**: 12-16 giorni · **Tool sbloccato**: ✅ Session Prep Assistant · **Chiusa il 2026-05-14 (slice 3)**
 
 ### Goal
 Agent LLM che compone tutto il sistema: legge stato (incluse identità attive, briciole rivelate, plot threads doppi), propone hook/NPC/encounter calibrati sul momento narrativo della campagna, ti fa risparmiare ore di prep.
@@ -626,15 +626,15 @@ Agent LLM che compone tutto il sistema: legge stato (incluse identità attive, b
   - `get_truth_progress(plot_thread_id?)` ✓
   - ~~`get_entity_details(id)`~~ rimandato (search_entities ritorna gia' descrizione GM + public)
   - `get_pc_hooks(pcEntityId?, statuses?, limit?)` ✓ (slice 2)
-  - ~~`generate_npc/encounter/loot`~~ rinviati a slice 3 (per ora l'agent propone seed che il DM accetta come stub/draft veri, vedi sotto)
-  - ~~`rules_search`~~ rinviato a Fase 9
+  - `generate_npc/encounter/loot` ✓ (slice 3)
+  - `rules_search` ✓ (Fase 9)
   - _Note implementative: ogni tool e' un `SessionPrepTool<TArgs, TResult>` con name/description/argsSchema/execute. Toolbox iniettabile per i test. `campaignId` e' un parametro del runner, non un argomento dell'agent (LLM non puo' "pescare" da altre campagne neppure tentando)._
 - [x] System prompt: ruolo, principi DM, formato output, istruzioni esplicite su come gestire propaganda vs verita'
   - _Note implementative: in `src/lib/session-prep/agent.ts` il SYSTEM_PROMPT codifica i 5 pattern Sherdan, descrive il contratto dei tool, e ribadisce "nelle proposte player-facing usa solo la versione percepita; verita' GM in `rationale` e `truthRevealed`"._
 - [x] Tool execution loop con safety (max iterations, gestione errori tool, audit via generation_log)
   - _Note implementative: agent loop "structured output ricorsivo" via `callStructuredOutputLogged` (no function calling SDK-level: compatibile sia con Gemini sia con Ollama). Schema decisione: `z.discriminatedUnion("action", ["call_tool", "respond"])`. Max iterations default 8, configurabile. Tool sconosciuto / args invalidi / tool exec error → messaggio inserito nel context history come `[errore ...]`, il loop continua. `SessionPrepAgentError` sollevato a max iterations. Ogni decisione finisce in `generation_log` (audit completo gia' attivo)._
-- [ ] Streaming response per UX
-  - _Slice 1+2: omesso. `stream()` non e' compatibile col structured output; il DM aspetta ~10-20s e vede l'output finale + la trace dei tool chiamati. Rinviato a slice 3._
+- [x] Streaming response per UX
+  - _Note slice 3 (2026-05-14): aggiunta route SSE `POST /api/session-prep/generate/stream`. L'agent resta structured-output per affidabilita', ma ora emette eventi progressivi `iteration_start`, `tool_start`, `tool_result`, `tool_error`, `done`; la UI mostra "Agent al lavoro" con tool chiamati e durata mentre il risultato finale viene composto._
 
 **Workflow**
 - [x] Input DM: location corrente, "vibe" desiderato della sessione, focus opzionale
@@ -650,8 +650,8 @@ Agent LLM che compone tutto il sistema: legge stato (incluse identità attive, b
 **UI**
 - [x] Pagina prep dedicata con sezioni espandibili
   - _Note implementative: pagina `/session-prep` + `SessionPrepWorkbench` client. Sezioni: Previously on, Hooks, NPC seeds, Encounter seeds, Briciole, Note. Selector "Salva in sessione" col dropdown delle sessioni della campagna._
-- [ ] Streaming: vedi l'agent "pensare" e produrre risultati
-  - _Slice 1+2: omesso (vedi sopra). Rinviato a slice 3._
+- [x] Streaming: vedi l'agent "pensare" e produrre risultati
+  - _Note slice 3: `SessionPrepWorkbench` usa la route stream e mantiene il fallback logico del risultato finale identico al vecchio endpoint. Non streamma token liberi (per non rompere il contratto JSON), ma streamma decisioni/tool in tempo reale._
 - [x] Trace view (debug): quali tool ha chiamato, con quali parametri
   - _Note implementative: la response `/api/session-prep/generate` include `trace[]` con `toolName`, `args`, `resultPreview` (200 char), `durationMs`. La UI mostra una sezione "Tool calls (N)" sotto le proposte._
 
@@ -736,9 +736,10 @@ Decisione 2026-05-13: SRD esterno *out-of-scope* per V1 (corpus Sherdan-first su
 **Search (slice 1)**
 - [x] Hybrid search: BM25 (FTS Postgres) + vector cosine, RRF (reciprocal rank fusion) per merging
   - _Note implementative: `src/lib/rules/rrf.ts` funzione pura `reciprocalRankFusion(rankings, {k=60, limit=20})` testata in isolation. `src/lib/rules/search.ts`: `searchRules(input, deps)` con `deps.embedQuery` iniettabile (no Ollama in unit). Pipeline: (a) vector ranker — `<=>` pgvector su embedding query, top-K = 20 default; (b) trigram ranker — `pg_trgm.similarity(content, query)` con soglia esplicita (default 0.05) + fallback `ILIKE %query%` su title/section per query corte; (c) RRF merge con k=60 (paper Cormack 2009). Vector ranker e' best-effort: se embed fallisce (Ollama down) degradiamo a solo trigram, log warn. Endpoint `POST /api/rules/search` con Zod gate (`rulesSearchInputSchema`)._
-- [ ] Re-ranker opzionale (Cohere rerank o LLM-based) per query difficili — *rinviato a backlog* (decisione 2026-05-13: RRF e' sufficiente per V1; LLM re-rank introduce latenza + costo, da rivalutare se la qualita' di search non basta)
+- [x] Re-ranker opzionale (LLM-based) per query difficili
+  - _Note implementative (2026-05-14): `rulesSearchInputSchema` accetta `rerank` e `rerankTopK`. `POST /api/rules/search` inietta `rerankRulesHits`, che chiama l'LLM con output strutturato `{ orderedChunkIds }` e logga su `generation_log` come `rules-rerank`. Default `rerank=false`, quindi la UI resta veloce; si abilita solo quando serve qualita' extra._
 - [x] Filtro per source (solo SRD / solo Sherdan custom / entrambi)
-  - _Note implementative: `rulesSearchInputSchema.sources?: string[]` opzionale. Senza filtro, cerca su tutti i source. SRD non e' caricato in V1 (vedi backlog), ma il filtro e' generico cosi' aggiungere `srd-5.1` in futuro non richiede modifiche al search._
+  - _Note implementative: `rulesSearchInputSchema.sources?: string[]` opzionale. Senza filtro, cerca su tutti i source. Ora include `sherdan-custom` e `srd-2014`; fonti future restano aggiungibili senza cambiare il contratto._
 
 **Slice 2 — Q&A UI (LLM answer + citazioni)**
 - [x] UI: input domanda, risposta in markdown con citazioni inline
@@ -755,8 +756,9 @@ Decisione 2026-05-13: SRD esterno *out-of-scope* per V1 (corpus Sherdan-first su
   - _Note implementative: aggiunto `<RulesShortcut>` invisibile in `<AppShell>`. Listener globale `keydown` su `Cmd+/` (mac) o `Ctrl+/` (win/linux) come binding primario — `Cmd+Shift+R` originalmente in ROADMAP non e' intercettabile perche' bound dal browser a "hard reload". Fallback `Cmd+Shift+K` (Ctrl+K e' gia' EntityQuickSwitch). Naviga a `/rules` via Next router. Sidebar "Rules Lookup" passa a Pronto con href `/rules`._
 
 **Backlog (post-V1)**
-- [ ] Loader SRD: import via Open5e API V2 di sezioni PHB chiave (filtrabile per source = `srd-2014`). Aggiungere chunking + embedding analoghi a quelli homebrew. Decisione 2026-05-13: rimandato perche' DoD V1 e' sul corpus Sherdan e l'aggiunta SRD ha tempo + rumore non giustificati subito.
-- [ ] Re-ranker LLM su top-20 RRF (rivalutare se qualita' search insufficiente).
+- [x] Loader SRD: import sezioni PHB/SRD chiave (source = `srd-2014`)
+  - _Note implementative (2026-05-14): aggiunto `pnpm db:import:srd-rules` via D&D 5e API 2014. Importa 33 `rule-sections` + spell chiave per il DoD (`Invisibility`, `Fireball`, `Counterspell`, `Dispel Magic`, `Detect Magic`, `Mage Armor`, `Shield`) come `rule_documents` source `srd-2014`. Idempotente; `--all-spells` carica tutto il catalogo spell SRD, `--limit-spells=N` limita in modalita' all-spells. Embedding analoghi tramite `pnpm db:embed:rules --source=srd-2014`. Smoke live: 40 righe importate/aggiornate._
+- [x] Re-ranker LLM su top-K RRF (opzionale, vedi sopra).
 
 ### Definition of done
 Chiedi "se un mago invisibile lancia palla di fuoco rimane invisibile?", ricevi risposta corretta con citazione PHB. Chiedi "come funziona il crafting di Obsidium raffinato a Sherdan?", ricevi risposta dal Manuale del Giocatore custom.

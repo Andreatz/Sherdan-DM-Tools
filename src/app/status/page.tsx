@@ -31,8 +31,8 @@ const featureRows = [
   ["Encounter Builder", "Pronto", "Browser mostri, CR calculator, LLM assist, used_in_session, filtri list (sessione/location/plot)."],
   ["Generation log", "Pronto", "Audit di ogni chiamata LLM (input/prompt/output/latency/status) su generation_log."],
   ["Player Dashboard", "Pronto", "Per-player, realtime, scena live, handout/mappa/fog, policy entity granulari e push WebSocket."],
-  ["Session Prep Assistant", "Pronto", "Agent LLM con 6 tool read-only (entities/plot/sessioni/identita'/truth-progress/pc-hooks), output strutturato + accept granulare: ogni briciola/NPC/encounter/hook accettato diventa record reale (truth_clue, entity stub dm_only, encounter draft, pc_hook). Streaming e tool generate_* rinviati a slice 3."],
-  ["Rules Lookup", "Pronto", "Hybrid search + Q&A con citazioni cliccabili e shortcut globale."],
+  ["Session Prep Assistant", "Pronto", "Agent LLM con tool read-only + rules_search + generate_npc/encounter/loot, streaming progressivo via SSE e accept granulare in record reali."],
+  ["Rules Lookup", "Pronto", "Hybrid search + Q&A con citazioni, corpus Sherdan + SRD 2014, reranker opzionale e shortcut globale."],
   ["Procedural Dungeon Generator", "Pronto", "Layout BSP, contenuto LLM per stanza, re-roll e salvataggio nel Wiki."],
   ["Polish Fase 11", "Pronto", "Command palette Cmd-K globale, tema dark/light, import/export JSON, re-export Markdown, paginazione log e cost monitoring LLM."],
 ] as const;

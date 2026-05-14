@@ -15,6 +15,8 @@ export const rulesSearchInputSchema = z
     // ranking BM25-ish. 0.05 e' permissivo (Sherdan-style query corte
     // matchano poco). Alzala se l'output e' rumoroso.
     trigramThreshold: z.number().min(0).max(1).default(0.05),
+    rerank: z.boolean().default(false),
+    rerankTopK: z.number().int().min(1).max(30).default(20),
   })
   .strict();
 

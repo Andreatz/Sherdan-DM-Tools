@@ -34,6 +34,13 @@ export interface SessionPrepRunResult {
   iterations: number;
 }
 
+export type SessionPrepAgentEvent =
+  | { type: "iteration_start"; iteration: number }
+  | { type: "tool_start"; iteration: number; toolName: string; args: unknown }
+  | { type: "tool_result"; iteration: number; trace: SessionPrepTrace }
+  | { type: "tool_error"; iteration: number; toolName: string; message: string }
+  | { type: "done"; iterations: number; trace: SessionPrepTrace[] };
+
 export interface SessionPrepAgentOptions {
   /** Override LLM provider (test). */
   llm?: LLMProvider;
@@ -41,6 +48,8 @@ export interface SessionPrepAgentOptions {
   tools?: ReadonlyArray<SessionPrepTool<unknown, unknown>>;
   /** Hard cap su iterazioni. Default 8. */
   maxIterations?: number;
+  /** Eventi progressivi per route SSE/UI streaming. */
+  onEvent?: (event: SessionPrepAgentEvent) => void | Promise<void>;
 }
 
 // Schema "decisione" del modello a ogni turno. discriminated union.
@@ -139,6 +148,7 @@ export async function runSessionPrepAgent(
   const trace: SessionPrepTrace[] = [];
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    await options.onEvent?.({ type: "iteration_start", iteration });
     const decision = await callStructuredOutputLogged({
       schema: decisionSchema as z.ZodType<Decision>,
       prompt: {
@@ -166,6 +176,7 @@ export async function runSessionPrepAgent(
         },
         "session-prep agent done",
       );
+      await options.onEvent?.({ type: "done", iterations: iteration, trace });
       return { output: decision.output, trace, iterations: iteration };
     }
 
@@ -173,6 +184,12 @@ export async function runSessionPrepAgent(
     const tool = toolMap.get(decision.toolName);
     if (!tool) {
       const message = `Tool sconosciuto: ${decision.toolName}. Tool disponibili: ${Array.from(toolMap.keys()).join(", ")}`;
+      await options.onEvent?.({
+        type: "tool_error",
+        iteration,
+        toolName: decision.toolName,
+        message,
+      });
       conversation.push("", `[errore tool call iter ${iteration}]`, message);
       continue;
     }
@@ -181,6 +198,12 @@ export async function runSessionPrepAgent(
       parsedArgs = tool.argsSchema.parse(decision.args);
     } catch (err) {
       const message = `Args invalidi per ${decision.toolName}: ${err instanceof Error ? err.message : String(err)}`;
+      await options.onEvent?.({
+        type: "tool_error",
+        iteration,
+        toolName: decision.toolName,
+        message,
+      });
       conversation.push("", `[errore tool args iter ${iteration}]`, message);
       continue;
     }
@@ -188,6 +211,12 @@ export async function runSessionPrepAgent(
     const startedAt = Date.now();
     let result: unknown;
     try {
+      await options.onEvent?.({
+        type: "tool_start",
+        iteration,
+        toolName: decision.toolName,
+        args: parsedArgs,
+      });
       result = await tool.execute(input.campaignId, parsedArgs);
     } catch (err) {
       const message = `Tool ${decision.toolName} ha fallito: ${err instanceof Error ? err.message : String(err)}`;
@@ -195,6 +224,12 @@ export async function runSessionPrepAgent(
         { campaignId: input.campaignId, tool: decision.toolName, err: message },
         "session-prep tool failed",
       );
+      await options.onEvent?.({
+        type: "tool_error",
+        iteration,
+        toolName: decision.toolName,
+        message,
+      });
       conversation.push("", `[errore tool exec iter ${iteration}]`, message);
       continue;
     }
@@ -205,6 +240,11 @@ export async function runSessionPrepAgent(
       args: parsedArgs,
       resultPreview: truncate(serialized, 200),
       durationMs,
+    });
+    await options.onEvent?.({
+      type: "tool_result",
+      iteration,
+      trace: trace[trace.length - 1]!,
     });
 
     conversation.push(

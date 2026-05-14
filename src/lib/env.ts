@@ -19,27 +19,30 @@ const baseSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
 
-  // Livello del logger (pino). 'silent' disabilita tutto.
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .optional(),
 
   // Provider primario per chat. Embedding va sempre via Ollama.
-  LLM_PROVIDER: z.enum(["gemini", "ollama"]).default("gemini"),
+  LLM_PROVIDER: z.enum(["none", "gemini", "ollama", "openai"]).default("none"),
 
-  // Gemini (richiesto se LLM_PROVIDER=gemini, controllo via superRefine).
+  // Gemini
   GOOGLE_AI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().min(1).default("gemini-3-flash-preview"),
 
-  // Ollama (sempre richiesto: e' embed provider universale e fallback chat).
+  // OpenAI
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().min(1).default("gpt-5.5"),
+
+  // Ollama
   OLLAMA_BASE_URL: z.string().min(1).default("http://localhost:11434"),
   OLLAMA_MODEL: z.string().min(1).default("qwen2.5:7b-instruct-q4_K_M"),
   OLLAMA_EMBED_MODEL: z.string().min(1).default("mxbai-embed-large"),
 
-  // Variabili consumate da docker-compose.yml (non dall'app: l'app usa
-  // sempre DATABASE_URL composta). Sono dichiarate qui solo per essere
-  // "conosciute" dallo schema, in modo che il sync-check con .env.example
-  // non le segnali come drift.
+  // Player / realtime access
+  SHERDAN_PLAYER_ACCESS_CODE: z.string().optional(),
+
+  // Variabili consumate da docker-compose.yml
   POSTGRES_DB: z.string().optional(),
   POSTGRES_USER: z.string().optional(),
   POSTGRES_PASSWORD: z.string().optional(),
@@ -52,6 +55,14 @@ const schema = baseSchema.superRefine((value, ctx) => {
       code: "custom",
       path: ["GOOGLE_AI_API_KEY"],
       message: "richiesta quando LLM_PROVIDER=gemini",
+    });
+  }
+
+  if (value.LLM_PROVIDER === "openai" && !value.OPENAI_API_KEY) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["OPENAI_API_KEY"],
+      message: "richiesta quando LLM_PROVIDER=openai",
     });
   }
 });

@@ -12,7 +12,25 @@ import {
   sessions,
   truthClues,
 } from "@/db/schema";
+import {
+  NpcGeneratorContextRetriever,
+  buildNpcGeneratorPrompt,
+  callStructuredOutputLogged,
+  npcGeneratorOutputSchemaForDepth,
+  runGenerator,
+  summarizeNpcGeneratorContext,
+} from "@/lib/generators";
+import {
+  encounterAssistInputSchema,
+  filterSuggesterMonsters,
+  generateEncounterAssist,
+  monsterRecordToSuggesterMonster,
+  parseMonsterRecord,
+  suggestEncounterCompositions,
+  type EncounterNarrativeContext,
+} from "@/lib/encounters";
 import { getLLMProvider } from "@/lib/llm";
+import { LootGenerator, lootGeneratorInputSchema } from "@/lib/loot";
 import { searchRules } from "@/lib/rules";
 
 // Tool read-only del Session Prep Assistant. Ogni tool ha:
@@ -511,6 +529,8 @@ export const rulesSearchTool: SessionPrepTool<
         topKTrigram: 20,
         limit: args.limit,
         trigramThreshold: 0.05,
+        rerank: false,
+        rerankTopK: 20,
       },
       { embedQuery: (text) => getLLMProvider().embed(text) },
     );
@@ -525,6 +545,198 @@ export const rulesSearchTool: SessionPrepTool<
   },
 };
 
+// ─── generate_* agentici ───────────────────────────────────────────────
+const generateNpcArgsSchema = z
+  .object({
+    locationId: z.uuid(),
+    npcType: z.string().trim().min(2).max(80),
+    partyLevel: z.coerce.number().int().min(1).max(20).default(5),
+    tone: z.enum(["serio", "comico", "cupo", "grimdark"]).default("cupo"),
+    narrativeDepth: z
+      .enum(["comparsa", "secondario", "principale"])
+      .default("secondario"),
+  })
+  .strict();
+type GenerateNpcArgs = z.infer<typeof generateNpcArgsSchema>;
+
+export const generateNpcTool: SessionPrepTool<GenerateNpcArgs, unknown> = {
+  name: "generate_npc",
+  description:
+    "Genera un NPC Sherdan-style completo usando il generatore NPC vivo. " +
+    "Non salva nulla nel DB: ritorna una preview con descrizione, voce, " +
+    "segreti e contesto. Usalo quando serve un volto pronto da giocare.",
+  argsSchema: generateNpcArgsSchema,
+  async execute(campaignId, args) {
+    const input = { campaignId, ...args };
+    const context = await new NpcGeneratorContextRetriever().retrieve(input);
+    const output = await callStructuredOutputLogged({
+      prompt: buildNpcGeneratorPrompt(context),
+      schema: npcGeneratorOutputSchemaForDepth(input.narrativeDepth),
+      logContext: {
+        generatorName: "session-prep.generate_npc",
+        campaignId,
+        input,
+        metadata: { phase: "agent-tool" },
+      },
+    });
+    return {
+      name: output.name,
+      type: "npc",
+      publicDescription: output.public_description,
+      appearanceSummary: output.properties.appearance_summary,
+      voice: output.properties.voice,
+      secrets: output.secrets.map((secret) => ({
+        layer: secret.layer,
+        content: secret.content,
+      })),
+      context: summarizeNpcGeneratorContext(context),
+    };
+  },
+};
+
+const generateLootArgsSchema = lootGeneratorInputSchema
+  .omit({ campaignId: true })
+  .strict();
+type GenerateLootArgs = z.infer<typeof generateLootArgsSchema>;
+
+export const generateLootTool: SessionPrepTool<GenerateLootArgs, unknown> = {
+  name: "generate_loot",
+  description:
+    "Genera un loot bundle narrativo con il Loot Generator vivo. Non salva " +
+    "nulla nel DB. Usalo quando la prep ha bisogno di una ricompensa calibrata.",
+  argsSchema: generateLootArgsSchema,
+  async execute(campaignId, args) {
+    const result = await runGenerator(
+      new LootGenerator(),
+      { campaignId, ...args },
+      { persist: false },
+    );
+    return {
+      title: `Loot: ${args.source}`,
+      description: result.output.narrativeSummary,
+      goldAmount: result.output.baseGold.totalGp,
+      items: result.output.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        rarity: item.rarity ?? null,
+      })),
+      hooks: result.output.hooks,
+    };
+  },
+};
+
+const generateEncounterArgsSchema = encounterAssistInputSchema
+  .omit({ campaignId: true })
+  .strict();
+type GenerateEncounterArgs = z.infer<typeof generateEncounterArgsSchema>;
+
+export const generateEncounterTool: SessionPrepTool<
+  GenerateEncounterArgs,
+  unknown
+> = {
+  name: "generate_encounter",
+  description:
+    "Genera un encounter assistito scegliendo mostri gia' importati nella " +
+    "campagna e tactical notes LLM. Non salva nulla nel DB.",
+  argsSchema: generateEncounterArgsSchema,
+  async execute(campaignId, args) {
+    const input = { campaignId, ...args };
+    const rows = await db
+      .select({
+        id: entities.id,
+        name: entities.name,
+        description: entities.description,
+        publicDescription: entities.publicDescription,
+        properties: entities.properties,
+        tags: entities.tags,
+        updatedAt: entities.updatedAt,
+      })
+      .from(entities)
+      .where(and(eq(entities.campaignId, campaignId), eq(entities.type, "monster")))
+      .orderBy(asc(entities.name))
+      .limit(500);
+
+    const monsters = filterSuggesterMonsters(
+      rows
+        .map(parseMonsterRecord)
+        .filter((record): record is NonNullable<typeof record> => record !== null)
+        .map(monsterRecordToSuggesterMonster)
+        .filter((monster): monster is NonNullable<typeof monster> => monster !== null),
+      input,
+    );
+    const candidates = suggestEncounterCompositions({
+      partyLevel: input.partyLevel,
+      partySize: input.partySize,
+      difficulty: input.difficulty,
+      monsters,
+      maxSuggestions: 6,
+    });
+    const assist = await generateEncounterAssist(
+      input,
+      candidates,
+      await loadEncounterNarrativeContext(campaignId),
+    );
+    return {
+      title: assist.title,
+      concept: assist.concept,
+      selectedDifficulty: assist.constraintReport.selectedDifficulty,
+      adjustedXp: assist.constraintReport.adjustedXp,
+      monsters: assist.selectedCandidate.participants.map((participant) => ({
+        name: participant.monster.name,
+        count: participant.count,
+        cr: participant.monster.challengeRating,
+      })),
+      tacticalNotes: assist.tacticalNotes,
+      narrativeHooks: assist.narrativeHooks,
+    };
+  },
+};
+
+async function loadEncounterNarrativeContext(
+  campaignId: string,
+): Promise<EncounterNarrativeContext> {
+  const [threads, clues, hooks] = await Promise.all([
+    db
+      .select({
+        id: plotThreads.id,
+        title: plotThreads.title,
+        status: plotThreads.status,
+        publicDescription: plotThreads.publicDescription,
+        description: plotThreads.description,
+      })
+      .from(plotThreads)
+      .where(eq(plotThreads.campaignId, campaignId))
+      .orderBy(desc(plotThreads.updatedAt))
+      .limit(8),
+    db
+      .select({
+        id: truthClues.id,
+        description: truthClues.description,
+        truthRevealed: truthClues.truthRevealed,
+        status: truthClues.status,
+        relatedPlotThreadId: truthClues.relatedPlotThreadId,
+      })
+      .from(truthClues)
+      .where(eq(truthClues.campaignId, campaignId))
+      .orderBy(desc(truthClues.statusUpdatedAt))
+      .limit(8),
+    db
+      .select({
+        id: pcHooks.id,
+        pcEntityId: pcHooks.pcEntityId,
+        targetEntityId: pcHooks.targetEntityId,
+        hookDescription: pcHooks.hookDescription,
+        potentialArc: pcHooks.potentialArc,
+        status: pcHooks.status,
+      })
+      .from(pcHooks)
+      .where(eq(pcHooks.campaignId, campaignId))
+      .orderBy(asc(pcHooks.createdAt))
+      .limit(8),
+  ]);
+  return { plotThreads: threads, truthClues: clues, pcHooks: hooks };
+}
+
 // ─── Toolbox ──────────────────────────────────────────────────────────
 // Lista esportata pronta da iniettare nell'agent. Ordine: la priorita'
 // nello scegliere il prossimo tool e' "context > scoperte > dettagli >
@@ -537,6 +749,9 @@ export const sessionPrepTools = [
   getPcHooksTool,
   searchEntitiesTool,
   rulesSearchTool,
+  generateNpcTool,
+  generateEncounterTool,
+  generateLootTool,
 ] as const;
 
 export type SessionPrepToolName = (typeof sessionPrepTools)[number]["name"];

@@ -4,11 +4,13 @@ import { GeminiProvider } from "./gemini";
 import { OllamaProvider } from "./ollama";
 import { RoutedProvider } from "./router";
 import type { LLMProvider } from "./types";
+import { OpenAIProvider } from "./openai";
 
 export * from "./types";
 export { GeminiProvider } from "./gemini";
 export { OllamaProvider } from "./ollama";
 export { RoutedProvider } from "./router";
+
 
 let cached: LLMProvider | undefined;
 
@@ -44,6 +46,28 @@ export function getLLMProvider(): LLMProvider {
       "Configurazione invalida: LLM_PROVIDER=gemini ma GOOGLE_AI_API_KEY assente",
     );
   }
+
+  if (env.LLM_PROVIDER === "openai") {
+    if (!env.OPENAI_API_KEY) {
+      throw new Error(
+        "Configurazione invalida: LLM_PROVIDER=openai ma OPENAI_API_KEY assente",
+      );
+    }
+
+    const openai = new OpenAIProvider({
+      apiKey: env.OPENAI_API_KEY,
+      model: env.OPENAI_MODEL,
+    });
+
+    cached = new RoutedProvider({
+      chatPrimary: openai,
+      chatFallback: ollama,
+      embed: ollama,
+    });
+
+    return cached;
+  }
+
 
   const gemini = new GeminiProvider({
     apiKey: env.GOOGLE_AI_API_KEY,

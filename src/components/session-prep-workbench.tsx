@@ -92,6 +92,7 @@ export function SessionPrepWorkbench() {
   const [selection, setSelection] = useState<SelectionState | null>(null);
   const [targetSessionId, setTargetSessionId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
+  const [streamEvents, setStreamEvents] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -189,6 +190,7 @@ export function SessionPrepWorkbench() {
     setError(null);
     setMessage(null);
     setResult(null);
+    setStreamEvents([]);
     try {
       const body: Record<string, unknown> = {
         campaignId: draft.campaignId,
@@ -199,10 +201,9 @@ export function SessionPrepWorkbench() {
       if (draft.vibe.trim()) body.vibe = draft.vibe.trim();
       if (draft.focus.trim()) body.focus = draft.focus.trim();
 
-      const response = await apiFetch<GenerateResponse>(
-        "/api/session-prep/generate",
-        { method: "POST", body: JSON.stringify(body) },
-      );
+      const response = await streamSessionPrep(body, (event) => {
+        setStreamEvents((current) => [...current.slice(-11), event]);
+      });
       setResult(response);
       setSelection(fullSelection(response.output));
       setLastAcceptResult(null);
@@ -406,6 +407,17 @@ export function SessionPrepWorkbench() {
           </button>
         </div>
       </form>
+
+      {generating && streamEvents.length > 0 && (
+        <section className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+          <h2 className="font-semibold">Agent al lavoro</h2>
+          <ul className="mt-2 space-y-1 text-xs">
+            {streamEvents.map((event, index) => (
+              <li key={`${event}-${index}`}>{event}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {result && selection && (
         <div className="space-y-4">
@@ -713,6 +725,87 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error(message);
   }
   return (await res.json()) as T;
+}
+
+async function streamSessionPrep(
+  body: Record<string, unknown>,
+  onEvent: (message: string) => void,
+): Promise<GenerateResponse> {
+  const res = await fetch("/api/session-prep/generate/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok || !res.body) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalResult: GenerateResponse | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary >= 0) {
+      const block = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      const parsed = parseSseBlock(block);
+      if (parsed) {
+        if (parsed.event === "result") {
+          finalResult = parsed.data as GenerateResponse;
+        } else if (parsed.event === "error") {
+          const data = parsed.data as { message?: string };
+          throw new Error(data.message ?? "Session prep stream failed");
+        } else {
+          onEvent(describeStreamEvent(parsed.event, parsed.data));
+        }
+      }
+      boundary = buffer.indexOf("\n\n");
+    }
+  }
+
+  if (!finalResult) throw new Error("Stream completato senza risultato finale.");
+  return finalResult;
+}
+
+function parseSseBlock(block: string): { event: string; data: unknown } | null {
+  const eventLine = block
+    .split("\n")
+    .find((line) => line.startsWith("event: "));
+  const dataLine = block
+    .split("\n")
+    .find((line) => line.startsWith("data: "));
+  if (!eventLine || !dataLine) return null;
+  try {
+    return {
+      event: eventLine.slice("event: ".length),
+      data: JSON.parse(dataLine.slice("data: ".length)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function describeStreamEvent(event: string, data: unknown): string {
+  if (typeof data !== "object" || data === null) return event;
+  const record = data as Record<string, unknown>;
+  if (event === "iteration_start") return `Iterazione ${record.iteration}`;
+  if (event === "tool_start") {
+    return `Tool: ${String(record.toolName)}...`;
+  }
+  if (event === "tool_result") {
+    const trace = record.trace as { toolName?: string; durationMs?: number };
+    return `Tool: ${trace.toolName ?? "?"} completato in ${trace.durationMs ?? "?"} ms`;
+  }
+  if (event === "tool_error") {
+    return `Errore tool ${String(record.toolName ?? "?")}: ${String(record.message ?? "?")}`;
+  }
+  if (event === "done") return "Output strutturato pronto.";
+  return event;
 }
 
 function messageForError(err: unknown): string {

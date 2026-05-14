@@ -41,8 +41,7 @@ async function main() {
   try {
     const llm = getLLMProvider();
     const out = await llm.complete("Rispondi solo: OK", {
-      temperature: 0,
-      maxTokens: 5,
+      maxTokens: 16,
     });
     console.log(`  [OK]   complete via router: "${out.trim().slice(0, 60)}"`);
   } catch (err) {

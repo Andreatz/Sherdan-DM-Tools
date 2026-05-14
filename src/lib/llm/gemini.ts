@@ -368,6 +368,8 @@ function sanitizeJsonSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) return schema.map(sanitizeJsonSchema);
   if (schema === null || typeof schema !== "object") return schema;
 
+  const input = schema as Record<string, unknown>;
+
   const dropKeys = new Set([
     "$schema",
     "$id",
@@ -376,7 +378,11 @@ function sanitizeJsonSchema(schema: unknown): unknown {
     "additionalProperties",
     "patternProperties",
     "not",
+    // Gemini non supporta `const` nel responseSchema.
+    // Lo convertiamo sotto in `enum: [value]`.
+    "const",
   ]);
+
   const supportedFormats = new Set([
     "date",
     "date-time",
@@ -390,15 +396,29 @@ function sanitizeJsonSchema(schema: unknown): unknown {
   ]);
 
   const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(schema as Record<string, unknown>)) {
+
+  for (const [key, value] of Object.entries(input)) {
     if (dropKeys.has(key)) continue;
+
     if (
       key === "format" &&
       typeof value === "string" &&
       !supportedFormats.has(value)
-    )
+    ) {
       continue;
+    }
+
     out[key] = sanitizeJsonSchema(value);
   }
+
+  // Zod literal -> JSON Schema `const`.
+  // Gemini non accetta `const`, ma accetta l'equivalente `enum` a valore singolo.
+  if (
+    Object.prototype.hasOwnProperty.call(input, "const") &&
+    out.enum === undefined
+  ) {
+    out.enum = [input.const];
+  }
+
   return out;
 }

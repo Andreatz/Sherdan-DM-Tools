@@ -31,7 +31,7 @@ export interface RuleSearchResult {
   hits: RuleSearchHit[];
   metadata: {
     sources: string[] | null;
-    rankersUsed: ("vector" | "trigram")[];
+    rankersUsed: ("vector" | "trigram" | "rerank")[];
     vectorCandidates: number;
     trigramCandidates: number;
     embeddingStatus: "available" | "unavailable" | "skipped";
@@ -42,6 +42,7 @@ export interface RulesSearchDependencies {
   // Funzione che produce l'embedding della query. Iniettabile per i
   // test (no Ollama in unit). Tipico: `getLLMProvider().embed(text)`.
   embedQuery: (query: string) => Promise<number[]>;
+  rerankHits?: (query: string, hits: RuleSearchHit[]) => Promise<RuleSearchHit[]>;
 }
 
 export async function searchRules(
@@ -108,16 +109,23 @@ export async function searchRules(
     }
   }
 
-  const hits = merged
+  let hits = merged
     .map((entry) => buildHit(entry, rowsById))
     .filter((hit): hit is RuleSearchHit => hit !== null);
+
+  if (input.rerank && deps.rerankHits && hits.length > 1) {
+    hits = await deps.rerankHits(input.query, hits.slice(0, input.rerankTopK));
+  }
 
   return {
     query: input.query,
     hits,
     metadata: {
       sources: input.sources ?? null,
-      rankersUsed: rankings.map((r) => r.name),
+      rankersUsed: [
+        ...rankings.map((r) => r.name),
+        ...(input.rerank ? (["rerank"] as const) : []),
+      ],
       vectorCandidates: vectorRanking?.candidates.length ?? 0,
       trigramCandidates: trigramRanking.candidates.length,
       embeddingStatus: vectorRanking
@@ -276,4 +284,3 @@ function buildHit(
 function toPgVectorLiteral(vector: number[]): string {
   return `[${vector.join(",")}]`;
 }
-
