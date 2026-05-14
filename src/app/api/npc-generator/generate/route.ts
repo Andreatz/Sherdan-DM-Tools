@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { fail, ok } from "@/lib/api/respond";
+import { ensureLlmEnabledForRoute } from "@/lib/llm/guards";
 import {
   NpcGeneratorContextRetriever,
   buildNpcGeneratorPrompt,
@@ -12,6 +13,7 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    ensureLlmEnabledForRoute();
     const body = (await req.json()) as unknown;
     const input = npcGeneratorPreviewRequestSchema.parse(body);
     const context = await new NpcGeneratorContextRetriever().retrieve(input);

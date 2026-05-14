@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import type {
@@ -170,7 +171,11 @@ const ENCOUNTER_DIFFICULTY_OPTIONS: EncounterSuggesterDifficulty[] = [
   "deadly",
 ];
 
-export function MonsterBrowser() {
+export function MonsterBrowser({
+  llmDisabled = false,
+}: {
+  llmDisabled?: boolean;
+}) {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [plotThreads, setPlotThreads] = useState<PlotThreadRow[]>([]);
@@ -476,6 +481,10 @@ export function MonsterBrowser() {
 
   async function generateAssist() {
     if (!filters.campaignId) return;
+    if (llmDisabled) {
+      setAssistError("LLM server-side disabilitato. Usa ChatGPT Bridge.");
+      return;
+    }
     setAssisting(true);
     setAssistError(null);
     try {
@@ -824,14 +833,23 @@ export function MonsterBrowser() {
               Genera una composizione dai candidati validi e note tattiche.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={generateAssist}
-            disabled={assisting || !filters.campaignId}
-            className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200"
-          >
-            {assisting ? "Genero..." : "Genera assist"}
-          </button>
+          {llmDisabled ? (
+            <Link
+              href="/chatgpt-bridge"
+              className="inline-flex h-10 items-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200"
+            >
+              Esporta prompt per ChatGPT
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={generateAssist}
+              disabled={assisting || !filters.campaignId}
+              className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200"
+            >
+              {assisting ? "Genero..." : "Genera assist"}
+            </button>
+          )}
         </div>
 
         <label className="mt-4 grid gap-1">

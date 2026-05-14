@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import type {
@@ -83,7 +84,11 @@ const EMPTY_DRAFT: DraftState = {
   focus: "",
 };
 
-export function SessionPrepWorkbench() {
+export function SessionPrepWorkbench({
+  llmDisabled = false,
+}: {
+  llmDisabled?: boolean;
+}) {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [sessionList, setSessionList] = useState<SessionRow[]>([]);
@@ -185,6 +190,10 @@ export function SessionPrepWorkbench() {
 
   async function generate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (llmDisabled) {
+      setError("LLM server-side disabilitato. Usa ChatGPT Bridge.");
+      return;
+    }
     if (!draft.campaignId) return;
     setGenerating(true);
     setError(null);
@@ -289,6 +298,14 @@ export function SessionPrepWorkbench() {
             encounter, briciole + un &quot;previously on&quot; sicuro per i giocatori.
           </p>
         </div>
+        {llmDisabled && (
+          <Link
+            href="/chatgpt-bridge"
+            className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+          >
+            LLM off: usa ChatGPT Bridge
+          </Link>
+        )}
         <div className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
           {selectedCampaignName}
         </div>
@@ -398,13 +415,22 @@ export function SessionPrepWorkbench() {
           />
         </label>
         <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={generating || !draft.campaignId}
-            className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-          >
-            {generating ? "Sto preparando..." : "Genera prep"}
-          </button>
+          {llmDisabled ? (
+            <Link
+              href="/chatgpt-bridge"
+              className="inline-flex h-10 items-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+            >
+              Prepara pacchetto ChatGPT
+            </Link>
+          ) : (
+            <button
+              type="submit"
+              disabled={generating || !draft.campaignId}
+              className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+            >
+              {generating ? "Sto preparando..." : "Genera prep"}
+            </button>
+          )}
         </div>
       </form>
 

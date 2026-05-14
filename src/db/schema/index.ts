@@ -1,4 +1,5 @@
 export * from "./campaigns";
+export * from "./chatgpt-bridge";
 export * from "./encounters";
 export * from "./entities";
 export * from "./enums";

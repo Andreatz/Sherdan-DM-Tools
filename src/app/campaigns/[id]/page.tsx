@@ -17,6 +17,7 @@ import {
   sessions,
 } from "@/db/schema";
 import { getLogger } from "@/lib/logger";
+import { env } from "@/lib/env";
 import { EntityLinkEditor } from "@/components/entity-link-editor";
 import { EntityIdentityManager } from "@/components/entity-identity-manager";
 import { EntityGraphView } from "@/components/entity-graph-view";
@@ -611,6 +612,7 @@ export default async function CampaignDetailPage({
       <SessionRecapEditor
         sessions={campaignSessions}
         entityNames={campaignEntityNames}
+        llmDisabled={env.LLM_PROVIDER === "none"}
       />
       <PlaceholderSection title="Plot Threads" comingIn="Fase 6" />
       <PlaceholderSection title="Briciole di Verita'" comingIn="Fase 6" />

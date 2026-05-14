@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import type { z } from "zod";
 
 import { fail, ok } from "@/lib/api/respond";
+import { ensureLlmEnabledForRoute } from "@/lib/llm/guards";
 import {
   NpcGeneratorContextRetriever,
   applyNpcRerollPatch,
@@ -15,6 +16,7 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    ensureLlmEnabledForRoute();
     const body = (await req.json()) as unknown;
     const request = npcGeneratorRerollRequestSchema.parse(body);
     const context = await new NpcGeneratorContextRetriever().retrieve(

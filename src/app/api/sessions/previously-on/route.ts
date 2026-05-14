@@ -5,6 +5,7 @@ import { db } from "@/db/client";
 import { sessions } from "@/db/schema";
 import { BadRequestError, NotFoundError } from "@/lib/api/errors";
 import { fail, ok } from "@/lib/api/respond";
+import { ensureLlmEnabledForRoute } from "@/lib/llm/guards";
 import {
   generatePreviouslyOn,
   previouslyOnInputSchema,
@@ -12,6 +13,7 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    ensureLlmEnabledForRoute();
     const body = (await req.json()) as unknown;
     const input = previouslyOnInputSchema.parse(body);
 

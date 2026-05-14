@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -79,7 +80,11 @@ const FIELD_LABELS: Record<string, string> = {
   narrativeDensity: "Densita",
 };
 
-export function LootGeneratorWorkbench() {
+export function LootGeneratorWorkbench({
+  llmDisabled = false,
+}: {
+  llmDisabled?: boolean;
+}) {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [entities, setEntities] = useState<EntityRow[]>([]);
   const [encounters, setEncounters] = useState<EncounterRow[]>([]);
@@ -253,6 +258,10 @@ export function LootGeneratorWorkbench() {
 
   async function generatePreview(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (llmDisabled) {
+      setError("LLM server-side disabilitato. Usa ChatGPT Bridge.");
+      return;
+    }
     const result = lootGeneratorInputSchema.safeParse(draft);
     if (!result.success) {
       setError(formatValidationError(result.error.issues));
@@ -327,6 +336,7 @@ export function LootGeneratorWorkbench() {
             Fase 4
           </p>
         </div>
+        {llmDisabled && <BridgeModeBadge />}
         <div className="rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
           {selectedCampaign?.name ?? "Nessuna campagna"}
         </div>
@@ -493,13 +503,22 @@ export function LootGeneratorWorkbench() {
                   </span>
                 ) : null}
               </div>
-              <button
-                type="submit"
-                disabled={generating || !draft.campaignId}
-                className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-              >
-                {generating ? "Genero..." : "Genera preview"}
-              </button>
+              {llmDisabled ? (
+                <Link
+                  href="/chatgpt-bridge"
+                  className="inline-flex h-10 items-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                >
+                  Esporta prompt per ChatGPT
+                </Link>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={generating || !draft.campaignId}
+                  className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                >
+                  {generating ? "Genero..." : "Genera preview"}
+                </button>
+              )}
             </div>
           </form>
 
@@ -544,6 +563,17 @@ export function LootGeneratorWorkbench() {
         </aside>
       </div>
     </div>
+  );
+}
+
+function BridgeModeBadge() {
+  return (
+    <Link
+      href="/chatgpt-bridge"
+      className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+    >
+      LLM off: usa ChatGPT Bridge
+    </Link>
   );
 }
 

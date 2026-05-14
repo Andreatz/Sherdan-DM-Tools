@@ -834,6 +834,48 @@ Apri la sessione, i giocatori si connettono dal cellulare, vedono la scena, scop
 
 ---
 
+## Fase 12 - ChatGPT Web Bridge / LLM none ✅ + hardening in corso
+
+**Avviata il 2026-05-15** · **Tool sbloccato**: ✅ ChatGPT Web Bridge manuale
+
+### Goal
+Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI nel progetto: l'app prepara export strutturati, il DM copia/incolla in ChatGPT, poi importa output e UPDATE PACK in modo controllato nel database Sherdan.
+
+### Cosa è chiuso
+- [x] Route e UI `/chatgpt-bridge` con export, import, revisione e apply selettivo.
+- [x] Libreria server-only `src/lib/chatgpt-bridge/*` con query contestuali, builder export, parser import e update pack.
+- [x] Prompt reale caricato da `content/sherdan/Agente AI Worldbuilding.md`, con fallback sul nome typo `Agente AI Worlbuilding.md` e fallback interno.
+- [x] Tabelle `chatgpt_bridge_exports` e `chatgpt_bridge_imports` + migration `0005`.
+- [x] Export Markdown con contesto campagna/sessione, entità, thread, briciole, regole e template operativo per ChatGPT.
+- [x] Import controllato: analisi, salvataggio session prep, creazione opzionale sessione mancante, review UPDATE PACK e apply selettivo.
+- [x] Modalità `LLM_PROVIDER=none`: env valida, `pnpm llm:ping` non fallisce, provider disabilitato esplicito.
+- [x] Guard server-side su tutte le route generative storiche: quando l'LLM è disabilitato rispondono con CTA al Bridge.
+- [x] UI dei tool generativi aggiornata con alternativa Bridge invece di azioni LLM non disponibili.
+- [x] Test unitari per export/import/update pack, env `none`, guard LLM disabilitato.
+- [x] Smoke E2E Bridge e content safety aggiornati per includere il prompt Worldbuilding.
+
+### Backlog ancora aperto
+- [x] Setup automatico DB di test locale (`sherdan_dm_test`) per integrazione/E2E senza override manuali.
+  - _Note implementative: aggiunti `pnpm test:db:setup`, `pnpm test:integration:local` e `pnpm test:e2e:local`. Il DB `_test` viene derivato da `DATABASE_URL`, creato se manca, protetto da guardia sul nome (`test`/`ci`) e inizializzato con `vector` + `pg_trgm`. Verificato: integrazione locale 26 test verdi; E2E local `--list` vede 3 test._
+- [x] Matching UPDATE PACK più intelligente: fuzzy match su nomi/alias/session number e warning su ambiguità.
+  - _Note implementative: `reviewUpdatePack` ora normalizza accenti/articoli/punteggiatura, usa scoring fuzzy Dice/substring, include alias da `entity_identities`, segnala match fuzzy e rifiuta candidati ambigui. Applicato a sessioni, plot thread, NPC e PC hook._
+- [ ] UPDATE PACK esteso a identità, segreti, link, fazioni, dungeon/location e handout.
+- [ ] Budget contesto più selettivo: scoring per sessione, thread attivi, entità in scena e regole rilevanti.
+- [ ] Review UI più ricca: diff compatto, raggruppamento per target e indicatore rischio leak player-facing.
+- [ ] Import page dedicata opzionale per incollare output lunghi fuori dal workbench principale.
+- [ ] Esecuzione completa integrazione/E2E su DB di test locale con script unico.
+- [ ] Decision log finale: perché Bridge manuale + `LLM_PROVIDER=none` è il percorso primario del progetto.
+
+### Prossimo ordine di esecuzione
+1. Ridurre il rumore dell'export con relevance budget.
+2. Raffinare la review UI.
+3. Ampliare i tipi di update applicabili.
+
+### Definition of done
+Con `LLM_PROVIDER=none`, il DM può preparare una sessione Sherdan usando solo `/chatgpt-bridge`: esporta contesto, lavora in ChatGPT Web, importa output, revisiona UPDATE PACK e applica modifiche al DB senza leak verso i giocatori e senza route generative attive.
+
+---
+
 ## Cross-cutting concerns (spalmati su tutte le fasi)
 
 - **Test**: minimum unit test su roller logic, CR calculator, validation schemas, parser Sherdan (Fase 1.5). Integration test su API CRUD.
@@ -867,6 +909,7 @@ Apri la sessione, i giocatori si connettono dal cellulare, vedono la scena, scop
 | 18 | Fase 9 | Rules Lookup |
 | 19-20 | Fase 10 | Player Dashboard |
 | 21+ | Fase 11 | Polish ongoing |
+| 22+ | Fase 12 | ChatGPT Web Bridge / LLM none hardening |
 
 A 10-15h/settimana sei "feature-complete" in ~5-6 mesi. Più realisticamente 6-7 mesi tenendo conto di vita, blocchi tecnici, e sessioni di gioco da masterare con quello che hai costruito finora.
 

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { fail, ok } from "@/lib/api/respond";
+import { ensureLlmEnabledForRoute } from "@/lib/llm/guards";
 import {
   dungeonContentInputSchema,
   generateDungeonContent,
@@ -8,6 +9,7 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    ensureLlmEnabledForRoute();
     const body = (await req.json()) as unknown;
     const input = dungeonContentInputSchema.parse(body);
     const result = await generateDungeonContent(input);

@@ -3,7 +3,7 @@ import { env } from "@/lib/env";
 import { GeminiProvider } from "./gemini";
 import { OllamaProvider } from "./ollama";
 import { RoutedProvider } from "./router";
-import type { LLMProvider } from "./types";
+import { LLMError, type LLMProvider } from "./types";
 import { OpenAIProvider } from "./openai";
 
 export * from "./types";
@@ -19,7 +19,9 @@ let cached: LLMProvider | undefined;
  * - embedding: SEMPRE Ollama (mxbai-embed-large 1024-dim) per stabilita' del
  *   vector space. La decisione e' isolata dalla scelta del chat provider.
  * - chat: dipende da `LLM_PROVIDER`.
- *   - `gemini` (default): Gemini come primario, Ollama come fallback su
+ *   - `none`: nessun provider chat server-side; le chiamate falliscono con
+ *     messaggio esplicito e il ChatGPT Web Bridge resta disponibile.
+ *   - `gemini`: Gemini come primario, Ollama come fallback su
  *     errori transient (rete/5xx/429).
  *   - `ollama`: Ollama unico provider.
  *
@@ -27,6 +29,11 @@ let cached: LLMProvider | undefined;
  */
 export function getLLMProvider(): LLMProvider {
   if (cached) return cached;
+
+  if (env.LLM_PROVIDER === "none") {
+    cached = new DisabledLLMProvider();
+    return cached;
+  }
 
   const ollama = new OllamaProvider({
     baseUrl: env.OLLAMA_BASE_URL,
@@ -85,4 +92,34 @@ export function getLLMProvider(): LLMProvider {
 /** Reset del singleton — utile in test. */
 export function resetLLMProviderCache(): void {
   cached = undefined;
+}
+
+class DisabledLLMProvider implements LLMProvider {
+  complete(): Promise<string> {
+    return Promise.reject(disabledError());
+  }
+
+  completeStructured<T>(): Promise<T> {
+    return Promise.reject(disabledError());
+  }
+
+  async *stream(): AsyncIterable<string> {
+    throw disabledError();
+  }
+
+  embed(): Promise<number[]> {
+    return Promise.reject(disabledError());
+  }
+
+  embedBatch(): Promise<number[][]> {
+    return Promise.reject(disabledError());
+  }
+}
+
+function disabledError() {
+  return new LLMError(
+    "LLM_PROVIDER=none: LLM server-side disabilitato. Usa ChatGPT Web Bridge.",
+    undefined,
+    503,
+  );
 }

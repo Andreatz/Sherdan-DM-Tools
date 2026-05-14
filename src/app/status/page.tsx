@@ -10,6 +10,7 @@ const SHERDAN_SOURCE_FILES = [
   "Campagna.md",
   "Background Personaggi.md",
   "Manuale del Giocatore.md",
+  "Agente AI Worldbuilding.md",
 ] as const;
 
 // Vocabolario unico per status sidebar/status-page/README:
@@ -32,6 +33,7 @@ const featureRows = [
   ["Generation log", "Pronto", "Audit di ogni chiamata LLM (input/prompt/output/latency/status) su generation_log."],
   ["Player Dashboard", "Pronto", "Per-player, realtime, scena live, handout/mappa/fog, policy entity granulari e push WebSocket."],
   ["Session Prep Assistant", "Pronto", "Agent LLM con tool read-only + rules_search + generate_npc/encounter/loot, streaming progressivo via SSE e accept granulare in record reali."],
+  ["ChatGPT Web Bridge", "Pronto", "Export markdown/JSON per ChatGPT web, import controllato, UPDATE PACK, review manuale e LLM_PROVIDER=none."],
   ["Rules Lookup", "Pronto", "Hybrid search + Q&A con citazioni, corpus Sherdan + SRD 2014, reranker opzionale e shortcut globale."],
   ["Procedural Dungeon Generator", "Pronto", "Layout BSP, contenuto LLM per stanza, re-roll e salvataggio nel Wiki."],
   ["Polish Fase 11", "Pronto", "Command palette Cmd-K globale, tema dark/light, import/export JSON, re-export Markdown, paginazione log e cost monitoring LLM."],

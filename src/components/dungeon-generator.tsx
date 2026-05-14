@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import type {
@@ -45,7 +46,11 @@ const ROOM_KIND_COLORS: Record<DungeonRoomKind, { fill: string; stroke: string; 
   trick: { fill: "#c084fc", stroke: "#6b21a8", label: "Trick/Puzzle" },
 };
 
-export function DungeonGenerator() {
+export function DungeonGenerator({
+  llmDisabled = false,
+}: {
+  llmDisabled?: boolean;
+}) {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [dungeon, setDungeon] = useState<DungeonMapData | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
@@ -136,6 +141,10 @@ export function DungeonGenerator() {
 
   async function handleGenerateContent(targetRoomIds?: string[]) {
     if (!dungeon) return;
+    if (llmDisabled) {
+      setContentError("LLM server-side disabilitato. Usa ChatGPT Bridge.");
+      return;
+    }
     const isReroll = Boolean(targetRoomIds && targetRoomIds.length > 0);
     if (isReroll && targetRoomIds) {
       setRerollingRoomId(targetRoomIds[0] ?? null);
@@ -261,6 +270,7 @@ export function DungeonGenerator() {
           onGenerate={handleGenerate}
           onRollSeed={handleRoll}
           onGenerateContent={() => handleGenerateContent()}
+          llmDisabled={llmDisabled}
           onSaveToWiki={handleSaveToWiki}
         />
 
@@ -279,6 +289,7 @@ export function DungeonGenerator() {
           contentError={contentError}
           rerolling={rerollingRoomId === selectedRoomId}
           canReroll={Boolean(dungeon && content.length > 0 && selectedRoom)}
+          llmDisabled={llmDisabled}
           onReroll={() =>
             selectedRoom && handleGenerateContent([selectedRoom.id])
           }
@@ -309,6 +320,7 @@ interface ParametersPanelProps {
   onGenerate: () => void;
   onRollSeed: () => void;
   onGenerateContent: () => void;
+  llmDisabled: boolean;
   onSaveToWiki: () => void;
 }
 
@@ -333,6 +345,7 @@ function ParametersPanel({
   onGenerate,
   onRollSeed,
   onGenerateContent,
+  llmDisabled,
   onSaveToWiki,
 }: ParametersPanelProps) {
   return (
@@ -449,18 +462,27 @@ function ParametersPanel({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={onGenerateContent}
-          disabled={!canGenerateContent || contentLoading}
-          className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-        >
-          {contentLoading
-            ? "LLM..."
-            : hasContent
-              ? "Rigenera tutto"
-              : "Genera contenuti LLM"}
-        </button>
+        {llmDisabled ? (
+          <Link
+            href="/chatgpt-bridge"
+            className="block w-full rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-center text-sm font-medium text-emerald-800 transition-colors hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+          >
+            Prepara pacchetto ChatGPT
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onGenerateContent}
+            disabled={!canGenerateContent || contentLoading}
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            {contentLoading
+              ? "LLM..."
+              : hasContent
+                ? "Rigenera tutto"
+                : "Genera contenuti LLM"}
+          </button>
+        )}
 
         <hr className="border-zinc-200 dark:border-zinc-800" />
 
@@ -759,6 +781,7 @@ interface RoomDetailPanelProps {
   contentError: string | null;
   rerolling: boolean;
   canReroll: boolean;
+  llmDisabled: boolean;
   onReroll: () => void;
 }
 
@@ -769,6 +792,7 @@ function RoomDetailPanel({
   contentError,
   rerolling,
   canReroll,
+  llmDisabled,
   onReroll,
 }: RoomDetailPanelProps) {
   return (
@@ -807,6 +831,7 @@ function RoomDetailPanel({
               content={roomContent}
               rerolling={rerolling}
               canReroll={canReroll}
+              llmDisabled={llmDisabled}
               onReroll={onReroll}
             />
           ) : (
@@ -826,6 +851,7 @@ interface RoomContentViewProps {
   content: DungeonRoomContent;
   rerolling: boolean;
   canReroll: boolean;
+  llmDisabled: boolean;
   onReroll: () => void;
 }
 
@@ -833,6 +859,7 @@ function RoomContentView({
   content,
   rerolling,
   canReroll,
+  llmDisabled,
   onReroll,
 }: RoomContentViewProps) {
   return (
@@ -841,14 +868,23 @@ function RoomContentView({
         <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
           {content.title}
         </h3>
-        <button
-          type="button"
-          onClick={onReroll}
-          disabled={!canReroll || rerolling}
-          className="rounded border border-zinc-300 px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          {rerolling ? "..." : "Rigenera"}
-        </button>
+        {llmDisabled ? (
+          <Link
+            href="/chatgpt-bridge"
+            className="rounded border border-emerald-300 px-2 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-950/40"
+          >
+            ChatGPT Bridge
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onReroll}
+            disabled={!canReroll || rerolling}
+            className="rounded border border-zinc-300 px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            {rerolling ? "..." : "Rigenera"}
+          </button>
+        )}
       </div>
       <ContentSection label="Descrizione (player-facing)" body={content.description} />
       <ContentSection label="Encounter" body={content.encounterHook} />

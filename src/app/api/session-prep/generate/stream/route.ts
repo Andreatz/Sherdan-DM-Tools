@@ -1,5 +1,7 @@
 import type { NextRequest } from "next/server";
 
+import { fail } from "@/lib/api/respond";
+import { ensureLlmEnabledForRoute } from "@/lib/llm/guards";
 import {
   runSessionPrepAgent,
   sessionPrepInputSchema,
@@ -11,8 +13,14 @@ function sse(event: string, data: unknown) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as unknown;
-  const input = sessionPrepInputSchema.parse(body);
+  let input;
+  try {
+    ensureLlmEnabledForRoute();
+    const body = (await req.json()) as unknown;
+    input = sessionPrepInputSchema.parse(body);
+  } catch (err) {
+    return fail(err);
+  }
   const encoder = new TextEncoder();
   const stream = new TransformStream<Uint8Array, Uint8Array>();
   const writer = stream.writable.getWriter();

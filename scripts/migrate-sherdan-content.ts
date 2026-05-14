@@ -9,6 +9,7 @@ const SHERDAN_SOURCE_FILES = [
   "Background Personaggi.md",
   "Manuale del Giocatore.md",
   "La Forgia di Sherdan - Sistema di Crafting.md",
+  "Agente AI Worldbuilding.md",
 ] as const;
 
 const root = process.cwd();

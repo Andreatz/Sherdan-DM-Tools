@@ -83,6 +83,7 @@ File attesi:
 - `Campagna.md`
 - `Background Personaggi.md`
 - `Manuale del Giocatore.md`
+- `Agente AI Worldbuilding.md`
 
 Flusso consigliato:
 
@@ -179,7 +180,7 @@ http://localhost:3000/status
 
 ```txt
 DATABASE_URL=postgresql://sherdan:sherdan_dev@localhost:5432/sherdan_dm
-LLM_PROVIDER=gemini
+LLM_PROVIDER=none
 GOOGLE_AI_API_KEY=
 GEMINI_MODEL=gemini-3-flash-preview
 OLLAMA_BASE_URL=http://localhost:11434
@@ -193,7 +194,7 @@ Per usare il Player Dashboard locale:
 SHERDAN_PLAYER_ACCESS_CODE=un-codice-lungo-non-indovinabile
 ```
 
-Nota: l'accesso player attuale è sufficiente per uso locale/privato, ma non è ancora un sistema multiutente completo. Mancano ruoli per campagna, rate limit, auditing, rotazione token/sessioni avanzata e hardening da deploy pubblico.
+Nota: con `LLM_PROVIDER=none` nessuna route deve chiamare provider LLM server-side. Usa `/chatgpt-bridge` per esportare pacchetti manuali verso ChatGPT web.
 
 Verifica allineamento env:
 
@@ -252,7 +253,8 @@ Cosa viene importato:
 - `Lore.md` -> luoghi, organizzazioni, divinità, descrizione pubblica e verità GM;
 - `Campagna.md` -> sessioni, plot thread e prep notes separate;
 - `Background Personaggi.md` -> PG, alias e identità;
-- `Manuale del Giocatore.md` -> documenti regole.
+- `Manuale del Giocatore.md` -> documenti regole;
+- `Agente AI Worldbuilding.md` -> prompt Architetto di Mondi usato dal ChatGPT Web Bridge.
 
 L'import è idempotente: rilanciarlo aggiorna i record esistenti invece di duplicarli.
 
@@ -343,29 +345,27 @@ pnpm build
 pnpm exec playwright install chromium
 
 # Esegui lo smoke E2E (avvia un dev server temporaneo sulla porta 3100)
-DATABASE_URL="postgres://sherdan:sherdan_dev@localhost:5432/sherdan_dm_test" \
-SHERDAN_PLAYER_ACCESS_CODE="e2e-fallback-secret" pnpm test:e2e
+pnpm test:e2e:local
 
 # UI Playwright per debug
 pnpm test:e2e:ui
 ```
 
-I test E2E coprono il flusso player end-to-end: login per-player → visibility scoping (solo entity public/discovered visibili) → override revealed (player vede `dm_only`) → override hidden (player non vede più entity public).
+I test E2E coprono il flusso player end-to-end e uno smoke ChatGPT Bridge: export pacchetto, import output finto, rilevamento UPDATE PACK.
 
 ### Test integrazione DB/API
 
 ```bash
-# 1. una tantum: crea un DB Postgres dedicato ai test
-docker exec sherdan-postgres psql -U sherdan -d sherdan_dm \
-  -c "CREATE DATABASE sherdan_dm_test OWNER sherdan"
-docker exec sherdan-postgres psql -U sherdan -d sherdan_dm_test \
-  -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+# Una tantum o quando vuoi verificare il setup:
+pnpm test:db:setup
 
-# 2. esegui i test (il setup applica le migration + svuota le tabelle prima di ogni test)
-DATABASE_URL="postgres://sherdan:sherdan_dev@localhost:5432/sherdan_dm_test" pnpm test:integration
+# Esegui i test su un DB locale derivato da DATABASE_URL, es. sherdan_dm_test.
+pnpm test:integration:local
 ```
 
 Il setup di sicurezza richiede che il DB usato dai test abbia `test` nel nome (o sia `ci`): è una guardia per evitare di TRUNCATE-are il DB di sviluppo per errore.
+
+`pnpm test:db:setup` crea automaticamente il database `_test` gemello del `DATABASE_URL` corrente e abilita `vector` + `pg_trgm`.
 
 ### Database
 
@@ -374,6 +374,7 @@ pnpm db:generate
 pnpm db:migrate
 pnpm db:push
 pnpm db:ping
+pnpm test:db:setup
 pnpm db:seed
 pnpm db:seed:tables
 ```
@@ -559,8 +560,9 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 - Rate limit attivo: login `/api/player/access/login` 5 tentativi / 15 min per IP, altre API player 120 req / minuto per IP.
 - Override visibilità per giocatore: ogni entità, `truth_clue` o `entity_secret` può essere `hidden` o `revealed` per uno specifico player. UI DM disponibile nei pannelli "Visibilita' per giocatore" della entity detail, del Truth Clue Tracker e dell'Entity Secret Manager. Il pannello live della campagna aggiunge anche la policy globale per ogni entity esposta (`name_only`, `public_description`, `discovered_description`).
 - `generation_log` ora cattura ogni chiamata LLM (NPC/Loot/Encounter assist) con input, prompt, output, status e latenza, ma `input_tokens`/`output_tokens`/`cost_usd` restano `null` finché `LLMProvider` non espone l'usage del provider.
+- ChatGPT Web Bridge (`/chatgpt-bridge`) esporta contesto markdown/JSON per ChatGPT web, importa output incollato, rileva UPDATE PACK e applica solo modifiche selezionate dopo review.
 - Encounter Builder copre il flusso DM (browser mostri, CR calculator, LLM assist, marker "usato in sessione"); un combat tracker run-time (iniziativa, HP live, condizioni) resta fuori scope per ora.
-- Test di integrazione DB/API in posto (`pnpm test:integration`, 5 file, 19 test su campaigns/entities/player auth/leakage/truth-clues) + smoke E2E browser player.
+- Test di integrazione DB/API in posto (`pnpm test:integration`) + smoke E2E browser player e ChatGPT Bridge.
 - I seed delle Random Tables sono stato locale DB: rilanciare `pnpm db:seed:tables` dopo reset del database.
 
 ---

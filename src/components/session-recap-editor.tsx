@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import {
@@ -25,9 +26,11 @@ interface EntityName {
 export function SessionRecapEditor({
   sessions,
   entityNames,
+  llmDisabled = false,
 }: {
   sessions: SessionRecapRow[];
   entityNames: EntityName[];
+  llmDisabled?: boolean;
 }) {
   const [selectedId, setSelectedId] = useState(sessions[0]?.id ?? "");
   const selectedSession = sessions.find((session) => session.id === selectedId);
@@ -119,6 +122,10 @@ export function SessionRecapEditor({
 
   async function generatePreviouslyOn() {
     if (!selectedId) return;
+    if (llmDisabled) {
+      setStatus("LLM server-side disabilitato. Usa ChatGPT Bridge.");
+      return;
+    }
     setGeneratingPreviouslyOn(true);
     setStatus(null);
     try {
@@ -159,14 +166,23 @@ export function SessionRecapEditor({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={generatePreviouslyOn}
-            disabled={generatingPreviouslyOn || !selectedId}
-            className="h-10 rounded-md border border-zinc-300 px-4 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            {generatingPreviouslyOn ? "Genero..." : "Previously on"}
-          </button>
+          {llmDisabled ? (
+            <Link
+              href="/chatgpt-bridge"
+              className="inline-flex h-10 items-center rounded-md border border-emerald-300 px-4 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-950/40"
+            >
+              Esporta recap ChatGPT
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={generatePreviouslyOn}
+              disabled={generatingPreviouslyOn || !selectedId}
+              className="h-10 rounded-md border border-zinc-300 px-4 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {generatingPreviouslyOn ? "Genero..." : "Previously on"}
+            </button>
+          )}
           <button
             type="button"
             onClick={saveSessionNotes}

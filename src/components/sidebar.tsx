@@ -57,6 +57,7 @@ const NAV: NavGroup[] = [
     title: "Assistenti",
     items: [
       { label: "Session Prep", href: "/session-prep", status: "Pronto" },
+      { label: "ChatGPT Bridge", href: "/chatgpt-bridge", status: "Beta" },
       { label: "Rules Lookup", href: "/rules", status: "Pronto" },
     ],
   },

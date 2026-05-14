@@ -5,6 +5,7 @@ import { db } from "@/db/client";
 import { entities, pcHooks, plotThreads, truthClues } from "@/db/schema";
 import { BadRequestError } from "@/lib/api/errors";
 import { fail, ok } from "@/lib/api/respond";
+import { ensureLlmEnabledForRoute } from "@/lib/llm/guards";
 import {
   encounterAssistInputSchema,
   type EncounterNarrativeContext,
@@ -27,6 +28,7 @@ const monsterColumns = {
 
 export async function POST(req: NextRequest) {
   try {
+    ensureLlmEnabledForRoute();
     const body = (await req.json()) as unknown;
     const input = encounterAssistInputSchema.parse(body);
 

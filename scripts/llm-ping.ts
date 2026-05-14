@@ -24,6 +24,11 @@ async function main() {
   console.log(`LLM_PROVIDER=${env.LLM_PROVIDER}`);
   console.log();
 
+  if (env.LLM_PROVIDER === "none") {
+    console.log("LLM disabled. ChatGPT Web Bridge mode active.");
+    return;
+  }
+
   let geminiOk = false;
   let ollamaChatOk = false;
   let ollamaEmbedOk = false;

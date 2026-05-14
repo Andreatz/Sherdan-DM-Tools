@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { AppError } from "@/lib/api/errors";
 import { fail, ok } from "@/lib/api/respond";
 import { runGenerator } from "@/lib/generators";
+import { ensureLlmEnabledForRoute } from "@/lib/llm/guards";
 import {
   LootGenerator,
   LootItemResolver,
@@ -12,6 +13,7 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    ensureLlmEnabledForRoute();
     const body = (await req.json()) as unknown;
     const result = await runGenerator(new LootGenerator(), body, {
       persist: false,
