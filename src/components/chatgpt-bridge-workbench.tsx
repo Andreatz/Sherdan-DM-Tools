@@ -187,6 +187,41 @@ const BRIDGE_PRESETS: BridgePreset[] = [
     },
   },
   {
+    label: "Downtime",
+    description: "Scelte personali, conseguenze e micro-archi.",
+    patch: {
+      taskType: "session_brief",
+      density: "Standard",
+      audience: "gm",
+      includeSecrets: true,
+      includePcHooks: true,
+      includeFactions: true,
+      includeTruthClues: true,
+      includePlayerFacingState: false,
+      focus:
+        "Downtime tra sessioni: obiettivi personali dei PG, contatti, risorse, conseguenze e piccoli avanzamenti di trama.",
+      constraints:
+        "Organizza opzioni per PG, costi/tempi, rischi leggeri, scene brevi e conseguenze sul canon. Evita di risolvere archi principali fuori scena.",
+    },
+  },
+  {
+    label: "Viaggio",
+    description: "Tappe, incontri, scoperte e ritmo.",
+    patch: {
+      taskType: "session_md",
+      density: "Table-Ready",
+      audience: "gm",
+      includeSecrets: true,
+      includePcHooks: true,
+      includeFactions: true,
+      includeTruthClues: true,
+      focus:
+        "Viaggio giocabile con tappe significative, ostacoli, incontri, scoperte ambientali e pressione narrativa.",
+      constraints:
+        "Dai a ogni tappa una scelta o informazione utile. Alterna quiete, pericolo e meraviglia. Non usare incontri riempitivi casuali.",
+    },
+  },
+  {
     label: "Recap giocatori",
     description: "Player-facing, senza segreti GM.",
     patch: {

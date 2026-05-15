@@ -881,6 +881,7 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
   - _Note implementative (2026-05-15): la Review & Apply marca come alto rischio update sessione/entity e creazione di identita', segreti o link. Se almeno una di queste change e' selezionata, il bottone Apply resta disabilitato finche' il DM non conferma esplicitamente._
 - [x] Preset Bridge: sessione politica, dungeon, heist, recap giocatori, audit anti-railroad.
   - _Note implementative (2026-05-15): il workbench Bridge include preset rapidi che precompilano task type, densita', audience, sezioni incluse, focus e vincoli. I preset preservano campagna/sessione/location gia' selezionate e il recap giocatori forza audience `player` con segreti disabilitati._
+  - _Hardening: aggiunti preset Downtime e Viaggio per prep tra sessioni, micro-archi PG, tappe, incontri e scoperte ambientali._
 - [x] Copy-for-ChatGPT da ogni pagina entity/session/plot/clue.
   - _Note implementative (2026-05-15): aggiunto componente condiviso `CopyForChatGptButton` e montato su entity detail, sessione selezionata, plot thread selezionato e singola truth clue. Ogni bottone copia un blocco Markdown canonico con campi GM/player separati e contesto correlato già formattato per ChatGPT Web._
 - [x] Canon Diff per output importati.
@@ -905,11 +906,15 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
   - _Note implementative (2026-05-15): `/session-run` ha refresh manuale, auto-refresh 15s e indicatori compatti per scena, iniziativa, entita attive e briciole aperte. `/combat-tracker` salva l'ordine iniziativa gia ordinato e include reset rapido encounter._
 - [x] Contradiction Detector deterministico.
   - _Note implementative (2026-05-15): aggiunti `GET /api/contradictions` e `/contradictions`. Il detector scansiona canon locale senza LLM e segnala nomi duplicati, collisioni alias/identita, identita vere multiple, link relazionali incoerenti, gap player-facing e briciole aperte su thread risolti._
+- [x] Workflow di risoluzione guidata dal Detector verso gli editor canonici.
+  - _Note implementative: ogni issue mostra checklist di risoluzione, link agli editor rilevanti (Campaign Wiki, Plot Threads, Truth Clues, Spoiler Gate) e copia della checklist per appunti._
+- [x] Export report Contradiction Detector in Markdown.
+  - _Note implementative: aggiunta utility `buildContradictionReportMarkdown` e azioni UI "Copia report" / "Scarica .md" nella pagina `/contradictions`._
 
 ### Prossimo ordine di esecuzione
-1. Preset Bridge aggiuntivi per downtime e viaggio.
-2. Workflow di risoluzione guidata dal Detector verso gli editor canonici.
-3. Export report Contradiction Detector in Markdown.
+1. Preset Bridge aggiuntivi per eventi politici complessi e flashback.
+2. Deep link per aprire direttamente la singola entity/clue/thread dall'audit.
+3. Quick fix sicuri dal Detector per casi non ambigui.
 
 ### Definition of done
 Con `LLM_PROVIDER=none`, il DM può preparare una sessione Sherdan usando solo `/chatgpt-bridge`: esporta contesto, lavora in ChatGPT Web, importa output, revisiona UPDATE PACK e applica modifiche al DB senza leak verso i giocatori e senza route generative attive.

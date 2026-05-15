@@ -3,36 +3,21 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  buildContradictionReportMarkdown,
+  resolutionChecklist,
+} from "@/lib/contradictions/report-markdown";
+import type {
+  ContradictionIssue,
+  ContradictionReport,
+} from "@/lib/contradictions/detector";
+
 interface CampaignRow {
   id: string;
   name: string;
 }
 
-type Severity = "high" | "medium" | "low";
-
-interface ContradictionIssue {
-  id: string;
-  severity: Severity;
-  category: string;
-  title: string;
-  detail: string;
-  targets: Array<{
-    type: string;
-    id: string;
-    label: string;
-  }>;
-  suggestedAction: string;
-}
-
-interface ContradictionReport {
-  summary: {
-    total: number;
-    high: number;
-    medium: number;
-    low: number;
-  };
-  issues: ContradictionIssue[];
-}
+type Severity = ContradictionIssue["severity"];
 
 export function ContradictionDetectorWorkbench() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
@@ -40,6 +25,7 @@ export function ContradictionDetectorWorkbench() {
   const [report, setReport] = useState<ContradictionReport | null>(null);
   const [severity, setSeverity] = useState<"all" | Severity>("all");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,6 +78,48 @@ export function ContradictionDetectorWorkbench() {
       ? issues
       : issues.filter((issue) => issue.severity === severity);
   }, [report?.issues, severity]);
+  const selectedCampaignName =
+    campaigns.find((campaign) => campaign.id === campaignId)?.name ??
+    "Campagna";
+  const reportMarkdown = report
+    ? buildContradictionReportMarkdown({
+        campaignName: selectedCampaignName,
+        report,
+      })
+    : "";
+
+  async function copyReport() {
+    if (!reportMarkdown) return;
+    await navigator.clipboard.writeText(reportMarkdown);
+    setMessage("Report Contradiction Detector copiato.");
+  }
+
+  function downloadReport() {
+    if (!reportMarkdown) return;
+    const blob = new Blob([reportMarkdown], {
+      type: "text/markdown;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `contradiction-report-${slugify(selectedCampaignName)}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setMessage("Report Markdown scaricato.");
+  }
+
+  async function copyIssueChecklist(issue: ContradictionIssue) {
+    const markdown = [
+      `# ${issue.title}`,
+      "",
+      issue.detail,
+      "",
+      "## Checklist",
+      ...resolutionChecklist(issue).map((step) => `- [ ] ${step}`),
+    ].join("\n");
+    await navigator.clipboard.writeText(markdown);
+    setMessage("Checklist issue copiata.");
+  }
 
   return (
     <div className="space-y-6">
@@ -131,6 +159,11 @@ export function ContradictionDetectorWorkbench() {
           {error}
         </div>
       )}
+      {message && (
+        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+          {message}
+        </div>
+      )}
 
       <section className="grid gap-4 md:grid-cols-4">
         <Stat label="Totale" value={String(report?.summary.total ?? 0)} tone="neutral" />
@@ -143,6 +176,22 @@ export function ContradictionDetectorWorkbench() {
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <h2 className="text-sm font-semibold">Issue rilevate</h2>
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={copyReport}
+              disabled={!report || report.issues.length === 0}
+              className="h-8 rounded-md border border-zinc-300 px-3 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              Copia report
+            </button>
+            <button
+              type="button"
+              onClick={downloadReport}
+              disabled={!report || report.issues.length === 0}
+              className="h-8 rounded-md border border-zinc-300 px-3 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              Scarica .md
+            </button>
             {(["all", "high", "medium", "low"] as const).map((value) => (
               <button
                 key={value}
@@ -186,9 +235,41 @@ export function ContradictionDetectorWorkbench() {
                   <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-200">
                     {issue.suggestedAction}
                   </p>
+                  <details className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300">
+                      Risoluzione guidata
+                    </summary>
+                    <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-zinc-700 dark:text-zinc-200">
+                      {resolutionChecklist(issue).map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {resolutionLinks(issue, campaignId).map((link) => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          className="inline-flex h-8 items-center rounded-md bg-zinc-900 px-3 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => void copyIssueChecklist(issue)}
+                        className="inline-flex h-8 items-center rounded-md border border-zinc-300 px-3 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      >
+                        Copia checklist
+                      </button>
+                    </div>
+                  </details>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {issue.targets.map((target) => (
-                      <TargetLink key={`${issue.id}-${target.type}-${target.id}`} target={target} />
+                      <TargetLink
+                        key={`${issue.id}-${target.type}-${target.id}`}
+                        campaignId={campaignId}
+                        target={target}
+                      />
                     ))}
                   </div>
                 </div>
@@ -239,11 +320,13 @@ function SeverityBadge({ severity }: { severity: Severity }) {
 }
 
 function TargetLink({
+  campaignId,
   target,
 }: {
+  campaignId: string;
   target: ContradictionIssue["targets"][number];
 }) {
-  const href = targetHref(target);
+  const href = targetHref(target, campaignId);
   const content = (
     <span className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-700 dark:border-zinc-800 dark:text-zinc-200">
       {target.label}
@@ -252,13 +335,46 @@ function TargetLink({
   return href ? <Link href={href}>{content}</Link> : content;
 }
 
-function targetHref(target: ContradictionIssue["targets"][number]) {
-  if (target.type === "entity" || target.type === "identity") {
-    return `/campaigns?entity=${encodeURIComponent(target.id)}`;
+function targetHref(
+  target: ContradictionIssue["targets"][number],
+  campaignId: string,
+) {
+  if (!campaignId) return null;
+  if (target.type === "entity" || target.type === "identity" || target.type === "link") {
+    return `/campaigns/${encodeURIComponent(campaignId)}`;
   }
   if (target.type === "plot_thread") return "/plot-threads";
   if (target.type === "truth_clue") return "/truth-clues";
   return null;
+}
+
+function resolutionLinks(issue: ContradictionIssue, campaignId: string) {
+  const links: Array<{ label: string; href: string }> = [];
+  if (
+    [
+      "duplicate_name",
+      "alias_collision",
+      "identity_conflict",
+      "relationship_conflict",
+      "visibility_gap",
+    ].includes(issue.category) &&
+    campaignId
+  ) {
+    links.push({
+      label: "Apri Campaign Wiki",
+      href: `/campaigns/${encodeURIComponent(campaignId)}`,
+    });
+  }
+  if (["plot_state"].includes(issue.category)) {
+    links.push({ label: "Apri Plot Threads", href: "/plot-threads" });
+  }
+  if (["plot_state", "clue_state"].includes(issue.category)) {
+    links.push({ label: "Apri Truth Clues", href: "/truth-clues" });
+  }
+  if (issue.category === "visibility_gap") {
+    links.push({ label: "Apri Spoiler Gate", href: "/reveal-tracker" });
+  }
+  return links;
 }
 
 function severityLabel(value: "all" | Severity) {
@@ -276,6 +392,15 @@ function severityLabel(value: "all" | Severity) {
 
 function categoryLabel(category: string) {
   return category.replaceAll("_", " ");
+}
+
+function slugify(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 async function apiFetch<T>(url: string): Promise<T> {

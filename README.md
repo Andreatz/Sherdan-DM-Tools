@@ -530,7 +530,7 @@ Cosa viene importato:
 ### ChatGPT Web Bridge
 
 - Export markdown contestuale.
-- Preset operativi per politica, dungeon, heist, recap giocatori e audit anti-railroad.
+- Preset operativi per politica, dungeon, heist, downtime, viaggio, recap giocatori e audit anti-railroad.
 - Copy-for-ChatGPT da entity, sessioni, plot thread e truth clue.
 - Prompt Architetto di Mondi incluso o sintetico.
 - Relevance budgeting per densità.
@@ -551,7 +551,8 @@ Cosa viene importato:
 - Route `/contradictions`.
 - Audit deterministico senza LLM su canon locale.
 - Rileva nomi entity duplicati, collisioni alias/identita, identita vere multiple, link relazionali incoerenti, gap player-facing e briciole aperte su thread risolti.
-- Mostra severita alta/media/bassa, target coinvolti e azione consigliata.
+- Mostra severita alta/media/bassa, target coinvolti, azione consigliata e checklist di risoluzione guidata.
+- Esporta/copia il report in Markdown per audit o note di sessione.
 - Utile prima di export Bridge, recap player-facing o reveal importanti.
 
 ---
@@ -731,9 +732,9 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 
 ### Priorità futura
 
-1. Preset Bridge aggiuntivi per downtime e viaggio.
-2. Workflow di risoluzione guidata dal Detector verso gli editor canonici.
-3. Export report Contradiction Detector in Markdown.
+1. Preset Bridge aggiuntivi per eventi politici complessi e flashback.
+2. Deep link per aprire direttamente la singola entity/clue/thread dall'audit.
+3. Quick fix sicuri dal Detector per casi non ambigui.
 
 
 ---
