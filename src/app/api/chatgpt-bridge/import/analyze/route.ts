@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { sessions } from "@/db/schema";
 import { fail, ok } from "@/lib/api/respond";
-import { buildCanonDiff } from "@/lib/chatgpt-bridge/canon-diff";
+import { buildSessionCanonDiff } from "@/lib/chatgpt-bridge/canon-diff";
 import {
   analyzeChatGptBridgeImport,
   chatGptBridgeImportAnalyzeInputSchema,
@@ -41,14 +41,11 @@ export async function POST(req: NextRequest) {
     if (!session) return ok(analyzed);
     return ok({
       ...analyzed,
-      canonDiff: buildCanonDiff({
+      canonDiff: buildSessionCanonDiff({
         importedMarkdown: analyzed.markdownWithoutUpdatePack,
         comparedTo: `Sessione ${session.number}${session.title ? ` - ${session.title}` : ""}`,
-        canonSections: [
-          { label: "Recap", markdown: session.recap },
-          { label: "DM notes", markdown: session.dmNotes },
-          { label: "Prep notes", markdown: session.prepNotes },
-        ],
+        session,
+        updatePack: analyzed.updatePack,
       }),
     });
   } catch (err) {

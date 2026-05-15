@@ -97,6 +97,7 @@ Vocabolario stato:
 | Rules Lookup | Pronto | Search ibrida RRF, citazioni, corpus homebrew/SRD, Q&A opzionale. |
 | Procedural Dungeon Generator | Pronto / Opzionale | Layout BSP deterministico; contenuto LLM opzionale. |
 | ChatGPT Web Bridge | Pronto | Export/import manuale, Update Pack, review & apply. |
+| Contradiction Detector | Pronto | Audit deterministico di nomi, alias, relazioni, visibilita e stato trama. |
 | NPC Generator | Opzionale | Richiede LLM server-side se usato come generatore automatico. |
 | Loot Generator | Opzionale | Richiede LLM server-side per generazione automatica. |
 | Encounter Builder | Pronto / Opzionale | Browser/CR calculator pronto; assist LLM opzionale. |
@@ -127,6 +128,7 @@ Vocabolario stato:
 | `/dungeon-generator` | Pronto / Opzionale | Layout dungeon e contenuto assistito. |
 | `/chatgpt-bridge` | Pronto | Export/import manuale per ChatGPT web. |
 | `/chatgpt-bridge/history` | Pronto | Storico export/import Bridge, warning e apply. |
+| `/contradictions` | Pronto | Detector deterministico di incoerenze nel canon. |
 | `/generation-log` | Pronto | Log chiamate LLM quando abilitate. |
 | `/npc-generator` | Opzionale | Generatore automatico via LLM. |
 | `/loot-generator` | Opzionale | Generatore automatico via LLM. |
@@ -535,6 +537,7 @@ Cosa viene importato:
 - Audience GM/player.
 - Import output ChatGPT.
 - Canon Diff deterministico sugli import confrontati con recap, DM notes e prep notes della sessione.
+- Canon Diff campo-per-campo per titolo, recap, DM notes e prep notes.
 - Session Debrief Import verso `dmNotes`.
 - Parsing `UPDATE PACK`.
 - Review e apply selettivo.
@@ -542,6 +545,14 @@ Cosa viene importato:
 - Conferma extra per modifiche ad alto rischio.
 - Storico export/import.
 - Dashboard compatta delle ultime modifiche applicate.
+
+### Contradiction Detector
+
+- Route `/contradictions`.
+- Audit deterministico senza LLM su canon locale.
+- Rileva nomi entity duplicati, collisioni alias/identita, identita vere multiple, link relazionali incoerenti, gap player-facing e briciole aperte su thread risolti.
+- Mostra severita alta/media/bassa, target coinvolti e azione consigliata.
+- Utile prima di export Bridge, recap player-facing o reveal importanti.
 
 ---
 
@@ -714,15 +725,15 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 
 ### Priorità alta
 
-1. Rifinitura UX delle viste da tavolo dopo uso reale in sessione.
-2. Contradiction Detector deterministico.
-3. Campo-per-campo per Canon Diff.
+1. [x] Rifinitura UX delle viste da tavolo dopo uso reale in sessione.
+2. [x] Contradiction Detector deterministico.
+3. [x] Campo-per-campo per Canon Diff.
 
 ### Priorità futura
 
-1. Contradiction Detector deterministico.
-2. Campo-per-campo per Canon Diff.
-3. Preset Bridge aggiuntivi per eventi politici complessi, downtime e viaggio.
+1. Preset Bridge aggiuntivi per downtime e viaggio.
+2. Workflow di risoluzione guidata dal Detector verso gli editor canonici.
+3. Export report Contradiction Detector in Markdown.
 
 
 ---

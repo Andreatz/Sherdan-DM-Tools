@@ -885,6 +885,7 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
   - _Note implementative (2026-05-15): aggiunto componente condiviso `CopyForChatGptButton` e montato su entity detail, sessione selezionata, plot thread selezionato e singola truth clue. Ogni bottone copia un blocco Markdown canonico con campi GM/player separati e contesto correlato già formattato per ChatGPT Web._
 - [x] Canon Diff per output importati.
   - _Note implementative (2026-05-15): `POST /api/chatgpt-bridge/import/analyze` confronta il markdown importato con recap, DM notes e prep notes della sessione target quando disponibile. La UI mostra similarita', righe nuove nell'import e righe presenti solo nel canon attuale._
+  - _Hardening (2026-05-15): aggiunto diff campo-per-campo per titolo, recap, DM notes e prep notes. Le candidate arrivano prima dall'UPDATE PACK (`title`, `recapCandidate`, `dmNotesCandidate`, `prepNotesCandidate`) e poi da heading Markdown deterministici._
 - [x] Session Debrief Import post-sessione.
   - _Note implementative (2026-05-15): il salvataggio import supporta `confirmAppendToDmNotes`, appende il markdown alle `dmNotes` come "Debrief ChatGPT Web Bridge" e puo' creare la sessione mancante con la stessa opzione gia' usata dalle prep notes._
 - [x] Dashboard compatta delle ultime modifiche applicate via Bridge.
@@ -900,11 +901,15 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
   - _Note implementative (2026-05-15): `/knowledge-matrix` ora crea/aggiorna/cancella override `entity` per singolo player. `/reveal-tracker` gestisce party reveal/protezione su briciole e segreti, piu' override `truth_clue`/`entity_secret` per-player._
 - [x] Combat Tracker runtime.
   - _Note implementative (2026-05-15): aggiunti `/combat-tracker` e UI runtime basata su `player_dashboard_states.initiative`. Gestisce active/pausa, round, combattenti, iniziativa, HP/note, salvataggio e push realtime al Player Dashboard._
+- [x] Rifinitura UX viste da tavolo.
+  - _Note implementative (2026-05-15): `/session-run` ha refresh manuale, auto-refresh 15s e indicatori compatti per scena, iniziativa, entita attive e briciole aperte. `/combat-tracker` salva l'ordine iniziativa gia ordinato e include reset rapido encounter._
+- [x] Contradiction Detector deterministico.
+  - _Note implementative (2026-05-15): aggiunti `GET /api/contradictions` e `/contradictions`. Il detector scansiona canon locale senza LLM e segnala nomi duplicati, collisioni alias/identita, identita vere multiple, link relazionali incoerenti, gap player-facing e briciole aperte su thread risolti._
 
 ### Prossimo ordine di esecuzione
-1. Contradiction Detector deterministico.
-2. Campo-per-campo per Canon Diff.
-3. Preset Bridge aggiuntivi per downtime e viaggio.
+1. Preset Bridge aggiuntivi per downtime e viaggio.
+2. Workflow di risoluzione guidata dal Detector verso gli editor canonici.
+3. Export report Contradiction Detector in Markdown.
 
 ### Definition of done
 Con `LLM_PROVIDER=none`, il DM può preparare una sessione Sherdan usando solo `/chatgpt-bridge`: esporta contesto, lavora in ChatGPT Web, importa output, revisiona UPDATE PACK e applica modifiche al DB senza leak verso i giocatori e senza route generative attive.

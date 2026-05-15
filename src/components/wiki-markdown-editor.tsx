@@ -937,13 +937,18 @@ export function WikiMarkdownEditor({
               contentEditable={
                 <ContentEditable className="min-h-64 px-4 py-3 text-sm leading-7 text-zinc-900 outline-none dark:text-zinc-100" />
               }
-              placeholder={
-                <div className="pointer-events-none absolute px-4 py-3 text-sm text-zinc-400 dark:text-zinc-500">
-                  Scrivi markdown...
-                </div>
-              }
+              placeholder={null}
               ErrorBoundary={LexicalErrorBoundary}
             />
+
+            {markdown.trim().length === 0 && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-0 top-0 px-4 py-3 text-sm text-zinc-400 dark:text-zinc-500"
+              >
+                Scrivi markdown...
+              </div>
+            )}
             <HistoryPlugin />
             <WikiLinkTransformPlugin />
             <WikiLinkAutocompletePlugin

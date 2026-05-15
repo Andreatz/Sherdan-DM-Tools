@@ -189,6 +189,7 @@ export const updatePackSchema = z
         title: z.string().optional(),
         recapCandidate: z.string().optional(),
         dmNotesCandidate: z.string().optional(),
+        prepNotesCandidate: z.string().optional(),
       })
       .optional(),
     plotThreadUpdates: z

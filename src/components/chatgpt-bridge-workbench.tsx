@@ -66,6 +66,23 @@ interface AnalyzeResponse {
   warnings: string[];
   canonDiff?: {
     comparedTo: string;
+    fieldSummary?: {
+      total: number;
+      changed: number;
+      missing: number;
+      averageSimilarity: number;
+    };
+    fields?: Array<{
+      field: "title" | "recap" | "dmNotes" | "prepNotes";
+      label: string;
+      source: "update_pack" | "markdown_heading" | "markdown_title" | "missing";
+      similarity: number;
+      changed: boolean;
+      imported: string | null;
+      canon: string | null;
+      added: string[];
+      removed: string[];
+    }>;
     sections: Array<{
       label: string;
       similarity: number;
@@ -929,6 +946,39 @@ function CanonDiffPanel({
         </div>
       </div>
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
+        {diff.fieldSummary ? (
+          <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100 lg:col-span-3">
+            Campo-per-campo: {diff.fieldSummary.changed} campi cambiati,
+            {" "}
+            {diff.fieldSummary.missing} non rilevati, similarita media{" "}
+            {Math.round(diff.fieldSummary.averageSimilarity * 100)}%.
+          </div>
+        ) : null}
+        {diff.fields?.map((field) => (
+          <details
+            key={field.field}
+            className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <summary className="cursor-pointer">
+              <span className="inline-flex w-full flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+                <span>{field.label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] ring-1 ring-inset ${field.changed ? "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950 dark:text-amber-300" : "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950 dark:text-emerald-300"}`}>
+                  {field.changed ? "cambiato" : "uguale"}
+                </span>
+                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  {fieldSourceLabel(field.source)}
+                </span>
+                <span className="ml-auto rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  {Math.round(field.similarity * 100)}%
+                </span>
+              </span>
+            </summary>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <MiniTextDiff title="Import" value={field.imported} rows={field.added} tone="plus" />
+              <MiniTextDiff title="Canon" value={field.canon} rows={field.removed} tone="minus" />
+            </div>
+          </details>
+        ))}
         {diff.sections.map((section) => (
           <div
             key={section.label}
@@ -949,6 +999,61 @@ function CanonDiffPanel({
       </div>
     </div>
   );
+}
+
+function MiniTextDiff({
+  title,
+  value,
+  rows,
+  tone,
+}: {
+  title: string;
+  value: string | null;
+  rows: string[];
+  tone: "plus" | "minus";
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+        {title}
+      </div>
+      <pre className="mt-1 max-h-32 overflow-auto rounded border border-zinc-200 bg-zinc-50 p-2 text-[11px] leading-4 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
+        {value?.trim() || "Non rilevato."}
+      </pre>
+      {rows.length > 0 ? (
+        <ul className="mt-2 max-h-24 space-y-1 overflow-auto text-xs">
+          {rows.map((row, index) => (
+            <li
+              key={`${title}-${index}-${row}`}
+              className={
+                tone === "plus"
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : "text-amber-700 dark:text-amber-300"
+              }
+            >
+              {tone === "plus" ? "+ " : "- "}
+              {row}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function fieldSourceLabel(
+  source: "update_pack" | "markdown_heading" | "markdown_title" | "missing",
+) {
+  switch (source) {
+    case "update_pack":
+      return "update pack";
+    case "markdown_heading":
+      return "heading md";
+    case "markdown_title":
+      return "titolo md";
+    case "missing":
+      return "non rilevato";
+  }
 }
 
 function DiffList({

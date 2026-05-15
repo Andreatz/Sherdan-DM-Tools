@@ -89,6 +89,8 @@ export function SessionRunMode() {
   const [sessionId, setSessionId] = useState("");
   const [payload, setPayload] = useState<SessionRunPayload | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -164,7 +166,15 @@ export function SessionRunMode() {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, sessionId]);
+  }, [campaignId, sessionId, refreshTick]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const id = window.setInterval(() => {
+      setRefreshTick((current) => current + 1);
+    }, 15000);
+    return () => window.clearInterval(id);
+  }, [autoRefresh]);
 
   const initiativeTurns = useMemo(() => {
     const turns = payload?.dashboardState?.initiative?.turns;
@@ -213,12 +223,28 @@ export function SessionRunMode() {
 
       {error && <ErrorBox message={error} />}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <CopyForChatGptButton text={copyText} />
         <LinkButton href="/player">Player Dashboard</LinkButton>
         <LinkButton href="/sessions">Sessioni</LinkButton>
         <LinkButton href="/plot-threads">Plot Threads</LinkButton>
         <LinkButton href="/truth-clues">Briciole</LinkButton>
+        <button
+          type="button"
+          onClick={() => setRefreshTick((current) => current + 1)}
+          disabled={loading}
+          className="inline-flex h-9 items-center rounded-md border border-zinc-300 px-3 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          Aggiorna
+        </button>
+        <label className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-300 px-3 text-xs font-medium dark:border-zinc-700">
+          <input
+            type="checkbox"
+            checked={autoRefresh}
+            onChange={(event) => setAutoRefresh(event.target.checked)}
+          />
+          <span>Auto 15s</span>
+        </label>
       </div>
 
       {loading ? (
@@ -226,6 +252,30 @@ export function SessionRunMode() {
       ) : !payload ? (
         <Panel title="Vuoto">Seleziona una campagna per iniziare.</Panel>
       ) : (
+        <>
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <RunStat
+            label="Scena"
+            value={payload.dashboardState?.sceneTitle ? "Pubblicata" : "Vuota"}
+            tone={payload.dashboardState?.sceneTitle ? "good" : "warn"}
+          />
+          <RunStat
+            label="Iniziativa"
+            value={`${initiativeTurns.length} turni`}
+            tone={initiativeTurns.length > 0 ? "good" : "neutral"}
+          />
+          <RunStat
+            label="Entita attive"
+            value={String(payload.activeEntities.length)}
+            tone={payload.activeEntities.length > 0 ? "good" : "neutral"}
+          />
+          <RunStat
+            label="Briciole aperte"
+            value={String(payload.unresolvedClues.length)}
+            tone={payload.unresolvedClues.length > 0 ? "warn" : "good"}
+          />
+        </section>
+
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
           <section className="space-y-5">
             <Panel title={payload.dashboardState?.sceneTitle || "Scena live"}>
@@ -357,6 +407,7 @@ export function SessionRunMode() {
             </Panel>
           </aside>
         </div>
+        </>
       )}
     </div>
   );
@@ -468,6 +519,28 @@ function LinkButton({ href, children }: { href: string; children: ReactNode }) {
     >
       {children}
     </Link>
+  );
+}
+
+function RunStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "neutral" | "good" | "warn";
+}) {
+  const toneClassName = {
+    neutral: "text-zinc-950 dark:text-zinc-50",
+    good: "text-emerald-700 dark:text-emerald-300",
+    warn: "text-amber-700 dark:text-amber-300",
+  }[tone];
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <p className="text-xs font-semibold uppercase text-zinc-500">{label}</p>
+      <p className={`mt-1 text-xl font-semibold ${toneClassName}`}>{value}</p>
+    </div>
   );
 }
 

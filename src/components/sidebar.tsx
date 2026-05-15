@@ -58,6 +58,7 @@ const NAV: NavGroup[] = [
       { label: "Session Prep", href: "/session-prep", status: "Opzionale" },
       { label: "ChatGPT Bridge", href: "/chatgpt-bridge", status: "Pronto" },
       { label: "Bridge storico", href: "/chatgpt-bridge/history", status: "Pronto" },
+      { label: "Contradiction Detector", href: "/contradictions", status: "Pronto" },
       { label: "Rules Lookup", href: "/rules", status: "Pronto" },
     ],
   },

@@ -34,6 +34,7 @@ const featureRows = [
   ["Rules Lookup", "Pronto", "Search ibrida RRF, citazioni, corpus homebrew/SRD e Q&A opzionale."],
   ["Procedural Dungeon Generator", "Pronto / Opzionale", "Layout BSP deterministico; contenuto LLM opzionale."],
   ["ChatGPT Web Bridge", "Pronto", "Export/import manuale, Update Pack, review & apply."],
+  ["Contradiction Detector", "Pronto", "Audit deterministico di nomi, alias, relazioni, visibilita e stato trama."],
   ["NPC Generator", "Opzionale", "Richiede LLM server-side se usato come generatore automatico."],
   ["Loot Generator", "Opzionale", "Richiede LLM server-side per generazione automatica."],
   ["Encounter Builder", "Pronto / Opzionale", "Browser/CR calculator pronto; assist LLM opzionale."],

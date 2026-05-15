@@ -151,7 +151,7 @@ export function CombatTrackerWorkbench() {
         method: "PATCH",
         body: JSON.stringify({
           campaignId,
-          initiative: serializeInitiative(initiative),
+          initiative: serializeInitiative({ ...initiative, turns: sortedTurns }),
         }),
       });
       if (push) {
@@ -235,6 +235,13 @@ export function CombatTrackerWorkbench() {
               className="h-9 rounded-md border border-zinc-300 px-3 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
             >
               + Round
+            </button>
+            <button
+              type="button"
+              onClick={() => setInitiative(EMPTY_INITIATIVE)}
+              className="h-9 rounded-md border border-red-200 px-3 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950"
+            >
+              Reset
             </button>
           </div>
         </div>
