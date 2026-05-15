@@ -23,7 +23,7 @@ test("chatgpt bridge: export, analyze fake output and review update pack", async
   ).toBeVisible();
   await expect(page.getByText("Nessuna API chiamata")).toBeVisible();
 
-  await page.getByLabel("Sessione").fill("9");
+  await page.getByRole("spinbutton", { name: "Sessione" }).fill("9");
   await page.getByRole("button", { name: "Genera pacchetto" }).click();
   await expect(page.getByText("`/sessione --md 9`")).toBeVisible();
 
@@ -51,4 +51,3 @@ test("chatgpt bridge: export, analyze fake output and review update pack", async
   await page.getByRole("button", { name: "Analizza output" }).click();
   await expect(page.getByText("UPDATE PACK: presente")).toBeVisible();
 });
-

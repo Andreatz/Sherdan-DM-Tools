@@ -14,10 +14,16 @@ describe("updatePackSchema", () => {
       truthClueUpdates: [{ description: "Clue", truthRevealed: "Verita" }],
       npcUpdates: [{ name: "PNG", state: "Ferito" }],
       newHooks: [{ pc: "Axton", target: "Duca", hookDescription: "Ricatto" }],
+      newIdentities: [{ entity: "Malakor", name: "Dante il Fortunato" }],
+      newSecrets: [{ entity: "Malakor", layer: "deep", content: "Verita nascosta" }],
+      newLinks: [{ source: "Malakor", target: "Duca", relationType: "manipulates" }],
     });
 
     expect(parsed.session?.number).toBe(9);
     expect(parsed.newHooks).toHaveLength(1);
+    expect(parsed.newIdentities).toHaveLength(1);
+    expect(parsed.newSecrets).toHaveLength(1);
+    expect(parsed.newLinks).toHaveLength(1);
   });
 });
 

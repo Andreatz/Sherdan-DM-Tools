@@ -123,4 +123,36 @@ describe("buildChatGptBridgeExport", () => {
     expect(result.markdown).not.toContain("Il casato e compromesso");
     expect(result.warnings).toContain("Modalita player-facing attiva: campi GM-only filtrati.");
   });
+
+  it("applica un relevance budget in base a densita e focus", async () => {
+    const manyClues = Array.from({ length: 20 }, (_, index) => ({
+      id: `00000000-0000-4000-8000-0000000010${String(index).padStart(2, "0")}`,
+      description:
+        index === 17
+          ? "La chiave di Obsidium vibra sotto il porto"
+          : `Briciola laterale ${index}`,
+      truthRevealed:
+        index === 17 ? "Obsidium collega il porto al rituale." : "Dettaglio minore",
+      status: index === 17 ? "noticed" : "planted",
+      statusNotes: null,
+    }));
+
+    const result = await buildChatGptBridgeExport(
+      {
+        ...baseInput,
+        density: "Light",
+        focus: "Obsidium porto",
+      },
+      {
+        ...context,
+        truthClues: manyClues,
+      },
+    );
+
+    expect(result.markdown).toContain("La chiave di Obsidium");
+    expect(result.markdown).not.toContain("Briciola laterale 19");
+    expect(result.warnings.some((warning) => warning.includes("Relevance budget"))).toBe(
+      true,
+    );
+  });
 });

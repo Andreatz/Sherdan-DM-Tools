@@ -859,17 +859,20 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
   - _Note implementative: aggiunti `pnpm test:db:setup`, `pnpm test:integration:local` e `pnpm test:e2e:local`. Il DB `_test` viene derivato da `DATABASE_URL`, creato se manca, protetto da guardia sul nome (`test`/`ci`) e inizializzato con `vector` + `pg_trgm`. Verificato: integrazione locale 26 test verdi; E2E local `--list` vede 3 test._
 - [x] Matching UPDATE PACK più intelligente: fuzzy match su nomi/alias/session number e warning su ambiguità.
   - _Note implementative: `reviewUpdatePack` ora normalizza accenti/articoli/punteggiatura, usa scoring fuzzy Dice/substring, include alias da `entity_identities`, segnala match fuzzy e rifiuta candidati ambigui. Applicato a sessioni, plot thread, NPC e PC hook._
-- [ ] UPDATE PACK esteso a identità, segreti, link, fazioni, dungeon/location e handout.
-- [ ] Budget contesto più selettivo: scoring per sessione, thread attivi, entità in scena e regole rilevanti.
-- [ ] Review UI più ricca: diff compatto, raggruppamento per target e indicatore rischio leak player-facing.
-- [ ] Import page dedicata opzionale per incollare output lunghi fuori dal workbench principale.
-- [ ] Esecuzione completa integrazione/E2E su DB di test locale con script unico.
-- [ ] Decision log finale: perché Bridge manuale + `LLM_PROVIDER=none` è il percorso primario del progetto.
+- [x] UPDATE PACK esteso a identità, segreti e link tra entità.
+  - _Note implementative: schema UPDATE PACK esteso con `newIdentities`, `newSecrets` e `newLinks`; review/apply crea rispettivamente `entity_identities`, `entity_secrets` ed `entity_links`, usando il fuzzy matcher/alias già introdotto. Le istruzioni export ora mostrano anche i nuovi blocchi JSON._
+- [x] Budget contesto più selettivo: scoring per sessione, thread attivi, entità in scena e regole rilevanti.
+  - _Note implementative: l'export applica un relevance budget per densità (`Light`, `Standard`, `Full`, `Table-Ready`, `Design-Only`) su sessioni, plot thread, briciole, segreti, hook e fazioni. Lo scoring usa focus/vincoli/location, vicinanza alla sessione, status, priority/layer e aggiunge warning quando taglia una sezione._
+- [x] Review UI più ricca: diff compatto, raggruppamento per target e indicatore rischio leak player-facing.
+  - _Note implementative: il workbench Bridge mostra conteggio selezionati, select/deselect all, warning dedicati, badge tipo/rischio (`creazione` vs `modifica`) e pannello espandibile con `before`/`after`/`applyPayload` per ogni change._
+- [x] Import page dedicata opzionale per incollare output lunghi fuori dal workbench principale.
+  - _Note implementative: aggiunta `/chatgpt-bridge/import`, che riusa il workbench in modalità `import-only` con selettore campagna e senza pannello export._
+- [x] Esecuzione completa integrazione/E2E su DB di test locale con script unico.
+  - _Note implementative: `pnpm test:integration:local` passa 26 test; `pnpm test:e2e:local` passa 3 smoke browser. Playwright usa `NEXT_DIST_DIR=.next-e2e` per non collidere con un `next dev` già aperto._
+- [x] Decision log finale: perché Bridge manuale + `LLM_PROVIDER=none` è il percorso primario del progetto.
 
 ### Prossimo ordine di esecuzione
-1. Ridurre il rumore dell'export con relevance budget.
-2. Raffinare la review UI.
-3. Ampliare i tipi di update applicabili.
+1. Ampliare i tipi di update applicabili.
 
 ### Definition of done
 Con `LLM_PROVIDER=none`, il DM può preparare una sessione Sherdan usando solo `/chatgpt-bridge`: esporta contesto, lavora in ChatGPT Web, importa output, revisiona UPDATE PACK e applica modifiche al DB senza leak verso i giocatori e senza route generative attive.

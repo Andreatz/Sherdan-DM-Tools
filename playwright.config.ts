@@ -47,6 +47,7 @@ export default defineConfig({
       // qui ribadiamo i valori critici per i test.
       ...process.env,
       PORT: String(PORT),
+      NEXT_DIST_DIR: ".next-e2e",
       // Codice globale legacy: garantisce che la login route abbia il
       // secret HMAC per firmare i cookie player. I test creano un
       // player con codice individuale e usano quello; questo serve

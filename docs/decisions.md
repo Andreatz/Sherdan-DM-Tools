@@ -4,6 +4,25 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 
 ---
 
+## 2026-05-15 - Fase 12: ChatGPT Web Bridge come percorso primario con `LLM_PROVIDER=none`
+
+**Contesto.** Dopo la chiusura delle feature principali, il progetto aveva due esigenze in tensione: mantenere i tool generativi gia' costruiti, ma usare ChatGPT Web come motore creativo principale senza introdurre API key OpenAI, costi automatici o una nuova dipendenza runtime. La Fase 12 formalizza il Bridge manuale come percorso primario.
+
+**Decisioni.**
+
+- **`LLM_PROVIDER=none` e' una modalita' supportata, non un errore di configurazione.** Il ping LLM esce con successo e le route generative storiche rispondono con una CTA verso `/chatgpt-bridge`. Questo evita stati mezzi-rotti: se il progetto e' in modalita' Bridge, nessun bottone prova a chiamare un provider disabilitato.
+- **Export/import manuale invece di integrazione API OpenAI.** Il DM copia un pacchetto Markdown/JSON in ChatGPT Web e riporta l'output nell'app. Tradeoff: un passaggio manuale in piu'; vantaggio: niente API key nel repo, niente costi imprevisti, pieno controllo umano su cosa entra nel DB.
+- **Prompt canonico da `content/sherdan/Agente AI Worldbuilding.md`.** Il Bridge usa il prompt reale della campagna come fonte primaria, con fallback sul nome typo storico e poi su un riassunto interno. Il prompt resta in `content/sherdan`, quindi segue le stesse regole di sicurezza dei sorgenti GM-only.
+- **UPDATE PACK sempre review-first.** ChatGPT puo' proporre modifiche, ma l'app non applica nulla senza selezione esplicita. Il parser produce candidate changes, il fuzzy matcher risolve nomi/alias/sessioni con warning, e la UI mostra payload/diff prima dell'applicazione.
+- **Relevance budget nel builder, non nelle query.** Le query restano semplici e conservative; il builder decide quanto includere in base a densita', focus, location, sessione, status e priority. Cosi' si puo' migliorare il ranking senza cambiare API o schema DB.
+- **Database di test locale automatizzato.** `pnpm test:db:setup`, `pnpm test:integration:local` e `pnpm test:e2e:local` derivano `sherdan_dm_test` dal `DATABASE_URL`, applicano guardie sul nome e abilitano `vector`/`pg_trgm`. Playwright usa `.next-e2e` per convivere con il dev server principale.
+
+**Conseguenza.** Per Sherdan, il flusso consigliato diventa: preparare il contesto in `/chatgpt-bridge`, lavorare in ChatGPT Web, importare output e UPDATE PACK, applicare solo cio' che il DM approva. I generatori storici restano disponibili se in futuro si riattiva un provider LLM, ma non sono piu' un prerequisito operativo.
+
+**Test.** Unit Bridge/export/import/update-pack, env `none`, setup DB locale, integrazione DB/API locale e smoke E2E browser locale passano. La sidebar e la status page segnano il Bridge come `Pronto`.
+
+---
+
 ## 2026-05-06 — Stack di scaffolding (Fase 0)
 
 **Contesto.** Avvio della Fase 0 ("Setup & infrastruttura"). Lo scaffold Next.js è il primo step.

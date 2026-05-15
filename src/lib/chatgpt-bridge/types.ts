@@ -137,5 +137,19 @@ export type ReviewChange =
       kind: "pc_hook_create";
       label: string;
       applyPayload: unknown;
+    }
+  | {
+      kind: "entity_identity_create";
+      label: string;
+      applyPayload: unknown;
+    }
+  | {
+      kind: "entity_secret_create";
+      label: string;
+      applyPayload: unknown;
+    }
+  | {
+      kind: "entity_link_create";
+      label: string;
+      applyPayload: unknown;
     };
-

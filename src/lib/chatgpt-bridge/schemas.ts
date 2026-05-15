@@ -131,6 +131,21 @@ export const reviewChangeSchema = z.discriminatedUnion("kind", [
     label: z.string(),
     applyPayload: z.unknown(),
   }),
+  z.object({
+    kind: z.literal("entity_identity_create"),
+    label: z.string(),
+    applyPayload: z.unknown(),
+  }),
+  z.object({
+    kind: z.literal("entity_secret_create"),
+    label: z.string(),
+    applyPayload: z.unknown(),
+  }),
+  z.object({
+    kind: z.literal("entity_link_create"),
+    label: z.string(),
+    applyPayload: z.unknown(),
+  }),
 ]);
 
 export const chatGptBridgeApplyInputSchema = z
@@ -188,6 +203,44 @@ export const updatePackSchema = z
           pc: z.string().min(1),
           target: z.string().optional(),
           hookDescription: z.string().min(1),
+        }),
+      )
+      .default([]),
+    newIdentities: z
+      .array(
+        z.object({
+          entity: z.string().min(1),
+          name: z.string().min(1),
+          isTrueIdentity: z.boolean().optional(),
+          appearance: z.string().optional(),
+          voice: z.string().optional(),
+          mannerisms: z.array(z.string()).optional(),
+          visibility: z.string().optional(),
+          notes: z.string().optional(),
+        }),
+      )
+      .default([]),
+    newSecrets: z
+      .array(
+        z.object({
+          entity: z.string().min(1).optional(),
+          plotThread: z.string().min(1).optional(),
+          layer: z.string().optional(),
+          content: z.string().min(1),
+          exploitHint: z.string().optional(),
+        }),
+      )
+      .default([]),
+    newLinks: z
+      .array(
+        z.object({
+          source: z.string().min(1),
+          target: z.string().min(1),
+          relationType: z.string().min(1),
+          publicRelationType: z.string().optional(),
+          strength: z.number().int().min(-10).max(10).optional(),
+          description: z.string().optional(),
+          visibility: z.string().optional(),
         }),
       )
       .default([]),

@@ -3,8 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   entities,
+  entityLinks,
   chatgptBridgeImports,
   entityIdentities,
+  entitySecrets,
   pcHooks,
   plotThreadEvents,
   plotThreads,
@@ -23,6 +25,8 @@ type TruthClueStatus =
   | "misinterpreted"
   | "understood"
   | "lost";
+type Visibility = "dm_only" | "discovered" | "public";
+type SecretLayer = "surface" | "intermediate" | "deep";
 
 const FUZZY_MATCH_MIN_SCORE = 0.72;
 const FUZZY_AMBIGUITY_MARGIN = 0.06;
@@ -72,6 +76,9 @@ export async function reviewUpdatePack(input: {
   appendTruthClueChanges(changes, input.campaignId, pack);
   await appendNpcChanges(changes, warnings, input.campaignId, pack);
   await appendHookChanges(changes, warnings, input.campaignId, pack);
+  await appendIdentityChanges(changes, warnings, input.campaignId, pack);
+  await appendSecretChanges(changes, warnings, input.campaignId, pack);
+  await appendLinkChanges(changes, warnings, input.campaignId, pack);
   return { ok: true, changes, warnings };
 }
 
@@ -147,6 +154,33 @@ export async function applyReviewChanges(input: {
         case "pc_hook_create": {
           const payload = pcHookPayload(input.campaignId, change.applyPayload);
           const [row] = await tx.insert(pcHooks).values(payload).returning({ id: pcHooks.id });
+          applied.push({ kind: change.kind, label: change.label, id: row?.id });
+          break;
+        }
+        case "entity_identity_create": {
+          const payload = entityIdentityPayload(change.applyPayload);
+          const [row] = await tx
+            .insert(entityIdentities)
+            .values(payload)
+            .returning({ id: entityIdentities.id });
+          applied.push({ kind: change.kind, label: change.label, id: row?.id });
+          break;
+        }
+        case "entity_secret_create": {
+          const payload = entitySecretPayload(input.campaignId, change.applyPayload);
+          const [row] = await tx
+            .insert(entitySecrets)
+            .values(payload)
+            .returning({ id: entitySecrets.id });
+          applied.push({ kind: change.kind, label: change.label, id: row?.id });
+          break;
+        }
+        case "entity_link_create": {
+          const payload = entityLinkPayload(input.campaignId, change.applyPayload);
+          const [row] = await tx
+            .insert(entityLinks)
+            .values(payload)
+            .returning({ id: entityLinks.id });
           applied.push({ kind: change.kind, label: change.label, id: row?.id });
           break;
         }
@@ -312,6 +346,101 @@ async function appendHookChanges(
         targetEntityId: target.id,
         hookDescription: hook.hookDescription,
         status: "available",
+      },
+    });
+  }
+}
+
+async function appendIdentityChanges(
+  changes: ReviewChange[],
+  warnings: string[],
+  campaignId: string,
+  pack: ChatGptBridgeUpdatePack,
+) {
+  for (const identity of pack.newIdentities) {
+    const entityMatch = await findEntity(campaignId, identity.entity, "identita entity");
+    if (entityMatch.warning) warnings.push(entityMatch.warning);
+    if (!entityMatch.item) continue;
+    changes.push({
+      kind: "entity_identity_create",
+      label: `Crea identita: ${entityMatch.item.name} -> ${identity.name}`,
+      applyPayload: {
+        entityId: entityMatch.item.id,
+        name: identity.name,
+        isTrueIdentity: identity.isTrueIdentity ?? false,
+        appearance: identity.appearance,
+        voice: identity.voice,
+        mannerisms: identity.mannerisms ?? [],
+        visibility: toVisibility(identity.visibility),
+        notes: identity.notes,
+      },
+    });
+  }
+}
+
+async function appendSecretChanges(
+  changes: ReviewChange[],
+  warnings: string[],
+  campaignId: string,
+  pack: ChatGptBridgeUpdatePack,
+) {
+  for (const secret of pack.newSecrets) {
+    const entityMatch = secret.entity
+      ? await findEntity(campaignId, secret.entity, "segreto entity")
+      : { item: null as EntityLookupRow | null };
+    if ("warning" in entityMatch && entityMatch.warning) warnings.push(entityMatch.warning);
+
+    const plotMatch = secret.plotThread
+      ? await findPlotThread(campaignId, secret.plotThread)
+      : { item: null as { id: string; title: string } | null };
+    if ("warning" in plotMatch && plotMatch.warning) warnings.push(plotMatch.warning);
+
+    if (!entityMatch.item && !plotMatch.item) {
+      warnings.push(`Segreto ignorato: target non trovato per "${secret.content.slice(0, 60)}".`);
+      continue;
+    }
+
+    const target = entityMatch.item?.name ?? plotMatch.item?.title ?? "target";
+    changes.push({
+      kind: "entity_secret_create",
+      label: `Crea segreto: ${target}`,
+      applyPayload: {
+        campaignId,
+        entityId: entityMatch.item?.id,
+        plotThreadId: plotMatch.item?.id,
+        layer: toSecretLayer(secret.layer),
+        content: secret.content,
+        exploitHint: secret.exploitHint,
+      },
+    });
+  }
+}
+
+async function appendLinkChanges(
+  changes: ReviewChange[],
+  warnings: string[],
+  campaignId: string,
+  pack: ChatGptBridgeUpdatePack,
+) {
+  for (const link of pack.newLinks) {
+    const sourceMatch = await findEntity(campaignId, link.source, "link source");
+    if (sourceMatch.warning) warnings.push(sourceMatch.warning);
+    const targetMatch = await findEntity(campaignId, link.target, "link target");
+    if (targetMatch.warning) warnings.push(targetMatch.warning);
+    if (!sourceMatch.item || !targetMatch.item) continue;
+
+    changes.push({
+      kind: "entity_link_create",
+      label: `Crea link: ${sourceMatch.item.name} -> ${targetMatch.item.name}`,
+      applyPayload: {
+        campaignId,
+        sourceEntityId: sourceMatch.item.id,
+        targetEntityId: targetMatch.item.id,
+        relationType: link.relationType,
+        publicRelationType: link.publicRelationType,
+        strength: link.strength,
+        description: link.description,
+        visibility: toVisibility(link.visibility),
       },
     });
   }
@@ -606,6 +735,48 @@ function pcHookPayload(campaignId: string, value: unknown) {
   };
 }
 
+function entityIdentityPayload(value: unknown) {
+  const record = asRecord(value);
+  return {
+    entityId: String(record.entityId),
+    name: String(record.name),
+    isTrueIdentity: record.isTrueIdentity === true,
+    appearance: stringOrUndefined(record.appearance),
+    voice: stringOrUndefined(record.voice),
+    mannerisms: Array.isArray(record.mannerisms)
+      ? record.mannerisms.filter((item): item is string => typeof item === "string")
+      : [],
+    visibility: toVisibility(record.visibility),
+    notes: stringOrUndefined(record.notes),
+  };
+}
+
+function entitySecretPayload(campaignId: string, value: unknown) {
+  const record = asRecord(value);
+  return {
+    campaignId,
+    entityId: stringOrUndefined(record.entityId),
+    plotThreadId: stringOrUndefined(record.plotThreadId),
+    layer: toSecretLayer(record.layer),
+    content: String(record.content),
+    exploitHint: stringOrUndefined(record.exploitHint),
+  };
+}
+
+function entityLinkPayload(campaignId: string, value: unknown) {
+  const record = asRecord(value);
+  return {
+    campaignId,
+    sourceEntityId: String(record.sourceEntityId),
+    targetEntityId: String(record.targetEntityId),
+    relationType: String(record.relationType),
+    publicRelationType: stringOrUndefined(record.publicRelationType),
+    strength: typeof record.strength === "number" ? record.strength : undefined,
+    description: stringOrUndefined(record.description),
+    visibility: toVisibility(record.visibility),
+  };
+}
+
 function stringOrUndefined(value: unknown) {
   return typeof value === "string" ? value : undefined;
 }
@@ -628,4 +799,16 @@ function toTruthClueStatus(value: unknown): TruthClueStatus {
     value === "planted"
     ? value
     : "planted";
+}
+
+function toVisibility(value: unknown): Visibility {
+  return value === "public" || value === "discovered" || value === "dm_only"
+    ? value
+    : "dm_only";
+}
+
+function toSecretLayer(value: unknown): SecretLayer {
+  return value === "surface" || value === "intermediate" || value === "deep"
+    ? value
+    : "surface";
 }

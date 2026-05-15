@@ -107,7 +107,11 @@ const DEFAULT_DRAFT: ExportDraft = {
   requestUpdatePack: true,
 };
 
-export function ChatGptBridgeWorkbench() {
+export function ChatGptBridgeWorkbench({
+  mode = "full",
+}: {
+  mode?: "full" | "import-only";
+}) {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [draft, setDraft] = useState<ExportDraft>(DEFAULT_DRAFT);
@@ -118,6 +122,7 @@ export function ChatGptBridgeWorkbench() {
   const [savedImportId, setSavedImportId] = useState<string | null>(null);
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResponse | null>(null);
   const [reviewChanges, setReviewChanges] = useState<ReviewChange[]>([]);
+  const [reviewWarnings, setReviewWarnings] = useState<string[]>([]);
   const [selectedChanges, setSelectedChanges] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -305,9 +310,10 @@ export function ChatGptBridgeWorkbench() {
         },
       );
       setReviewChanges(response.changes);
+      setReviewWarnings(response.warnings);
       setSelectedChanges(new Set(response.changes.map((_, index) => index)));
       setMessage(`Review pronta: ${response.changes.length} modifiche candidate.`);
-      if (response.warnings.length > 0) setError(response.warnings.join(" "));
+      setError(null);
     } catch (err) {
       setError(messageForError(err));
     } finally {
@@ -384,6 +390,7 @@ export function ChatGptBridgeWorkbench() {
         </div>
       )}
 
+      {mode === "full" ? (
       <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
         <form
           onSubmit={generateExport}
@@ -483,6 +490,7 @@ export function ChatGptBridgeWorkbench() {
           </pre>
         </section>
       </div>
+      ) : null}
 
       <section id="import" className="space-y-4 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
         <header>
@@ -491,6 +499,25 @@ export function ChatGptBridgeWorkbench() {
             Incolla l&apos;output prodotto via web, analizza l&apos;UPDATE PACK e applica solo le modifiche selezionate.
           </p>
         </header>
+        {mode === "import-only" ? (
+          <Field label="Campagna">
+            <select
+              value={draft.campaignId}
+              onChange={(e) => updateDraft("campaignId", e.target.value)}
+              className={controlClass}
+            >
+              {campaigns.length === 0 ? (
+                <option value="">Nessuna campagna</option>
+              ) : (
+                campaigns.map((campaign) => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {campaign.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </Field>
+        ) : null}
         <textarea
           rows={10}
           value={importContent}
@@ -541,7 +568,40 @@ export function ChatGptBridgeWorkbench() {
 
         {reviewChanges.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold">Modifiche candidate</h3>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold">Modifiche candidate</h3>
+                <p className="text-xs text-zinc-500">
+                  {selectedChanges.size} selezionate su {reviewChanges.length}.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedChanges(new Set(reviewChanges.map((_, index) => index)))}
+                  className={secondaryButtonClass}
+                >
+                  Seleziona tutto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedChanges(new Set())}
+                  className={secondaryButtonClass}
+                >
+                  Deseleziona
+                </button>
+              </div>
+            </div>
+            {reviewWarnings.length > 0 ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                <div className="font-semibold">Warning review</div>
+                <ul className="mt-1 list-disc space-y-1 pl-4">
+                  {reviewWarnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
               {reviewChanges.map((change, index) => (
                 <li key={`${change.kind}-${index}`} className="flex gap-3 p-3 text-sm">
@@ -552,8 +612,32 @@ export function ChatGptBridgeWorkbench() {
                     className="mt-1"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium">{change.label}</div>
-                    <div className="mt-1 text-xs uppercase text-zinc-500">{change.kind}</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{change.label}</span>
+                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                        {kindLabel(change.kind)}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${riskClass(change.kind)}`}>
+                        {riskLabel(change.kind)}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-zinc-500">
+                      Target: {targetLabel(change)}
+                    </div>
+                    <details className="mt-2 rounded-md border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-950">
+                      <summary className="cursor-pointer text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                        Diff / payload
+                      </summary>
+                      <div className="mt-2 grid gap-2 lg:grid-cols-3">
+                        {"before" in change ? (
+                          <ReviewJson title="Prima" value={change.before} />
+                        ) : null}
+                        {"after" in change ? (
+                          <ReviewJson title="Dopo" value={change.after} />
+                        ) : null}
+                        <ReviewJson title="Apply payload" value={change.applyPayload} />
+                      </div>
+                    </details>
                   </div>
                 </li>
               ))}
@@ -621,6 +705,19 @@ function Checkbox({
   );
 }
 
+function ReviewJson({ title, value }: { title: string; value: unknown }) {
+  return (
+    <div className="min-w-0">
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+        {title}
+      </div>
+      <pre className="max-h-48 overflow-auto rounded border border-zinc-200 bg-white p-2 text-[11px] leading-4 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    </div>
+  );
+}
+
 function toggleSelected(index: number, setter: React.Dispatch<React.SetStateAction<Set<number>>>) {
   setter((current) => {
     const next = new Set(current);
@@ -638,6 +735,76 @@ function numberOrUndefined(value: string) {
 function optionalText(value: string) {
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function kindLabel(kind: ReviewChange["kind"]) {
+  switch (kind) {
+    case "session_update":
+      return "Sessione";
+    case "plot_thread_event_create":
+      return "Plot";
+    case "truth_clue_create":
+      return "Briciola";
+    case "entity_update":
+      return "Entity";
+    case "pc_hook_create":
+      return "Hook";
+    case "entity_identity_create":
+      return "Identita";
+    case "entity_secret_create":
+      return "Segreto";
+    case "entity_link_create":
+      return "Link";
+  }
+}
+
+function riskLabel(kind: ReviewChange["kind"]) {
+  return kind === "entity_update" || kind === "session_update"
+    ? "modifica"
+    : "creazione";
+}
+
+function riskClass(kind: ReviewChange["kind"]) {
+  return kind === "entity_update" || kind === "session_update"
+    ? "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20 dark:bg-amber-950 dark:text-amber-300"
+    : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 dark:bg-emerald-950 dark:text-emerald-300";
+}
+
+function targetLabel(change: ReviewChange) {
+  const payload = asRecord(change.applyPayload);
+  switch (change.kind) {
+    case "session_update":
+      return payload.number ? `sessione ${String(payload.number)}` : "sessione";
+    case "plot_thread_event_create":
+      return payload.plotThreadId ? `plot ${String(payload.plotThreadId)}` : "plot";
+    case "truth_clue_create":
+      return payload.description ? String(payload.description).slice(0, 80) : "briciola";
+    case "entity_update":
+      return payload.entityId ? `entity ${String(payload.entityId)}` : "entity";
+    case "pc_hook_create":
+      return payload.targetEntityId
+        ? `hook verso ${String(payload.targetEntityId)}`
+        : "hook";
+    case "entity_identity_create":
+      return payload.entityId ? `entity ${String(payload.entityId)}` : "identita";
+    case "entity_secret_create":
+      return (
+        String(payload.entityId ?? payload.plotThreadId ?? payload.content ?? "segreto").slice(
+          0,
+          80,
+        )
+      );
+    case "entity_link_create":
+      return payload.targetEntityId
+        ? `link verso ${String(payload.targetEntityId)}`
+        : "link";
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {

@@ -47,9 +47,9 @@ const NAV: NavGroup[] = [
     title: "Generators",
     items: [
       { label: "Random Tables", href: "/random-tables", status: "Pronto" },
-      { label: "NPC", href: "/npc-generator", status: "Beta" },
-      { label: "Loot", href: "/loot-generator", status: "Beta" },
-      { label: "Encounter", href: "/encounter-builder", status: "Beta" },
+      { label: "NPC", href: "/npc-generator", status: "Pronto" },
+      { label: "Loot", href: "/loot-generator", status: "Pronto" },
+      { label: "Encounter", href: "/encounter-builder", status: "Pronto" },
       { label: "Dungeon", href: "/dungeon-generator", status: "Pronto" },
     ],
   },
@@ -57,7 +57,7 @@ const NAV: NavGroup[] = [
     title: "Assistenti",
     items: [
       { label: "Session Prep", href: "/session-prep", status: "Pronto" },
-      { label: "ChatGPT Bridge", href: "/chatgpt-bridge", status: "Beta" },
+      { label: "ChatGPT Bridge", href: "/chatgpt-bridge", status: "Pronto" },
       { label: "Rules Lookup", href: "/rules", status: "Pronto" },
     ],
   },
