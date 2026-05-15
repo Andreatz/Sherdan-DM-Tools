@@ -108,48 +108,48 @@ export interface ChatGptBridgeImportAnalyzeResponse {
   warnings: string[];
 }
 
+export interface ReviewMatchInfo {
+  status: "exact" | "fuzzy" | "ambiguous" | "none";
+  subject: string;
+  requested: string;
+  matched?: string;
+  matchedBy?: string;
+  score?: number;
+  candidates?: string[];
+}
+
+interface ReviewChangeBase {
+  label: string;
+  applyPayload: unknown;
+  match?: ReviewMatchInfo;
+}
+
 export type ReviewChange =
-  | {
+  | (ReviewChangeBase & {
       kind: "session_update";
-      label: string;
       before: unknown;
       after: unknown;
-      applyPayload: unknown;
-    }
-  | {
+    })
+  | (ReviewChangeBase & {
       kind: "plot_thread_event_create";
-      label: string;
-      applyPayload: unknown;
-    }
-  | {
+    })
+  | (ReviewChangeBase & {
       kind: "truth_clue_create";
-      label: string;
-      applyPayload: unknown;
-    }
-  | {
+    })
+  | (ReviewChangeBase & {
       kind: "entity_update";
-      label: string;
       before: unknown;
       after: unknown;
-      applyPayload: unknown;
-    }
-  | {
+    })
+  | (ReviewChangeBase & {
       kind: "pc_hook_create";
-      label: string;
-      applyPayload: unknown;
-    }
-  | {
+    })
+  | (ReviewChangeBase & {
       kind: "entity_identity_create";
-      label: string;
-      applyPayload: unknown;
-    }
-  | {
+    })
+  | (ReviewChangeBase & {
       kind: "entity_secret_create";
-      label: string;
-      applyPayload: unknown;
-    }
-  | {
+    })
+  | (ReviewChangeBase & {
       kind: "entity_link_create";
-      label: string;
-      applyPayload: unknown;
-    };
+    });

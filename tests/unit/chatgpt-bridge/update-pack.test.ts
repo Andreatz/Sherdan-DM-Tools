@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   normalizeUpdatePackLookupKey,
+  reviewChangeSchema,
   scoreUpdatePackMatch,
   updatePackSchema,
 } from "@/lib/chatgpt-bridge";
@@ -45,5 +46,26 @@ describe("UPDATE PACK lookup matching", () => {
       0.8,
     );
     expect(scoreUpdatePackMatch("Noel", "Garrick")).toBeLessThan(0.72);
+  });
+});
+
+describe("reviewChangeSchema", () => {
+  it("preserva metadata match per i badge review", () => {
+    const parsed = reviewChangeSchema.parse({
+      kind: "plot_thread_event_create",
+      label: "Aggiungi evento",
+      applyPayload: { plotThreadId: "thread-1", description: "Evento" },
+      match: {
+        status: "fuzzy",
+        subject: "Plot thread",
+        requested: "Congiura",
+        matched: "La Congiura",
+        matchedBy: "La Congiura",
+        score: 0.92,
+      },
+    });
+
+    expect(parsed.match?.status).toBe("fuzzy");
+    expect(parsed.match?.matched).toBe("La Congiura");
   });
 });

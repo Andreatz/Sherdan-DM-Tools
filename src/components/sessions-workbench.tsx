@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { CopyForChatGptButton } from "@/components/copy-for-chatgpt-button";
+
 interface CampaignRow {
   id: string;
   name: string;
@@ -240,6 +242,16 @@ export function SessionsWorkbench() {
     for (const e of entities) map.set(e.id, e);
     return map;
   }, [entities]);
+  const selectedChatGptMarkdown = selected
+    ? buildSessionChatGptMarkdown({
+        session: selected,
+        events,
+        clues: plantedClues,
+        encounters: sessionEncounters,
+        lootBundles,
+        plotThreadById,
+      })
+    : "";
 
   return (
     <div className="space-y-6">
@@ -343,6 +355,7 @@ export function SessionsWorkbench() {
                   />
                   Mostra DM notes
                 </label>
+                <CopyForChatGptButton text={selectedChatGptMarkdown} />
               </div>
 
               <RecapPanel
@@ -634,4 +647,69 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
 
 function messageForError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function buildSessionChatGptMarkdown({
+  session,
+  events,
+  clues,
+  encounters,
+  lootBundles,
+  plotThreadById,
+}: {
+  session: SessionRow;
+  events: PlotThreadEventRow[];
+  clues: TruthClueRow[];
+  encounters: EncounterRow[];
+  lootBundles: LootBundleRow[];
+  plotThreadById: Map<string, PlotThreadRow>;
+}) {
+  return [
+    `# Copy-for-ChatGPT: Sessione ${session.number}${session.title ? ` - ${session.title}` : ""}`,
+    "",
+    "## Recap",
+    session.recap?.trim() || "_Vuoto_",
+    "",
+    "## Note GM",
+    session.dmNotes?.trim() || "_Vuoto_",
+    "",
+    "## Prep notes",
+    session.prepNotes?.trim() || "_Vuoto_",
+    "",
+    "## Plot thread avanzati",
+    listOrEmpty(
+      events.map((event) => {
+        const thread = plotThreadById.get(event.plotThreadId);
+        return `- ${thread?.title ?? "Thread sconosciuto"} [${event.eventType}]: ${event.description}${event.publicDescription ? `\n  - Percepito: ${event.publicDescription}` : ""}`;
+      }),
+    ),
+    "",
+    "## Briciole piantate",
+    listOrEmpty(
+      clues.map(
+        (clue) =>
+          `- [${clue.status}] ${clue.description}\n  - Verita GM: ${clue.truthRevealed}`,
+      ),
+    ),
+    "",
+    "## Encounter",
+    listOrEmpty(
+      encounters.map(
+        (encounter) =>
+          `- ${encounter.title}${encounter.difficulty ? ` (${encounter.difficulty})` : ""}: ${encounter.description ?? "Senza descrizione"}`,
+      ),
+    ),
+    "",
+    "## Loot",
+    listOrEmpty(
+      lootBundles.map((bundle) => {
+        const itemCount = Array.isArray(bundle.items) ? bundle.items.length : 0;
+        return `- ${bundle.title ?? "Loot bundle"}: ${bundle.goldAmount ?? 0} gp, ${itemCount} item${bundle.description ? `\n  - ${bundle.description}` : ""}`;
+      }),
+    ),
+  ].join("\n");
+}
+
+function listOrEmpty(rows: string[]) {
+  return rows.length > 0 ? rows.join("\n") : "_Nessun elemento._";
 }

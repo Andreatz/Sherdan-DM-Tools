@@ -53,9 +53,9 @@ Sherdan-DM-Tools
 
 Repo: `Sherdan-DM-Tools`
 
-Stack attuale previsto:
+Stack attuale:
 
-- Next.js App Router
+- Next.js 16 App Router
 - TypeScript
 - Zod
 - Drizzle ORM
@@ -213,6 +213,14 @@ Componenti minimi:
   - `Apri area import`
   - `Pulisci`
 
+Stato implementato al 2026-05-15:
+
+- preset rapidi per sessione politica, dungeon, heist, recap giocatori e audit anti-railroad;
+- relevance budget per densità/focus;
+- leakage guard player-facing anche su contesti sporchi;
+- review con badge match esatto/fuzzy/ambiguo/non trovato;
+- conferma extra per modifiche ad alto rischio.
+
 ### 6.2 `/chatgpt-bridge/import`
 
 Può essere una route separata o una sezione nella stessa pagina.
@@ -229,6 +237,18 @@ Campi:
   - `Estrai Update Pack`
   - `Review & Apply`
   - `Annulla`
+
+### 6.3 `/chatgpt-bridge/history`
+
+Route implementata per lo storico Bridge.
+
+Contenuto:
+
+- timeline compatta export/import;
+- filtro per campagna e tipo (`all`, `export`, `import`);
+- conteggi export/import/apply;
+- preview breve del markdown;
+- badge per warning, Update Pack e modifiche applicate.
 
 ---
 

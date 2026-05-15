@@ -28,11 +28,11 @@ Roadmap end-to-end per costruire una piattaforma unificata che integra 10 tool p
 ## Stack di riferimento
 
 - **DB**: Postgres 16 + `pgvector` + `pg_trgm`
-- **Backend + Frontend**: Next.js 15 (App Router) — full-stack TypeScript in un repo (alternativa: FastAPI + frontend separato se preferisci Python)
-- **ORM**: Drizzle (TS) o SQLAlchemy 2.0 (Python)
-- **Validation**: Zod (TS) o Pydantic v2 (Python)
-- **LLM**: Anthropic SDK + abstrazione provider-agnostic
-- **Real-time**: WebSocket nativi o Socket.io (per Fase 10)
+- **Backend + Frontend**: Next.js 16 (App Router) — full-stack TypeScript in un repo
+- **ORM**: Drizzle (TS)
+- **Validation**: Zod
+- **LLM**: `LLM_PROVIDER=none` come percorso primario; Gemini/OpenAI/Ollama opzionali via astrazione provider-agnostic
+- **Real-time**: WebSocket nativo su custom server Next
 - **Deploy**: Docker Compose locale + Tailscale per esporre il Player Dashboard ai giocatori
 
 ---
@@ -142,7 +142,7 @@ CREATE INDEX ON pc_hooks(pc_entity_id);
 CREATE INDEX ON pc_hooks(target_entity_id);
 ```
 
-**Modifiche alle properties JSONB degli NPC** — campi tipizzati esplicitamente nei Zod/Pydantic schemas:
+**Modifiche alle properties JSONB degli NPC** — campi tipizzati esplicitamente negli schema Zod:
 
 ```typescript
 // Schema NPC properties (Zod)
@@ -439,7 +439,7 @@ Framework riutilizzabile per tutti i generators, prima implementazione concreta 
   - _Note implementative: aggiunto `PromptBuilder` in `src/lib/generators/prompt-builder.ts`. Supporta template `system`/`user`, opzioni LLM, variabili custom e placeholder built-in `{{anchor}}`, `{{related}}`, `{{similar}}`, `{{entities}}`, `{{context}}`, `{{relations}}`, piu' `{{entity:Nome-o-id}}`. Le entity del `ContextRetriever` vengono renderizzate come markdown blocks con id/type/visibility/sources/tags, public description, GM description, properties JSON, identità multiple, segreti stratificati e relazioni con direzione/strength. Errori tipizzati `PromptBuilderError` per placeholder sconosciuti o entity mancanti; modalita' non strict disponibile per lasciare placeholder non risolti. Test unitari coprono render markdown, sostituzioni, entity lookup e errori._
 - [x] `StyleCalibrator`: dato il set di entità di una campagna, estrae feature stilistiche (lunghezza media descrizioni, presenza di tic/sensorialità/segreti stratificati, tono) e le inietta nel prompt come few-shot examples
   - _Note implementative: aggiunto `StyleCalibrator` in `src/lib/generators/style-calibrator.ts`. Analizza entity di campagna senza dipendere dal DB: statistiche lunghezza descrizioni, mix type, presenza di sensory details/voice/tics/goals/weaknesses/public description, conteggio segreti per layer e segnali tonali euristici (grimdark, intrigo politico, arcano-industriale, multi-sensoriale). Produce `StyleCalibrationResult` con `profile`, few-shot examples scelti per ricchezza stilistica e `promptBlock` markdown iniettabile nel `PromptBuilder` via `styleCalibrationToPromptVariables`. Test unitari coprono feature extraction, example selection, prompt block e profilo vuoto. Smoke DB live su 40 entity Sherdan: average 714 parole, tone signals `sensory`, `industrial_arcane`, `grimdark`, examples `Capitana Lunacupa "La Vedova"` e `Comandante Ivar`._
-- [x] LLM call con structured output: schema Zod/Pydantic → JSON Schema → tool call
+- [x] LLM call con structured output: schema Zod → JSON Schema → provider call
   - _Note implementative: aggiunto `StructuredOutputCaller` in `src/lib/generators/structured-output.ts`. Incapsula `GeneratorPrompt + Zod schema`, converte lo schema con `z.toJSONSchema()` per metadata/tracciabilità, chiama `LLMProvider.completeStructured` (Gemini `responseSchema` / Ollama `format`) e ri-valida l'output via Zod prima di restituirlo. Helper `callStructuredOutput` integra `GeneratorRunOptions.llm/signal`, defaulta `temperature: 0` per path strutturati e mergea opzioni prompt/call. Test unitari con provider finto coprono input/options, JSON Schema metadata, uso da run options e errore tipizzato `StructuredOutputCallError` su output invalido._
 - [x] `generation_log` table: input, prompt, output, model, tokens, cost, timestamp
   - _Note implementative: aggiunta tabella `generation_log` via Drizzle (`src/db/schema/generators.ts`) e migration `0001_minor_roxanne_simpson.sql`. Campi core: `input`, `prompt`, `output`, `model`, token usage (`input_tokens`, `output_tokens`, `total_tokens`), `cost_usd`, `created_at`; campi operativi minimi: `campaign_id` nullable con FK `ON DELETE SET NULL`, `generator_name`, `provider`, `status`, `error`, `metadata`. Indici su campagna, generator, status e timestamp per audit/cost monitoring. Applicata migration locale e smoke insert/delete verificato con JSONB + `numeric(12,6)`._
@@ -775,7 +775,7 @@ Vista real-time per i giocatori, controllata dal DM, **con controllo granulare d
 ### Task
 
 **Real-time setup**
-- [x] WebSocket server (Socket.io o nativo Next.js con ws)
+- [x] WebSocket server nativo su custom server Next.js
   - _Note implementative: server custom `server.ts` che avvia Next e intercetta l'HTTP upgrade solo su `/api/realtime`. Implementazione WebSocket nativa senza nuove dipendenze: handshake RFC6455, frame text masked client-side, ping/pong, close frame, hub in memoria (`src/lib/realtime/*`). Script `pnpm dev` e `pnpm start` passano dal custom server; `next build` resta invariato. Smoke manuale: `ws://localhost:3200/api/realtime` riceve `connected`, invia `{type:"ping"}` e riceve `pong`._
 - [x] Channel per campagna
   - _Note implementative: ogni connessione WebSocket richiede `campaign_id` (UUID) nella query string e viene registrata nel relativo canale in-memory. `RealtimeHub` espone `campaignConnectionCount()` e `broadcastCampaign(campaignId, event, payload)` per i futuri push DM-side; il singleton `realtimeHub` e' condiviso dal custom server e dai prossimi route handler. Smoke production: `ws://localhost:3201/api/realtime?campaign_id=<uuid>` riceve `connected` con lo stesso `campaignId`._
@@ -869,10 +869,26 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
   - _Note implementative: aggiunta `/chatgpt-bridge/import`, che riusa il workbench in modalità `import-only` con selettore campagna e senza pannello export._
 - [x] Esecuzione completa integrazione/E2E su DB di test locale con script unico.
   - _Note implementative: `pnpm test:integration:local` passa 26 test; `pnpm test:e2e:local` passa 3 smoke browser. Playwright usa `NEXT_DIST_DIR=.next-e2e` per non collidere con un `next dev` già aperto._
+- [x] Rafforzare leakage test del ChatGPT Bridge.
+  - _Note implementative (2026-05-15): `buildChatGptBridgeExport` ora proietta sempre il contesto in base all'audience prima del relevance budget/render. In audience `player` rimuove `dmNotes`, `prepNotes`, descrizioni GM, `truthRevealed`, segreti, PC hook, properties e target `dm_only`, anche se un chiamante futuro passa un contesto già sporco. Aggiunto test unitario con sentinel `LEAK_*` su sessioni, thread, clue, secrets, hook, fazioni e location._
+- [x] Uniformare status feature tra README, sidebar e `/status`.
+  - _Note implementative (2026-05-15): `/status` usa la stessa matrice feature del README, incluse voci `Opzionale`, `Pronto / Opzionale` e `Pianificato`. La sidebar marca NPC/Loot/Session Prep come opzionali e mostra Combat Tracker, Matrice conoscenza PNG e Spoiler Gate come pianificati._
+- [x] Aggiungere badge match esatto/fuzzy/ambiguo nella review Update Pack.
+  - _Note implementative (2026-05-15): `reviewUpdatePack` ora allega metadata `match` alle change candidate (`exact`, `fuzzy`, `ambiguous`, `none`, requested/matched/matchedBy/score). La UI Review & Apply mostra badge dedicati sulle modifiche applicabili e badge sui warning ambigui/non trovati. Lo schema `reviewChangeSchema` preserva la metadata per il contratto API._
+- [x] Migliorare la pagina storico export/import Bridge.
+  - _Note implementative (2026-05-15): aggiunta route read-only `GET /api/chatgpt-bridge/history` con timeline compatta export/import, filtri `campaign_id` e `kind`, preview markdown, warning count, update-pack flag e apply count. Nuova pagina `/chatgpt-bridge/history` con summary, filtri e card timeline; sidebar aggiornata con link "Bridge storico"._
+- [x] Aggiungere conferma extra per modifiche ad alto rischio.
+  - _Note implementative (2026-05-15): la Review & Apply marca come alto rischio update sessione/entity e creazione di identita', segreti o link. Se almeno una di queste change e' selezionata, il bottone Apply resta disabilitato finche' il DM non conferma esplicitamente._
+- [x] Preset Bridge: sessione politica, dungeon, heist, recap giocatori, audit anti-railroad.
+  - _Note implementative (2026-05-15): il workbench Bridge include preset rapidi che precompilano task type, densita', audience, sezioni incluse, focus e vincoli. I preset preservano campagna/sessione/location gia' selezionate e il recap giocatori forza audience `player` con segreti disabilitati._
+- [x] Copy-for-ChatGPT da ogni pagina entity/session/plot/clue.
+  - _Note implementative (2026-05-15): aggiunto componente condiviso `CopyForChatGptButton` e montato su entity detail, sessione selezionata, plot thread selezionato e singola truth clue. Ogni bottone copia un blocco Markdown canonico con campi GM/player separati e contesto correlato già formattato per ChatGPT Web._
 - [x] Decision log finale: perché Bridge manuale + `LLM_PROVIDER=none` è il percorso primario del progetto.
 
 ### Prossimo ordine di esecuzione
-1. Ampliare i tipi di update applicabili.
+1. Canon Diff per output importati.
+2. Session Debrief Import post-sessione.
+3. Dashboard compatta delle ultime modifiche applicate via Bridge.
 
 ### Definition of done
 Con `LLM_PROVIDER=none`, il DM può preparare una sessione Sherdan usando solo `/chatgpt-bridge`: esporta contesto, lavora in ChatGPT Web, importa output, revisiona UPDATE PACK e applica modifiche al DB senza leak verso i giocatori e senza route generative attive.

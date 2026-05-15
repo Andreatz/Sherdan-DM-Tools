@@ -18,33 +18,37 @@ const SHERDAN_SOURCE_FILES = [
 // - Beta: usabile ma con rifiniture o limitazioni note.
 // - Schema: DB/API predisposti, UI dedicata ancora da costruire.
 // - Pianificato: non iniziato.
-// - Bloccato: volontariamente fermo finche' una precondizione non e' soddisfatta.
+// - Opzionale: disponibile solo con provider/servizi extra.
 const featureRows = [
-  ["Project foundation", "Pronto", "Setup, DB, schema, CI e app shell."],
-  ["Campaign Wiki", "Pronto", "CRUD entita', identita', segreti, link e PC hooks."],
-  ["Sherdan import", "Pronto", "Parser e import idempotente dei sorgenti markdown privati."],
-  ["Random Tables", "Pronto", "Roller, import, subtabelle, template e workbench UI."],
-  ["Sessioni", "Pronto", "Lista, recap rendered, toggle DM notes, prep notes, plot/briciole per sessione."],
-  ["Plot Thread Tracker", "Pronto", "Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline, stale alerts."],
-  ["Truth Clue Tracker", "Pronto", "CRUD briciole, filtri, plant/update status, dashboard verita' rivelata per thread."],
-  ["NPC Generator", "Pronto", "Preview, re-roll parziale, salvataggio entity, embedding fail-forward + script backfill, link 'Storico generazioni LLM' nella entity detail."],
-  ["Loot Generator", "Pronto", "Generator, link a encounter e sessione, lista bundles per campagna/sessione/encounter."],
-  ["Encounter Builder", "Pronto", "Browser mostri, CR calculator, LLM assist, used_in_session, filtri list (sessione/location/plot)."],
-  ["Generation log", "Pronto", "Audit di ogni chiamata LLM (input/prompt/output/latency/status) su generation_log."],
-  ["Player Dashboard", "Pronto", "Per-player, realtime, scena live, handout/mappa/fog, policy entity granulari e push WebSocket."],
-  ["Session Prep Assistant", "Pronto", "Agent LLM con tool read-only + rules_search + generate_npc/encounter/loot, streaming progressivo via SSE e accept granulare in record reali."],
-  ["ChatGPT Web Bridge", "Pronto", "Export markdown/JSON per ChatGPT web, import controllato, UPDATE PACK, review manuale e LLM_PROVIDER=none."],
-  ["Rules Lookup", "Pronto", "Hybrid search + Q&A con citazioni, corpus Sherdan + SRD 2014, reranker opzionale e shortcut globale."],
-  ["Procedural Dungeon Generator", "Pronto", "Layout BSP, contenuto LLM per stanza, re-roll e salvataggio nel Wiki."],
-  ["Polish Fase 11", "Pronto", "Command palette Cmd-K globale, tema dark/light, import/export JSON, re-export Markdown, paginazione log e cost monitoring LLM."],
+  ["Foundation progetto", "Pronto", "Next.js, TypeScript, Postgres, Drizzle, Zod, logging ed env check."],
+  ["Campaign Wiki", "Pronto", "CRUD entita', identita', segreti, link, tag e PC hooks."],
+  ["Grafo entita'", "Pronto", "Visualizzazione relazioni con pan/zoom."],
+  ["Import Sherdan", "Pronto", "Parser e bootstrap idempotente da content/sherdan/."],
+  ["Content safety gate", "Pronto", "Blocca markdown Sherdan raw in public/."],
+  ["Random Tables Engine", "Pronto", "CRUD, import, roll, subtabelle, template e history."],
+  ["Sessioni", "Pronto", "Lista, recap, DM notes, prep notes, plot e briciole per sessione."],
+  ["Plot Thread Tracker", "Pronto", "Kanban, split GM/pubblico, timeline e stale alerts."],
+  ["Truth Clue Tracker", "Pronto", "Briciole filtrabili, status, verita' rivelata e sessioni."],
+  ["Player Dashboard", "Pronto", "Accesso per-player, cookie firmato, API player-safe e realtime."],
+  ["Rules Lookup", "Pronto", "Search ibrida RRF, citazioni, corpus homebrew/SRD e Q&A opzionale."],
+  ["Procedural Dungeon Generator", "Pronto / Opzionale", "Layout BSP deterministico; contenuto LLM opzionale."],
+  ["ChatGPT Web Bridge", "Pronto", "Export/import manuale, Update Pack, review & apply."],
+  ["NPC Generator", "Opzionale", "Richiede LLM server-side se usato come generatore automatico."],
+  ["Loot Generator", "Opzionale", "Richiede LLM server-side per generazione automatica."],
+  ["Encounter Builder", "Pronto / Opzionale", "Browser/CR calculator pronto; assist LLM opzionale."],
+  ["Session Prep Assistant LLM", "Opzionale", "Sostituito nel workflow consigliato dal ChatGPT Web Bridge."],
+  ["Combat Tracker runtime", "Pianificato", "Iniziativa, HP e condizioni live non ancora core."],
+  ["Matrice conoscenza PNG", "Pianificato", "Feature consigliata per il prossimo salto qualitativo."],
+  ["Spoiler Gate / Reveal Tracker", "Pianificato", "Reveal come entita'/stato dedicato."],
 ] as const;
 
 const statusClassName: Record<string, string> = {
   Pronto: "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950 dark:text-emerald-300",
   Beta: "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950 dark:text-amber-300",
   Schema: "bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-950 dark:text-sky-300",
+  Opzionale: "bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-950 dark:text-violet-300",
+  "Pronto / Opzionale": "bg-teal-50 text-teal-700 ring-teal-600/20 dark:bg-teal-950 dark:text-teal-300",
   Pianificato: "bg-zinc-100 text-zinc-700 ring-zinc-600/20 dark:bg-zinc-800 dark:text-zinc-300",
-  Bloccato: "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-950 dark:text-red-300",
 };
 
 export default function StatusPage() {

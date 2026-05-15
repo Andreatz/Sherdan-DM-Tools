@@ -7,7 +7,7 @@ interface NavItem {
   label: string;
   href?: string;
   /** Stato operativo leggibile. Se manca `href`, l'item resta disabilitato. */
-  status?: "Pronto" | "Beta" | "Schema" | "Pianificato" | "Bloccato";
+  status?: "Pronto" | "Beta" | "Schema" | "Pianificato" | "Opzionale";
 }
 
 interface NavGroup {
@@ -17,8 +17,7 @@ interface NavGroup {
 
 // Navigazione allineata allo stato reale del progetto.
 // "Schema" significa che DB/API sono predisposti ma manca ancora la UI completa.
-// "Bloccato" indica feature volutamente ferme finche' non esiste una proiezione
-// player-safe e un access gate adeguato.
+// "Opzionale" indica superfici disponibili solo con provider/servizi extra.
 const NAV: NavGroup[] = [
   {
     title: "Generale",
@@ -32,7 +31,7 @@ const NAV: NavGroup[] = [
   {
     title: "Wiki",
     items: [
-      { label: "Campagne / Grafo entità", href: "/campaigns", status: "Pronto" },
+      { label: "Campagne / Grafo entita'", href: "/campaigns", status: "Pronto" },
     ],
   },
   {
@@ -47,8 +46,8 @@ const NAV: NavGroup[] = [
     title: "Generators",
     items: [
       { label: "Random Tables", href: "/random-tables", status: "Pronto" },
-      { label: "NPC", href: "/npc-generator", status: "Pronto" },
-      { label: "Loot", href: "/loot-generator", status: "Pronto" },
+      { label: "NPC", href: "/npc-generator", status: "Opzionale" },
+      { label: "Loot", href: "/loot-generator", status: "Opzionale" },
       { label: "Encounter", href: "/encounter-builder", status: "Pronto" },
       { label: "Dungeon", href: "/dungeon-generator", status: "Pronto" },
     ],
@@ -56,14 +55,20 @@ const NAV: NavGroup[] = [
   {
     title: "Assistenti",
     items: [
-      { label: "Session Prep", href: "/session-prep", status: "Pronto" },
+      { label: "Session Prep", href: "/session-prep", status: "Opzionale" },
       { label: "ChatGPT Bridge", href: "/chatgpt-bridge", status: "Pronto" },
+      { label: "Bridge storico", href: "/chatgpt-bridge/history", status: "Pronto" },
       { label: "Rules Lookup", href: "/rules", status: "Pronto" },
     ],
   },
   {
     title: "Tavolo",
-    items: [{ label: "Player Dashboard", href: "/player", status: "Pronto" }],
+    items: [
+      { label: "Player Dashboard", href: "/player", status: "Pronto" },
+      { label: "Combat Tracker", status: "Pianificato" },
+      { label: "Matrice conoscenza PNG", status: "Pianificato" },
+      { label: "Spoiler Gate", status: "Pianificato" },
+    ],
   },
 ];
 
@@ -71,8 +76,8 @@ const statusClassName: Record<NonNullable<NavItem["status"]>, string> = {
   Pronto: "text-emerald-700 dark:text-emerald-400",
   Beta: "text-amber-700 dark:text-amber-400",
   Schema: "text-sky-700 dark:text-sky-400",
+  Opzionale: "text-violet-700 dark:text-violet-400",
   Pianificato: "text-zinc-500 dark:text-zinc-400",
-  Bloccato: "text-red-700 dark:text-red-400",
 };
 
 export function Sidebar() {

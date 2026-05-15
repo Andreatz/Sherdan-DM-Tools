@@ -23,6 +23,7 @@ import { EntityIdentityManager } from "@/components/entity-identity-manager";
 import { EntityGraphView } from "@/components/entity-graph-view";
 import { EntitySecretManager } from "@/components/entity-secret-manager";
 import { EntityTagEditor } from "@/components/entity-tag-editor";
+import { CopyForChatGptButton } from "@/components/copy-for-chatgpt-button";
 import { PcHookMatrix } from "@/components/pc-hook-matrix";
 import { PlayerAccessManager } from "@/components/player-access-manager";
 import { PlayerDashboardControlPanel } from "@/components/player-dashboard-control-panel";
@@ -904,6 +905,7 @@ function EntityDetailPanel({
   allTags: string[];
 }) {
   const { entity } = data;
+  const chatGptMarkdown = buildEntityChatGptMarkdown(data, entityNameById);
 
   return (
     <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
@@ -947,6 +949,7 @@ function EntityDetailPanel({
             initialTags={entity.tags}
             allTags={allTags}
           />
+          <CopyForChatGptButton text={chatGptMarkdown} />
         </div>
       </header>
 
@@ -1063,6 +1066,80 @@ function EntityDetailPanel({
       </div>
     </article>
   );
+}
+
+function buildEntityChatGptMarkdown(
+  data: EntityDetailData,
+  entityNameById: Map<string, EntityName>,
+) {
+  const { entity } = data;
+  return [
+    `# Copy-for-ChatGPT: Entity - ${entity.name}`,
+    "",
+    `Tipo: ${TYPE_LABELS[entity.type]}`,
+    `Visibilita: ${VISIBILITY_LABELS[entity.visibility]}`,
+    `Tag: ${entity.tags.length > 0 ? entity.tags.join(", ") : "nessuno"}`,
+    "",
+    "## Descrizione GM",
+    entity.description?.trim() || "_Vuoto_",
+    "",
+    "## Descrizione pubblica",
+    entity.publicDescription?.trim() || "_Vuoto_",
+    "",
+    "## Identita",
+    markdownList(
+      data.identities.map(
+        (identity) =>
+          `- ${identity.name}${identity.isTrueIdentity ? " (vera identita)" : ""} [${identity.visibility}]${identity.notes ? `: ${identity.notes}` : ""}`,
+      ),
+    ),
+    "",
+    "## Segreti",
+    markdownList(
+      data.secrets.map(
+        (secret) =>
+          `- [${secret.layer}] ${secret.content}${secret.exploitHint ? `\n  - Exploit: ${secret.exploitHint}` : ""}`,
+      ),
+    ),
+    "",
+    "## Link in uscita",
+    markdownList(data.links.map((link) => formatEntityLink(link, entityNameById, "target"))),
+    "",
+    "## Backlink",
+    markdownList(data.backlinks.map((link) => formatEntityLink(link, entityNameById, "source"))),
+    "",
+    "## PC hook collegati",
+    markdownList(
+      data.pcHooks.map((hook) => {
+        const pc = entityNameById.get(hook.pcEntityId)?.name ?? "PG sconosciuto";
+        const target =
+          entityNameById.get(hook.targetEntityId)?.name ?? "target sconosciuto";
+        return `- ${pc} -> ${target} [${hook.status}]: ${hook.hookDescription}${hook.potentialArc ? `\n  - Arco: ${hook.potentialArc}` : ""}`;
+      }),
+    ),
+    "",
+    "## Plot thread collegati",
+    markdownList(
+      data.plotThreads.map(
+        (thread) =>
+          `- ${thread.threadTitle} (${thread.threadStatus}, ${thread.role})${thread.notes ? `: ${thread.notes}` : ""}`,
+      ),
+    ),
+  ].join("\n");
+}
+
+function formatEntityLink(
+  link: EntityLinkRow,
+  entityNameById: Map<string, EntityName>,
+  side: "source" | "target",
+) {
+  const otherId = side === "target" ? link.targetEntityId : link.sourceEntityId;
+  const other = entityNameById.get(otherId)?.name ?? "entita sconosciuta";
+  return `- ${other} [${link.relationType}, ${link.visibility}]${link.description ? `: ${link.description}` : ""}`;
+}
+
+function markdownList(rows: string[]) {
+  return rows.length > 0 ? rows.join("\n") : "_Nessun elemento._";
 }
 
 interface EntityPlotThreadsPanelProps {

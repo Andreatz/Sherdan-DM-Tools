@@ -16,7 +16,7 @@ import {
 
 import { reviewChangeSchema, updatePackSchema } from "./schemas";
 import type { ChatGptBridgeUpdatePack } from "./schemas";
-import type { ReviewChange } from "./types";
+import type { ReviewChange, ReviewMatchInfo } from "./types";
 
 type PlotThreadStatus = "hot" | "warm" | "cold" | "resolved" | "abandoned";
 type TruthClueStatus =
@@ -38,8 +38,8 @@ type LookupCandidate<T> = {
 };
 
 type LookupResult<T> =
-  | { item: T; warning?: string }
-  | { item: null; warning: string };
+  | { item: T; match: ReviewMatchInfo; warning?: string }
+  | { item: null; match: ReviewMatchInfo; warning: string };
 
 interface EntityLookupRow {
   id: string;
@@ -240,6 +240,7 @@ async function appendSessionChange(
     before,
     after,
     applyPayload: { number: before.number, ...after },
+    match: match.match,
   });
 }
 
@@ -265,6 +266,7 @@ async function appendPlotThreadChanges(
           description: update.event,
           suggestedStatus: update.suggestedStatus,
         },
+        match: match.match,
       });
     }
   }
@@ -309,6 +311,7 @@ async function appendNpcChanges(
       before: entity,
       after: { description: after },
       applyPayload: { entityId: entity.id, description: after },
+      match: match.match,
     });
   }
 }
@@ -328,7 +331,14 @@ async function appendHookChanges(
     const pc = pcMatch.item;
     const targetMatch = hook.target
       ? await findEntity(campaignId, hook.target, "target hook")
-      : { item: null as EntityLookupRow | null };
+      : {
+          item: null as EntityLookupRow | null,
+          match: {
+            status: "none" as const,
+            subject: "target hook",
+            requested: "",
+          },
+        };
     if ("warning" in targetMatch && targetMatch.warning) {
       warnings.push(targetMatch.warning);
     }
@@ -347,6 +357,10 @@ async function appendHookChanges(
         hookDescription: hook.hookDescription,
         status: "available",
       },
+      match: combineMatchInfo("Hook", `${hook.pc} -> ${hook.target ?? ""}`, [
+        pcMatch.match,
+        targetMatch.match,
+      ]),
     });
   }
 }
@@ -374,6 +388,7 @@ async function appendIdentityChanges(
         visibility: toVisibility(identity.visibility),
         notes: identity.notes,
       },
+      match: entityMatch.match,
     });
   }
 }
@@ -387,12 +402,26 @@ async function appendSecretChanges(
   for (const secret of pack.newSecrets) {
     const entityMatch = secret.entity
       ? await findEntity(campaignId, secret.entity, "segreto entity")
-      : { item: null as EntityLookupRow | null };
+      : {
+          item: null as EntityLookupRow | null,
+          match: {
+            status: "none" as const,
+            subject: "segreto entity",
+            requested: "",
+          },
+        };
     if ("warning" in entityMatch && entityMatch.warning) warnings.push(entityMatch.warning);
 
     const plotMatch = secret.plotThread
       ? await findPlotThread(campaignId, secret.plotThread)
-      : { item: null as { id: string; title: string } | null };
+      : {
+          item: null as { id: string; title: string } | null,
+          match: {
+            status: "none" as const,
+            subject: "Plot thread",
+            requested: "",
+          },
+        };
     if ("warning" in plotMatch && plotMatch.warning) warnings.push(plotMatch.warning);
 
     if (!entityMatch.item && !plotMatch.item) {
@@ -412,6 +441,11 @@ async function appendSecretChanges(
         content: secret.content,
         exploitHint: secret.exploitHint,
       },
+      match: combineMatchInfo(
+        "Segreto",
+        [secret.entity, secret.plotThread].filter(Boolean).join(" / "),
+        [entityMatch.match, plotMatch.match],
+      ),
     });
   }
 }
@@ -442,6 +476,10 @@ async function appendLinkChanges(
         description: link.description,
         visibility: toVisibility(link.visibility),
       },
+      match: combineMatchInfo("Link", `${link.source} -> ${link.target}`, [
+        sourceMatch.match,
+        targetMatch.match,
+      ]),
     });
   }
 }
@@ -480,10 +518,26 @@ async function findSession(
       .from(sessions)
       .where(and(eq(sessions.campaignId, campaignId), eq(sessions.number, number)))
       .limit(1);
-    if (session) return { item: session };
+    if (session) {
+      return {
+        item: session,
+        match: {
+          status: "exact" as const,
+          subject: "Sessione",
+          requested: String(number),
+          matched: `Sessione ${session.number}`,
+          score: 1,
+        },
+      };
+    }
     if (!title) {
       return {
         item: null,
+        match: {
+          status: "none",
+          subject: "Sessione",
+          requested: String(number),
+        },
         warning: `Sessione ${number} non trovata: update sessione non candidate.`,
       };
     }
@@ -588,6 +642,11 @@ function pickBestMatch<T>(
   if (!best) {
     return {
       item: null,
+      match: {
+        status: "none",
+        subject: options.subject,
+        requested: options.requested,
+      },
       warning: `${options.subject} non trovato: ${options.requested}`,
     };
   }
@@ -595,17 +654,63 @@ function pickBestMatch<T>(
   if (second && best.score - second.score < FUZZY_AMBIGUITY_MARGIN) {
     return {
       item: null,
+      match: {
+        status: "ambiguous",
+        subject: options.subject,
+        requested: options.requested,
+        score: roundMatchScore(best.score),
+        candidates: [best.candidate.label, second.candidate.label],
+      },
       warning: `${options.subject} ambiguo per "${options.requested}": ${best.candidate.label}, ${second.candidate.label}`,
     };
   }
 
   return {
     item: best.candidate.item,
+    match: {
+      status: best.score >= 1 ? "exact" : "fuzzy",
+      subject: options.subject,
+      requested: options.requested,
+      matched: best.candidate.label,
+      matchedBy: best.matchedLabel,
+      score: roundMatchScore(best.score),
+    },
     warning:
       best.score >= 1
         ? undefined
         : `${options.subject} "${options.requested}" associato a "${best.candidate.label}" via match fuzzy (${best.matchedLabel}).`,
   };
+}
+
+function combineMatchInfo(
+  subject: string,
+  requested: string,
+  matches: ReviewMatchInfo[],
+): ReviewMatchInfo {
+  const meaningful = matches.filter((match) => match.status !== "none");
+  if (meaningful.length === 0) {
+    return { status: "none", subject, requested };
+  }
+  const status = meaningful.some((match) => match.status === "ambiguous")
+    ? "ambiguous"
+    : meaningful.some((match) => match.status === "fuzzy")
+      ? "fuzzy"
+      : "exact";
+  return {
+    status,
+    subject,
+    requested,
+    matched: meaningful.map((match) => match.matched).filter(Boolean).join(" -> "),
+    matchedBy: meaningful.map((match) => match.matchedBy).filter(Boolean).join(" -> "),
+    score: roundMatchScore(
+      Math.min(...meaningful.map((match) => match.score ?? 1)),
+    ),
+    candidates: meaningful.flatMap((match) => match.candidates ?? []),
+  };
+}
+
+function roundMatchScore(score: number) {
+  return Math.round(score * 100) / 100;
 }
 
 function scoreCandidate<T>(requested: string, candidate: LookupCandidate<T>) {

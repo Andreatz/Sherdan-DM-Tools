@@ -124,6 +124,112 @@ describe("buildChatGptBridgeExport", () => {
     expect(result.warnings).toContain("Modalita player-facing attiva: campi GM-only filtrati.");
   });
 
+  it("filtra dati GM-only anche se il contesto player arriva sporco", async () => {
+    const result = await buildChatGptBridgeExport(
+      {
+        ...baseInput,
+        audience: "player",
+        includeSecrets: false,
+        taskType: "player_recap",
+      },
+      {
+        ...context,
+        recentSessions: [
+          {
+            ...context.recentSessions[0]!,
+            dmNotes: "LEAK_DM_NOTES",
+            prepNotes: "LEAK_PREP_NOTES",
+          },
+        ],
+        plotThreads: [
+          {
+            ...context.plotThreads[0]!,
+            title: "Thread pubblico",
+            description: "LEAK_THREAD_DESCRIPTION",
+            visibility: "player_visible",
+          },
+          {
+            ...context.plotThreads[0]!,
+            title: "LEAK_DM_ONLY_THREAD",
+            visibility: "dm_only",
+          },
+        ],
+        truthClues: [
+          {
+            ...context.truthClues[0]!,
+            truthRevealed: "LEAK_TRUTH_REVEALED",
+          },
+        ],
+        secrets: [
+          {
+            ...context.secrets[0]!,
+            content: "LEAK_ENTITY_SECRET",
+            exploitHint: "LEAK_EXPLOIT_HINT",
+          },
+        ],
+        pcHooks: [
+          {
+            id: "00000000-0000-4000-8000-000000000501",
+            pcName: "LEAK_PC_NAME",
+            targetName: "LEAK_TARGET_NAME",
+            hookDescription: "LEAK_PC_HOOK",
+            potentialArc: "LEAK_POTENTIAL_ARC",
+            status: "available",
+          },
+        ],
+        factions: [
+          {
+            id: "00000000-0000-4000-8000-000000000601",
+            type: "faction",
+            name: "Fazione pubblica",
+            description: "LEAK_FACTION_DESCRIPTION",
+            publicDescription: "Descrizione player-safe",
+            tags: ["pubblica"],
+            visibility: "player_visible",
+            properties: { gm: "LEAK_FACTION_PROPERTIES" },
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000602",
+            type: "faction",
+            name: "LEAK_DM_ONLY_FACTION",
+            description: "Segreta",
+            publicDescription: null,
+            tags: [],
+            visibility: "dm_only",
+          },
+        ],
+        location: {
+          id: "00000000-0000-4000-8000-000000000701",
+          type: "location",
+          name: "LEAK_DM_ONLY_LOCATION",
+          description: "LEAK_LOCATION_DESCRIPTION",
+          publicDescription: "Luogo pubblico",
+          tags: [],
+          visibility: "dm_only",
+          properties: { gm: "LEAK_LOCATION_PROPERTIES" },
+        },
+      },
+    );
+
+    expect(result.markdown).toContain("Thread pubblico");
+    expect(result.markdown).toContain("Descrizione player-safe");
+    expect(result.markdown).not.toContain("LEAK_DM_NOTES");
+    expect(result.markdown).not.toContain("LEAK_PREP_NOTES");
+    expect(result.markdown).not.toContain("LEAK_THREAD_DESCRIPTION");
+    expect(result.markdown).not.toContain("LEAK_DM_ONLY_THREAD");
+    expect(result.markdown).not.toContain("LEAK_TRUTH_REVEALED");
+    expect(result.markdown).not.toContain("LEAK_ENTITY_SECRET");
+    expect(result.markdown).not.toContain("LEAK_EXPLOIT_HINT");
+    expect(result.markdown).not.toContain("LEAK_PC_HOOK");
+    expect(result.markdown).not.toContain("LEAK_POTENTIAL_ARC");
+    expect(result.markdown).not.toContain("LEAK_FACTION_DESCRIPTION");
+    expect(result.markdown).not.toContain("LEAK_FACTION_PROPERTIES");
+    expect(result.markdown).not.toContain("LEAK_DM_ONLY_FACTION");
+    expect(result.markdown).not.toContain("LEAK_DM_ONLY_LOCATION");
+    expect(result.markdown).not.toContain("LEAK_LOCATION_DESCRIPTION");
+    expect(result.markdown).not.toContain("LEAK_LOCATION_PROPERTIES");
+  });
+
   it("applica un relevance budget in base a densita e focus", async () => {
     const manyClues = Array.from({ length: 20 }, (_, index) => ({
       id: `00000000-0000-4000-8000-0000000010${String(index).padStart(2, "0")}`,

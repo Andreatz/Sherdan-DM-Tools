@@ -42,6 +42,12 @@ interface ExportDraft {
   requestUpdatePack: boolean;
 }
 
+interface BridgePreset {
+  label: string;
+  description: string;
+  patch: Partial<ExportDraft>;
+}
+
 interface ExportResponse {
   ok: true;
   filename: string;
@@ -107,6 +113,87 @@ const DEFAULT_DRAFT: ExportDraft = {
   requestUpdatePack: true,
 };
 
+const BRIDGE_PRESETS: BridgePreset[] = [
+  {
+    label: "Sessione politica",
+    description: "Intrighi, fazioni, leve sociali e conseguenze.",
+    patch: {
+      taskType: "session_md",
+      density: "Full",
+      audience: "gm",
+      includeSecrets: true,
+      includePcHooks: true,
+      includeFactions: true,
+      includePlayerFacingState: false,
+      focus: "Sessione politica con fazioni, obiettivi divergenti e scene negoziali.",
+      constraints:
+        "Evidenzia leve sociali, posta in gioco, informazioni asimmetriche e conseguenze delle scelte. Non forzare decisioni dei PG.",
+    },
+  },
+  {
+    label: "Dungeon",
+    description: "Struttura esplorativa table-ready.",
+    patch: {
+      taskType: "dungeon",
+      density: "Table-Ready",
+      audience: "gm",
+      includeSecrets: true,
+      includePcHooks: false,
+      includeFactions: true,
+      focus: "Dungeon giocabile al tavolo con stanze, scoperte, ritmo e payoff.",
+      constraints:
+        "Ogni area deve avere funzione, scelta interessante, rischio o informazione. Evita stanze riempitive.",
+    },
+  },
+  {
+    label: "Heist",
+    description: "Obiettivo, sicurezza, complicazioni e timer.",
+    patch: {
+      taskType: "session_md",
+      density: "Table-Ready",
+      audience: "gm",
+      includeSecrets: true,
+      includePcHooks: true,
+      includeFactions: true,
+      focus: "Heist con bersaglio, sorveglianza, punti di ingresso, allarmi e complicazioni.",
+      constraints:
+        "Prepara clock, vie alternative, fail-forward e reazioni dinamiche. Non assumere un piano specifico dei PG.",
+    },
+  },
+  {
+    label: "Recap giocatori",
+    description: "Player-facing, senza segreti GM.",
+    patch: {
+      taskType: "player_recap",
+      density: "Light",
+      audience: "player",
+      includeSecrets: false,
+      includePcHooks: false,
+      includeFactions: true,
+      includePlayerFacingState: true,
+      requestUpdatePack: false,
+      focus: "Recap breve per i giocatori, chiaro e senza spoiler.",
+      constraints:
+        "Usa solo informazioni player-facing. Mantieni tono evocativo ma operativo.",
+    },
+  },
+  {
+    label: "Audit anti-railroad",
+    description: "Controllo agency, alternative e pressioni.",
+    patch: {
+      taskType: "session_audit",
+      density: "Design-Only",
+      audience: "gm",
+      includeSecrets: true,
+      includePcHooks: true,
+      includeFactions: true,
+      focus: "Audit anti-railroad: agency dei PG, scelte reali, alternative e conseguenze.",
+      constraints:
+        "Individua colli di bottiglia, scene troppo obbligate, PNG onniscienti e reveal non guadagnati. Proponi correzioni pratiche.",
+    },
+  },
+];
+
 export function ChatGptBridgeWorkbench({
   mode = "full",
 }: {
@@ -124,6 +211,7 @@ export function ChatGptBridgeWorkbench({
   const [reviewChanges, setReviewChanges] = useState<ReviewChange[]>([]);
   const [reviewWarnings, setReviewWarnings] = useState<string[]>([]);
   const [selectedChanges, setSelectedChanges] = useState<Set<number>>(new Set());
+  const [confirmHighRisk, setConfirmHighRisk] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -176,6 +264,14 @@ export function ChatGptBridgeWorkbench({
     [campaigns, draft.campaignId],
   );
 
+  const selectedHighRiskCount = useMemo(
+    () =>
+      reviewChanges.filter(
+        (change, index) => selectedChanges.has(index) && isHighRiskChange(change),
+      ).length,
+    [reviewChanges, selectedChanges],
+  );
+
   function updateDraft<K extends keyof ExportDraft>(key: K, value: ExportDraft[K]) {
     setDraft((current) => {
       const next = { ...current, [key]: value };
@@ -187,6 +283,20 @@ export function ChatGptBridgeWorkbench({
       return next;
     });
     setMessage(null);
+    setError(null);
+  }
+
+  function applyPreset(preset: BridgePreset) {
+    setDraft((current) => ({
+      ...current,
+      ...preset.patch,
+      campaignId: current.campaignId,
+      sessionNumber: current.sessionNumber,
+      locationId: current.locationId,
+      expectedDurationHours: current.expectedDurationHours,
+      recentSessionsLimit: current.recentSessionsLimit,
+    }));
+    setMessage(`Preset applicato: ${preset.label}.`);
     setError(null);
   }
 
@@ -236,6 +346,7 @@ export function ChatGptBridgeWorkbench({
     setMessage(null);
     setReviewChanges([]);
     setSelectedChanges(new Set());
+    setConfirmHighRisk(false);
     setSavedImportId(null);
     try {
       const analyzed = await apiFetch<AnalyzeResponse>(
@@ -312,6 +423,7 @@ export function ChatGptBridgeWorkbench({
       setReviewChanges(response.changes);
       setReviewWarnings(response.warnings);
       setSelectedChanges(new Set(response.changes.map((_, index) => index)));
+      setConfirmHighRisk(false);
       setMessage(`Review pronta: ${response.changes.length} modifiche candidate.`);
       setError(null);
     } catch (err) {
@@ -323,6 +435,10 @@ export function ChatGptBridgeWorkbench({
 
   async function applySelected() {
     if (!draft.campaignId || selectedChanges.size === 0) return;
+    if (selectedHighRiskCount > 0 && !confirmHighRisk) {
+      setError("Conferma le modifiche ad alto rischio prima dell'apply.");
+      return;
+    }
     setBusy("apply");
     setError(null);
     try {
@@ -356,6 +472,7 @@ export function ChatGptBridgeWorkbench({
     setAnalyzeResult(null);
     setReviewChanges([]);
     setSelectedChanges(new Set());
+    setConfirmHighRisk(false);
     setMessage(null);
     setError(null);
   }
@@ -396,6 +513,28 @@ export function ChatGptBridgeWorkbench({
           onSubmit={generateExport}
           className="space-y-4 rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
         >
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold">Preset Bridge</h2>
+            <div className="grid gap-2">
+              {BRIDGE_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className="rounded-md border border-zinc-200 px-3 py-2 text-left text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
+                  title={preset.description}
+                >
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                    {preset.label}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                    {preset.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
           <Field label="Campagna">
             <select value={draft.campaignId} onChange={(e) => updateDraft("campaignId", e.target.value)} className={controlClass}>
               {campaigns.length === 0 ? <option value="">Nessuna campagna</option> : campaigns.map((campaign) => (
@@ -597,7 +736,10 @@ export function ChatGptBridgeWorkbench({
                 <div className="font-semibold">Warning review</div>
                 <ul className="mt-1 list-disc space-y-1 pl-4">
                   {reviewWarnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
+                    <li key={warning} className="flex flex-wrap items-center gap-2">
+                      <ReviewWarningBadge warning={warning} />
+                      <span>{warning}</span>
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -620,6 +762,12 @@ export function ChatGptBridgeWorkbench({
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${riskClass(change.kind)}`}>
                         {riskLabel(change.kind)}
                       </span>
+                      {change.match ? <MatchBadge match={change.match} /> : null}
+                      {isHighRiskChange(change) ? (
+                        <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700 ring-1 ring-red-600/20 dark:bg-red-950 dark:text-red-300">
+                          alto rischio
+                        </span>
+                      ) : null}
                     </div>
                     <div className="mt-1 text-xs text-zinc-500">
                       Target: {targetLabel(change)}
@@ -642,7 +790,30 @@ export function ChatGptBridgeWorkbench({
                 </li>
               ))}
             </ul>
-            <button type="button" onClick={applySelected} disabled={busy === "apply" || selectedChanges.size === 0} className={primaryButtonClass}>
+            {selectedHighRiskCount > 0 ? (
+              <label className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100">
+                <input
+                  type="checkbox"
+                  checked={confirmHighRisk}
+                  onChange={(event) => setConfirmHighRisk(event.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  Confermo l&apos;apply di {selectedHighRiskCount} modifiche ad alto rischio:
+                  update di canon esistente, segreti, identita o link GM-sensitive.
+                </span>
+              </label>
+            ) : null}
+            <button
+              type="button"
+              onClick={applySelected}
+              disabled={
+                busy === "apply" ||
+                selectedChanges.size === 0 ||
+                (selectedHighRiskCount > 0 && !confirmHighRisk)
+              }
+              className={primaryButtonClass}
+            >
               Applica selezionate
             </button>
           </div>
@@ -718,6 +889,45 @@ function ReviewJson({ title, value }: { title: string; value: unknown }) {
   );
 }
 
+function MatchBadge({ match }: { match: NonNullable<ReviewChange["match"]> }) {
+  const title = [
+    `${match.subject}: ${match.requested}`,
+    match.matched ? `-> ${match.matched}` : null,
+    match.matchedBy && match.matchedBy !== match.matched
+      ? `(via ${match.matchedBy})`
+      : null,
+    typeof match.score === "number" ? `score ${match.score}` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <span
+      title={title}
+      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${matchClass(match.status)}`}
+    >
+      {matchLabel(match.status)}
+    </span>
+  );
+}
+
+function ReviewWarningBadge({ warning }: { warning: string }) {
+  const status = warning.includes("ambiguo")
+    ? "ambiguous"
+    : warning.includes("match fuzzy")
+      ? "fuzzy"
+      : warning.includes("non trovato")
+        ? "none"
+        : null;
+  return status ? (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${matchClass(status)}`}
+    >
+      {matchLabel(status)}
+    </span>
+  ) : null;
+}
+
 function toggleSelected(index: number, setter: React.Dispatch<React.SetStateAction<Set<number>>>) {
   setter((current) => {
     const next = new Set(current);
@@ -768,6 +978,42 @@ function riskClass(kind: ReviewChange["kind"]) {
   return kind === "entity_update" || kind === "session_update"
     ? "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20 dark:bg-amber-950 dark:text-amber-300"
     : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 dark:bg-emerald-950 dark:text-emerald-300";
+}
+
+function isHighRiskChange(change: ReviewChange) {
+  return (
+    change.kind === "session_update" ||
+    change.kind === "entity_update" ||
+    change.kind === "entity_identity_create" ||
+    change.kind === "entity_secret_create" ||
+    change.kind === "entity_link_create"
+  );
+}
+
+function matchLabel(status: NonNullable<ReviewChange["match"]>["status"]) {
+  switch (status) {
+    case "exact":
+      return "match esatto";
+    case "fuzzy":
+      return "match fuzzy";
+    case "ambiguous":
+      return "ambiguo";
+    case "none":
+      return "non trovato";
+  }
+}
+
+function matchClass(status: NonNullable<ReviewChange["match"]>["status"]) {
+  switch (status) {
+    case "exact":
+      return "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950 dark:text-emerald-300";
+    case "fuzzy":
+      return "bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-950 dark:text-sky-300";
+    case "ambiguous":
+      return "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950 dark:text-amber-300";
+    case "none":
+      return "bg-zinc-100 text-zinc-700 ring-zinc-600/20 dark:bg-zinc-800 dark:text-zinc-300";
+  }
 }
 
 function targetLabel(change: ReviewChange) {

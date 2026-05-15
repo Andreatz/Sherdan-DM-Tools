@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { CopyForChatGptButton } from "@/components/copy-for-chatgpt-button";
 import { plotRole, plotThreadStatus } from "@/db/schema";
 
 const STATUSES = plotThreadStatus.enumValues;
@@ -485,6 +486,16 @@ export function PlotThreadsWorkbench() {
       pct: Math.round((understood / threadClues.length) * 100),
     };
   }, [threadClues]);
+  const selectedChatGptMarkdown = selected
+    ? buildPlotThreadChatGptMarkdown({
+        thread: selected,
+        threadEvents,
+        threadClues,
+        threadEntities,
+        entityById,
+        sessionById,
+      })
+    : "";
 
   return (
     <div className="space-y-6">
@@ -782,6 +793,7 @@ export function PlotThreadsWorkbench() {
                   >
                     {STATUS_LABEL[selected.status]}
                   </span>
+                  <CopyForChatGptButton text={selectedChatGptMarkdown} />
                   <div className="ml-auto flex flex-wrap items-center gap-1 text-xs">
                     {STATUSES.map((s) => (
                       <button
@@ -1298,4 +1310,61 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
 
 function messageForError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function buildPlotThreadChatGptMarkdown({
+  thread,
+  threadEvents,
+  threadClues,
+  threadEntities,
+  entityById,
+  sessionById,
+}: {
+  thread: PlotThreadRow;
+  threadEvents: PlotThreadEventRow[];
+  threadClues: TruthClueRow[];
+  threadEntities: PlotThreadEntityRow[];
+  entityById: Map<string, EntityRow>;
+  sessionById: Map<string, SessionRow>;
+}) {
+  return [
+    `# Copy-for-ChatGPT: Plot thread - ${thread.title}`,
+    "",
+    `Status: ${thread.status}`,
+    `Priorita: ${thread.priority ?? "non impostata"}`,
+    "",
+    "## Verita GM",
+    thread.description?.trim() || "_Vuoto_",
+    "",
+    "## Versione percepita",
+    thread.publicDescription?.trim() || "_Vuoto_",
+    "",
+    "## Entita coinvolte",
+    listOrEmpty(
+      threadEntities.map((row) => {
+        const entity = entityById.get(row.entityId);
+        return `- ${entity?.name ?? "Entita sconosciuta"} (${row.role})${row.notes ? `: ${row.notes}` : ""}`;
+      }),
+    ),
+    "",
+    "## Timeline",
+    listOrEmpty(
+      threadEvents.map((event) => {
+        const session = event.sessionId ? sessionById.get(event.sessionId) : null;
+        return `- ${new Date(event.occurredAt).toLocaleDateString("it-IT")} ${session ? `S${session.number} ` : ""}[${event.eventType}]: ${event.description}${event.publicDescription ? `\n  - Percepito: ${event.publicDescription}` : ""}`;
+      }),
+    ),
+    "",
+    "## Briciole correlate",
+    listOrEmpty(
+      threadClues.map(
+        (clue) =>
+          `- [${clue.status}] ${clue.description}\n  - Verita GM: ${clue.truthRevealed}`,
+      ),
+    ),
+  ].join("\n");
+}
+
+function listOrEmpty(rows: string[]) {
+  return rows.length > 0 ? rows.join("\n") : "_Nessun elemento._";
 }

@@ -101,6 +101,18 @@ export type ChatGptBridgeReviewUpdatePackInput = z.infer<
   typeof chatGptBridgeReviewUpdatePackInputSchema
 >;
 
+const reviewMatchInfoSchema = z
+  .object({
+    status: z.enum(["exact", "fuzzy", "ambiguous", "none"]),
+    subject: z.string(),
+    requested: z.string(),
+    matched: z.string().optional(),
+    matchedBy: z.string().optional(),
+    score: z.number().optional(),
+    candidates: z.array(z.string()).optional(),
+  })
+  .optional();
+
 export const reviewChangeSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("session_update"),
@@ -108,16 +120,19 @@ export const reviewChangeSchema = z.discriminatedUnion("kind", [
     before: z.unknown(),
     after: z.unknown(),
     applyPayload: z.unknown(),
+    match: reviewMatchInfoSchema,
   }),
   z.object({
     kind: z.literal("plot_thread_event_create"),
     label: z.string(),
     applyPayload: z.unknown(),
+    match: reviewMatchInfoSchema,
   }),
   z.object({
     kind: z.literal("truth_clue_create"),
     label: z.string(),
     applyPayload: z.unknown(),
+    match: reviewMatchInfoSchema,
   }),
   z.object({
     kind: z.literal("entity_update"),
@@ -125,26 +140,31 @@ export const reviewChangeSchema = z.discriminatedUnion("kind", [
     before: z.unknown(),
     after: z.unknown(),
     applyPayload: z.unknown(),
+    match: reviewMatchInfoSchema,
   }),
   z.object({
     kind: z.literal("pc_hook_create"),
     label: z.string(),
     applyPayload: z.unknown(),
+    match: reviewMatchInfoSchema,
   }),
   z.object({
     kind: z.literal("entity_identity_create"),
     label: z.string(),
     applyPayload: z.unknown(),
+    match: reviewMatchInfoSchema,
   }),
   z.object({
     kind: z.literal("entity_secret_create"),
     label: z.string(),
     applyPayload: z.unknown(),
+    match: reviewMatchInfoSchema,
   }),
   z.object({
     kind: z.literal("entity_link_create"),
     label: z.string(),
     applyPayload: z.unknown(),
+    match: reviewMatchInfoSchema,
   }),
 ]);
 

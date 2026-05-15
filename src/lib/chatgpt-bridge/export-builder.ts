@@ -17,7 +17,7 @@ export async function buildChatGptBridgeExport(
   contextOverride?: ChatGptBridgeContext,
 ): Promise<ChatGptBridgeExportResult> {
   const input = chatGptBridgeExportInputSchema.parse(rawInput);
-  const context =
+  const rawContext =
     contextOverride ??
     (await collectChatGptBridgeContext({
       campaignId: input.campaignId,
@@ -33,6 +33,7 @@ export async function buildChatGptBridgeExport(
       includeFactions: input.includeFactions,
       includePlayerFacingState: input.includePlayerFacingState,
     }));
+  const context = projectContextForAudience(input.audience, rawContext);
 
   const warnings = collectWarnings(input, context);
   const budgetedContext = applyRelevanceBudget(input, context, warnings);
@@ -52,6 +53,49 @@ export async function buildChatGptBridgeExport(
     markdown,
     estimatedCharacters,
     warnings,
+  };
+}
+
+function projectContextForAudience(
+  audience: ChatGptBridgeExportInput["audience"],
+  context: ChatGptBridgeContext,
+): ChatGptBridgeContext {
+  if (audience === "gm") return context;
+
+  return {
+    ...context,
+    recentSessions: context.recentSessions?.map((row) => ({
+      ...row,
+      dmNotes: undefined,
+      prepNotes: undefined,
+    })),
+    plotThreads: context.plotThreads
+      ?.filter((row) => row.visibility !== "dm_only")
+      .map((row) => ({
+        ...row,
+        description: undefined,
+      })),
+    truthClues: context.truthClues?.map((row) => ({
+      ...row,
+      truthRevealed: undefined,
+    })),
+    secrets: [],
+    pcHooks: [],
+    factions: context.factions
+      ?.filter((row) => row.visibility !== "dm_only")
+      .map((row) => ({
+        ...row,
+        description: undefined,
+        properties: undefined,
+      })),
+    location:
+      context.location && context.location.visibility !== "dm_only"
+        ? {
+            ...context.location,
+            description: undefined,
+            properties: undefined,
+          }
+        : null,
   };
 }
 

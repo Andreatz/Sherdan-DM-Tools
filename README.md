@@ -121,6 +121,7 @@ Vocabolario stato:
 | `/rules` | Pronto | Lookup regole e Q&A opzionale. |
 | `/dungeon-generator` | Pronto / Opzionale | Layout dungeon e contenuto assistito. |
 | `/chatgpt-bridge` | Pronto | Export/import manuale per ChatGPT web. |
+| `/chatgpt-bridge/history` | Pronto | Storico export/import Bridge, warning e apply. |
 | `/generation-log` | Pronto | Log chiamate LLM quando abilitate. |
 | `/npc-generator` | Opzionale | Generatore automatico via LLM. |
 | `/loot-generator` | Opzionale | Generatore automatico via LLM. |
@@ -493,12 +494,16 @@ Cosa viene importato:
 ### ChatGPT Web Bridge
 
 - Export markdown contestuale.
+- Preset operativi per politica, dungeon, heist, recap giocatori e audit anti-railroad.
+- Copy-for-ChatGPT da entity, sessioni, plot thread e truth clue.
 - Prompt Architetto di Mondi incluso o sintetico.
 - Relevance budgeting per densità.
 - Audience GM/player.
 - Import output ChatGPT.
 - Parsing `UPDATE PACK`.
 - Review e apply selettivo.
+- Badge match esatto/fuzzy/ambiguo.
+- Conferma extra per modifiche ad alto rischio.
 - Storico export/import.
 
 ---
@@ -669,23 +674,15 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 
 ### Priorità alta
 
-1. Rafforzare leakage test del ChatGPT Bridge.
-2. Uniformare status feature tra README, sidebar e `/status`.
-3. Aggiungere badge match esatto/fuzzy/ambiguo nella review Update Pack.
-4. Migliorare la pagina storico export/import Bridge.
-5. Aggiungere conferma extra per modifiche ad alto rischio.
+1. Canon Diff per output importati.
+2. Session Debrief Import post-sessione.
+3. Dashboard compatta delle ultime modifiche applicate via Bridge.
 
 ### Priorità media
 
-1. Preset Bridge:
-   - sessione politica;
-   - dungeon;
-   - heist;
-   - recap giocatori;
-   - audit anti-railroad.
-2. Copy-for-ChatGPT da ogni pagina entity/session/plot/clue.
-3. Canon Diff per output importati.
-4. Session Debrief Import post-sessione.
+1. Preset Bridge aggiuntivi per eventi politici complessi, downtime e viaggio.
+2. Migliorare Canon Diff con evidenza campo-per-campo.
+3. Dashboard compatta delle ultime modifiche applicate via Bridge.
 
 ### Priorità futura
 

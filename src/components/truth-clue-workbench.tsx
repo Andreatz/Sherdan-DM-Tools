@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { CopyForChatGptButton } from "@/components/copy-for-chatgpt-button";
 import { clueStatus } from "@/db/schema";
 import { PlayerOverrideEditor } from "@/components/player-override-editor";
 
@@ -783,6 +784,14 @@ export function TruthClueWorkbench() {
                           ))}
                         </div>
                         <div className="ml-auto flex items-center gap-2">
+                          <CopyForChatGptButton
+                            text={buildTruthClueChatGptMarkdown({
+                              clue,
+                              thread: thread ?? null,
+                              session: session ?? null,
+                              entityById,
+                            })}
+                          />
                           <button
                             type="button"
                             onClick={() => startEdit(clue)}
@@ -926,4 +935,41 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
 
 function messageForError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function buildTruthClueChatGptMarkdown({
+  clue,
+  thread,
+  session,
+  entityById,
+}: {
+  clue: TruthClueRow;
+  thread: PlotThreadRow | null;
+  session: SessionRow | null;
+  entityById: Map<string, EntityRow>;
+}) {
+  const relatedEntities = clue.relatedEntities
+    .map((id) => entityById.get(id))
+    .filter((entity): entity is EntityRow => Boolean(entity));
+  return [
+    `# Copy-for-ChatGPT: Truth clue - ${clue.description.slice(0, 80)}`,
+    "",
+    `Status: ${clue.status}`,
+    `Plot thread: ${thread?.title ?? "nessuno"}`,
+    `Sessione: ${session ? `#${session.number}${session.title ? ` - ${session.title}` : ""}` : "non impostata"}`,
+    "",
+    "## Briciola percepita",
+    clue.description,
+    "",
+    "## Verita GM",
+    clue.truthRevealed,
+    "",
+    "## Note status",
+    clue.statusNotes?.trim() || "_Vuoto_",
+    "",
+    "## Entita correlate",
+    relatedEntities.length > 0
+      ? relatedEntities.map((entity) => `- ${entity.name} (${entity.type})`).join("\n")
+      : "_Nessuna entita._",
+  ].join("\n");
 }

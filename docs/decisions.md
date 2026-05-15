@@ -14,12 +14,16 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - **Export/import manuale invece di integrazione API OpenAI.** Il DM copia un pacchetto Markdown/JSON in ChatGPT Web e riporta l'output nell'app. Tradeoff: un passaggio manuale in piu'; vantaggio: niente API key nel repo, niente costi imprevisti, pieno controllo umano su cosa entra nel DB.
 - **Prompt canonico da `content/sherdan/Agente AI Worldbuilding.md`.** Il Bridge usa il prompt reale della campagna come fonte primaria, con fallback sul nome typo storico e poi su un riassunto interno. Il prompt resta in `content/sherdan`, quindi segue le stesse regole di sicurezza dei sorgenti GM-only.
 - **UPDATE PACK sempre review-first.** ChatGPT puo' proporre modifiche, ma l'app non applica nulla senza selezione esplicita. Il parser produce candidate changes, il fuzzy matcher risolve nomi/alias/sessioni con warning, e la UI mostra payload/diff prima dell'applicazione.
+- **Review con segnali operativi espliciti.** La UI distingue match esatti, fuzzy, ambigui e non trovati con badge dedicati. Le modifiche ad alto rischio (update canonici, identita', segreti e link) richiedono una conferma extra prima dell'apply.
 - **Relevance budget nel builder, non nelle query.** Le query restano semplici e conservative; il builder decide quanto includere in base a densita', focus, location, sessione, status e priority. Cosi' si puo' migliorare il ranking senza cambiare API o schema DB.
+- **Storico Bridge server-side.** Export e import restano persistiti su DB; `/chatgpt-bridge/history` espone una timeline compatta con warning, Update Pack e modifiche applicate, senza caricare markdown enormi nella lista.
+- **Preset come scorciatoie, non modalita' separate.** I preset Bridge precompilano task type, densita', audience, sezioni e vincoli per casi ricorrenti, preservando campagna/sessione/location selezionate.
+- **Copy-for-ChatGPT locale sulle superfici canoniche.** Entity, sessioni, plot thread e truth clue possono copiare un blocco Markdown mirato senza passare dall'export completo. Questi snippet sono pensati per prompt brevi e interventi puntuali, mentre `/chatgpt-bridge` resta il percorso per pacchetti ampi con relevance budget e storico.
 - **Database di test locale automatizzato.** `pnpm test:db:setup`, `pnpm test:integration:local` e `pnpm test:e2e:local` derivano `sherdan_dm_test` dal `DATABASE_URL`, applicano guardie sul nome e abilitano `vector`/`pg_trgm`. Playwright usa `.next-e2e` per convivere con il dev server principale.
 
-**Conseguenza.** Per Sherdan, il flusso consigliato diventa: preparare il contesto in `/chatgpt-bridge`, lavorare in ChatGPT Web, importare output e UPDATE PACK, applicare solo cio' che il DM approva. I generatori storici restano disponibili se in futuro si riattiva un provider LLM, ma non sono piu' un prerequisito operativo.
+**Conseguenza.** Per Sherdan, il flusso consigliato diventa: preparare il contesto in `/chatgpt-bridge`, lavorare in ChatGPT Web, importare output e UPDATE PACK, applicare solo cio' che il DM approva, poi controllare lo storico in `/chatgpt-bridge/history`. I generatori storici restano disponibili se in futuro si riattiva un provider LLM, ma non sono piu' un prerequisito operativo.
 
-**Test.** Unit Bridge/export/import/update-pack, env `none`, setup DB locale, integrazione DB/API locale e smoke E2E browser locale passano. La sidebar e la status page segnano il Bridge come `Pronto`.
+**Test.** Unit Bridge/export/import/update-pack, env `none`, setup DB locale, integrazione DB/API locale e smoke E2E browser locale passano. La sidebar, la status page e il README usano lo stesso stato feature.
 
 ---
 
@@ -55,12 +59,14 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - **B.** Spostarli in `data/sherdan/` o `content/sherdan/` e aggiornare CLAUDE.md.
 - **C.** Sotto-cartella `public/sherdan/` per evitare collisioni future con asset Next.js.
 
-**Scelta.** **Opzione A**. Il deploy è single-user dietro Tailscale (CLAUDE.md §3, ROADMAP Fase 10), quindi l'esposizione statica dei `.md` è innocua. Si rispetta CLAUDE.md alla lettera senza rinunciare alla flessibilità futura: se in seguito serviranno asset Next.js (immagini, font, ecc.) verranno messi in sotto-cartelle dedicate sotto `public/`, mentre i `.md` Sherdan restano in root come "dato utente".
+**Scelta storica.** **Opzione A**. Il deploy era single-user dietro Tailscale (CLAUDE.md §3, ROADMAP Fase 10), quindi in quel momento l'esposizione statica dei `.md` era considerata accettabile.
+
+**Superata dal 2026-05-15.** La decisione corrente e' l'opposto operativo: i sorgenti raw di Sherdan devono stare in `content/sherdan/` e non in `public/`. Il content safety gate (`pnpm content:check:safe`) blocca i markdown Sherdan raw esposti come asset statici, perche' il progetto ora include superfici player-facing e workflow Bridge con audience `player`.
 
 **Conseguenze operative.**
-- Il codice applicativo legge i `.md` con `fs.readFile(path.join(process.cwd(), 'public', '<file>.md'))`.
-- I `.md` non vanno mai modificati a runtime (CLAUDE.md §12.2).
-- Se in futuro l'esposizione statica diventasse un problema (ad es. condivisione del Player Dashboard pubblicamente), si rivaluta lo spostamento.
+- Il codice applicativo legge i sorgenti canonici da `content/sherdan/`.
+- I `.md` non vanno mai modificati a runtime.
+- `public/` non deve contenere sorgenti narrativi raw con segreti GM.
 
 ---
 
