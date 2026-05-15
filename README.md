@@ -101,7 +101,7 @@ Vocabolario stato:
 | Loot Generator | Opzionale | Richiede LLM server-side per generazione automatica. |
 | Encounter Builder | Pronto / Opzionale | Browser/CR calculator pronto; assist LLM opzionale. |
 | Session Prep Assistant LLM | Opzionale | Sostituito nel workflow consigliato dal ChatGPT Web Bridge. |
-| Combat Tracker runtime | Pianificato | Iniziativa, HP, condizioni live non ancora core. |
+| Combat Tracker runtime | Pronto | Iniziativa, round, HP/note e push live al Player Dashboard. |
 | Matrice conoscenza PNG | Pronto | Matrice player x target basata su visibilita base e override individuali. |
 | Spoiler Gate / Reveal Tracker | Pronto | Dashboard reveal per briciole, segreti stratificati e override per-player. |
 
@@ -120,6 +120,7 @@ Vocabolario stato:
 | `/random-tables` | Pronto | Tabelle casuali e roll. |
 | `/player` | Pronto | Dashboard player-safe. |
 | `/session-run` | Pronto | Vista operativa da tavolo: scena, iniziativa, thread e briciole. |
+| `/combat-tracker` | Pronto | Iniziativa runtime condivisa col Player Dashboard. |
 | `/knowledge-matrix` | Pronto | Matrice conoscenza player x PNG/target. |
 | `/reveal-tracker` | Pronto | Spoiler gate per briciole e segreti stratificati. |
 | `/rules` | Pronto | Lookup regole e Q&A opzionale. |
@@ -490,13 +491,21 @@ Cosa viene importato:
 - Tabella player x target con default derivato da `visibility` e override da `player_visibility_overrides`.
 - Filtro per tipo entity, con default sui PNG.
 - Serve come audit rapido per capire chi vede cosa prima di esporre contenuti player-facing.
+- Azioni inline per rivelare, nascondere o resettare un target per singolo player.
 
 ### Spoiler Gate / Reveal Tracker
 
 - Route `/reveal-tracker`.
 - Raccoglie `truth_clues` e `entity_secrets` in una dashboard unica.
 - Mostra stato party-level, layer dei segreti e override individuali hidden/revealed.
-- Le modifiche restano negli editor dedicati, cosi' il tracker rimane una vista di controllo pulita.
+- Azioni inline per party reveal/protezione e override individuali.
+
+### Combat Tracker
+
+- Route `/combat-tracker`.
+- Usa `player_dashboard_states.initiative`, quindi lo stesso stato compare nel Player Dashboard.
+- Gestisce round, stato attivo/pausa, combattenti, iniziativa, HP e note/condizioni.
+- Salva e puo' fare push realtime ai player con lo stesso canale del Player Dashboard.
 
 ### Random Tables Engine
 
@@ -705,9 +714,9 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 
 ### Priorità alta
 
-1. Hardening operativo delle tre nuove viste da tavolo.
-2. Collegare azioni rapide di reveal/override direttamente da matrice e tracker.
-3. Combat Tracker runtime.
+1. Rifinitura UX delle viste da tavolo dopo uso reale in sessione.
+2. Contradiction Detector deterministico.
+3. Campo-per-campo per Canon Diff.
 
 ### Priorità media
 
@@ -717,9 +726,9 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 
 ### Priorità futura
 
-1. Combat Tracker runtime.
-2. Azioni inline per Matrice conoscenza PNG e Spoiler Gate.
-3. Contradiction Detector deterministico.
+1. Contradiction Detector deterministico.
+2. Campo-per-campo per Canon Diff.
+3. Preset Bridge aggiuntivi per downtime e viaggio.
 
 ---
 
@@ -731,8 +740,7 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 - Con `LLM_PROVIDER=none`, i generatori automatici LLM non devono essere usati come percorso principale.
 - ChatGPT Web Bridge non automatizza ChatGPT web: prepara export/import manuali.
 - L'Update Pack va sempre revisionato prima dell'apply.
-- Il combat tracker runtime non è ancora implementato.
-- Matrice conoscenza PNG e Reveal Tracker sono viste/audit: per ora le modifiche si fanno dagli editor esistenti.
+- Matrice conoscenza PNG e Reveal Tracker usano override inline, ma restano viste operative leggere: gli editor canonici continuano a gestire il dettaglio completo.
 
 ---
 

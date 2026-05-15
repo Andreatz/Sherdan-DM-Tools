@@ -896,11 +896,15 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
   - _Note implementative (2026-05-15): aggiunti `GET /api/knowledge-matrix` e `/knowledge-matrix`. La matrice incrocia player attivi e target entity, defaultando da `visibility` e mostrando override individuali `hidden/revealed` da `player_visibility_overrides`._
 - [x] Spoiler Gate / Reveal Tracker.
   - _Note implementative (2026-05-15): aggiunti `GET /api/reveal-tracker` e `/reveal-tracker`. La dashboard unifica `truth_clues` e `entity_secrets`, mostra stato party-level, layer/sezione sorgente e override per-player._
+- [x] Azioni inline per matrice/reveal tracker.
+  - _Note implementative (2026-05-15): `/knowledge-matrix` ora crea/aggiorna/cancella override `entity` per singolo player. `/reveal-tracker` gestisce party reveal/protezione su briciole e segreti, piu' override `truth_clue`/`entity_secret` per-player._
+- [x] Combat Tracker runtime.
+  - _Note implementative (2026-05-15): aggiunti `/combat-tracker` e UI runtime basata su `player_dashboard_states.initiative`. Gestisce active/pausa, round, combattenti, iniziativa, HP/note, salvataggio e push realtime al Player Dashboard._
 
 ### Prossimo ordine di esecuzione
-1. Combat Tracker runtime.
-2. Azioni inline per matrice/reveal tracker.
-3. Contradiction Detector deterministico.
+1. Contradiction Detector deterministico.
+2. Campo-per-campo per Canon Diff.
+3. Preset Bridge aggiuntivi per downtime e viaggio.
 
 ### Definition of done
 Con `LLM_PROVIDER=none`, il DM può preparare una sessione Sherdan usando solo `/chatgpt-bridge`: esporta contesto, lavora in ChatGPT Web, importa output, revisiona UPDATE PACK e applica modifiche al DB senza leak verso i giocatori e senza route generative attive.

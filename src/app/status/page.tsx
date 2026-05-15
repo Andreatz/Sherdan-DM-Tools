@@ -38,7 +38,7 @@ const featureRows = [
   ["Loot Generator", "Opzionale", "Richiede LLM server-side per generazione automatica."],
   ["Encounter Builder", "Pronto / Opzionale", "Browser/CR calculator pronto; assist LLM opzionale."],
   ["Session Prep Assistant LLM", "Opzionale", "Sostituito nel workflow consigliato dal ChatGPT Web Bridge."],
-  ["Combat Tracker runtime", "Pianificato", "Iniziativa, HP e condizioni live non ancora core."],
+  ["Combat Tracker runtime", "Pronto", "Iniziativa, round, HP/note e push live al Player Dashboard."],
   ["Matrice conoscenza PNG", "Pronto", "Matrice player x target basata su visibilita base e override individuali."],
   ["Spoiler Gate / Reveal Tracker", "Pronto", "Dashboard reveal per briciole, segreti stratificati e override per-player."],
 ] as const;

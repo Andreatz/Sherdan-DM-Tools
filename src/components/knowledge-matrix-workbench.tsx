@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 type OverrideMode = "hidden" | "revealed";
@@ -64,6 +65,8 @@ export function KnowledgeMatrixWorkbench() {
   const [entityType, setEntityType] = useState<EntityType>("npc");
   const [payload, setPayload] = useState<MatrixPayload | null>(null);
   const [loading, setLoading] = useState(false);
+  const [savingCell, setSavingCell] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -108,7 +111,49 @@ export function KnowledgeMatrixWorkbench() {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, entityType]);
+  }, [campaignId, entityType, refreshToken]);
+
+  async function setEntityOverride(
+    entity: EntityMatrixRow,
+    player: PlayerRow,
+    mode: OverrideMode | null,
+  ) {
+    const cellKey = `${entity.id}:${player.id}`;
+    const existing = entity.overrides[player.id];
+    setSavingCell(cellKey);
+    setError(null);
+    try {
+      if (mode === null) {
+        if (existing) {
+          await apiFetch(`/api/player-visibility-overrides/${existing.id}`, {
+            method: "DELETE",
+          });
+        }
+      } else if (existing) {
+        if (existing.mode !== mode) {
+          await apiFetch(`/api/player-visibility-overrides/${existing.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ mode }),
+          });
+        }
+      } else {
+        await apiFetch("/api/player-visibility-overrides", {
+          method: "POST",
+          body: JSON.stringify({
+            playerId: player.id,
+            targetType: "entity",
+            targetId: entity.id,
+            mode,
+          }),
+        });
+      }
+      setRefreshToken((value) => value + 1);
+    } catch (err) {
+      setError(messageForError(err));
+    } finally {
+      setSavingCell(null);
+    }
+  }
 
   const stats = useMemo(() => {
     if (!payload) return { total: 0, revealed: 0, hidden: 0 };
@@ -220,12 +265,41 @@ export function KnowledgeMatrixWorkbench() {
                     </td>
                     {payload.players.map((player) => {
                       const override = entity.overrides[player.id];
+                      const mode = override?.mode ?? baseModeFor(entity.visibility);
+                      const saving = savingCell === `${entity.id}:${player.id}`;
                       return (
                         <td key={player.id} className="px-3 py-3">
-                          <VisibilityBadge
-                            mode={override?.mode ?? baseModeFor(entity.visibility)}
-                            muted={!override}
-                          />
+                          <div className="flex min-w-36 flex-col gap-1">
+                            <VisibilityBadge mode={mode} muted={!override} />
+                            <div className="flex flex-wrap gap-1">
+                              <CellButton
+                                disabled={saving}
+                                active={override?.mode === "revealed"}
+                                onClick={() =>
+                                  void setEntityOverride(entity, player, "revealed")
+                                }
+                              >
+                                Rivela
+                              </CellButton>
+                              <CellButton
+                                disabled={saving}
+                                active={override?.mode === "hidden"}
+                                onClick={() =>
+                                  void setEntityOverride(entity, player, "hidden")
+                                }
+                              >
+                                Nascondi
+                              </CellButton>
+                              <CellButton
+                                disabled={saving || !override}
+                                onClick={() =>
+                                  void setEntityOverride(entity, player, null)
+                                }
+                              >
+                                Reset
+                              </CellButton>
+                            </div>
+                          </div>
                         </td>
                       );
                     })}
@@ -237,6 +311,33 @@ export function KnowledgeMatrixWorkbench() {
         )}
       </section>
     </div>
+  );
+}
+
+function CellButton({
+  children,
+  onClick,
+  active = false,
+  disabled = false,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide disabled:opacity-40 ${
+        active
+          ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
+          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -320,8 +421,11 @@ function ErrorBox({ message }: { message: string }) {
   );
 }
 
-async function apiFetch<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
     try {

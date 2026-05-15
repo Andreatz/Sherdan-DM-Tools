@@ -41,6 +41,7 @@ interface RevealTarget {
 
 interface RevealPayload {
   players: PlayerRow[];
+  latestSession: { id: string; number: number; title: string | null } | null;
   targets: RevealTarget[];
 }
 
@@ -50,6 +51,8 @@ export function RevealTrackerWorkbench() {
   const [filter, setFilter] = useState<"all" | TargetType>("all");
   const [payload, setPayload] = useState<RevealPayload | null>(null);
   const [loading, setLoading] = useState(false);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -94,7 +97,85 @@ export function RevealTrackerWorkbench() {
     return () => {
       cancelled = true;
     };
-  }, [campaignId]);
+  }, [campaignId, refreshToken]);
+
+  async function setOverride(
+    target: RevealTarget,
+    player: PlayerRow,
+    mode: OverrideMode | null,
+  ) {
+    const key = `${target.targetType}:${target.id}:${player.id}`;
+    const existing = target.overrides[player.id];
+    setSavingKey(key);
+    setError(null);
+    try {
+      if (mode === null) {
+        if (existing) {
+          await apiFetch(`/api/player-visibility-overrides/${existing.id}`, {
+            method: "DELETE",
+          });
+        }
+      } else if (existing) {
+        if (existing.mode !== mode) {
+          await apiFetch(`/api/player-visibility-overrides/${existing.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ mode }),
+          });
+        }
+      } else {
+        await apiFetch("/api/player-visibility-overrides", {
+          method: "POST",
+          body: JSON.stringify({
+            playerId: player.id,
+            targetType: target.targetType,
+            targetId: target.id,
+            mode,
+          }),
+        });
+      }
+      setRefreshToken((value) => value + 1);
+    } catch (err) {
+      setError(messageForError(err));
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  async function setPartyReveal(target: RevealTarget, revealed: boolean) {
+    const key = `${target.targetType}:${target.id}:party`;
+    setSavingKey(key);
+    setError(null);
+    try {
+      if (target.targetType === "truth_clue") {
+        await apiFetch(`/api/truth-clues/${target.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            status: revealed ? "understood" : "planted",
+          }),
+        });
+      } else {
+        if (revealed && !payload?.latestSession) {
+          throw new Error(
+            "Serve almeno una sessione per marcare un segreto come scoperto.",
+          );
+        }
+        await apiFetch(`/api/entity-secrets/${target.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            discoveredAtSession: revealed ? payload?.latestSession?.id : null,
+            discoveryNotes: revealed
+              ? `Segnato dal Reveal Tracker${payload?.latestSession ? ` nella sessione #${payload.latestSession.number}` : ""}.`
+              : null,
+          }),
+        });
+      }
+      setRefreshToken((value) => value + 1);
+    } catch (err) {
+      setError(messageForError(err));
+    } finally {
+      setSavingKey(null);
+    }
+  }
 
   const visibleTargets = useMemo(() => {
     const rows = payload?.targets ?? [];
@@ -229,7 +310,27 @@ export function RevealTrackerWorkbench() {
                 <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-200">
                   {target.detail}
                 </p>
-                <PlayerOverrides players={payload?.players ?? []} target={target} />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <ActionButton
+                    disabled={savingKey === `${target.targetType}:${target.id}:party`}
+                    active={target.status === "party_revealed"}
+                    onClick={() => void setPartyReveal(target, true)}
+                  >
+                    Party reveal
+                  </ActionButton>
+                  <ActionButton
+                    disabled={savingKey === `${target.targetType}:${target.id}:party`}
+                    onClick={() => void setPartyReveal(target, false)}
+                  >
+                    Proteggi
+                  </ActionButton>
+                </div>
+                <PlayerOverrides
+                  players={payload?.players ?? []}
+                  target={target}
+                  savingKey={savingKey}
+                  setOverride={setOverride}
+                />
               </li>
             ))}
           </ul>
@@ -242,9 +343,17 @@ export function RevealTrackerWorkbench() {
 function PlayerOverrides({
   players,
   target,
+  savingKey,
+  setOverride,
 }: {
   players: PlayerRow[];
   target: RevealTarget;
+  savingKey: string | null;
+  setOverride: (
+    target: RevealTarget,
+    player: PlayerRow,
+    mode: OverrideMode | null,
+  ) => Promise<void>;
 }) {
   if (players.length === 0) {
     return (
@@ -257,19 +366,67 @@ function PlayerOverrides({
     <div className="mt-3 flex flex-wrap gap-2">
       {players.map((player) => {
         const override = target.overrides[player.id];
+        const key = `${target.targetType}:${target.id}:${player.id}`;
         return (
           <span
             key={player.id}
-            className="inline-flex items-center gap-1 rounded-md border border-zinc-200 px-2 py-1 text-xs dark:border-zinc-800"
+            className="inline-flex flex-wrap items-center gap-1 rounded-md border border-zinc-200 px-2 py-1 text-xs dark:border-zinc-800"
           >
             <span className="font-medium">{player.name}</span>
             <span className="text-zinc-500">
               {override ? override.mode : "default"}
             </span>
+            <ActionButton
+              active={override?.mode === "revealed"}
+              disabled={savingKey === key}
+              onClick={() => void setOverride(target, player, "revealed")}
+            >
+              Rivela
+            </ActionButton>
+            <ActionButton
+              active={override?.mode === "hidden"}
+              disabled={savingKey === key}
+              onClick={() => void setOverride(target, player, "hidden")}
+            >
+              Nascondi
+            </ActionButton>
+            <ActionButton
+              disabled={savingKey === key || !override}
+              onClick={() => void setOverride(target, player, null)}
+            >
+              Reset
+            </ActionButton>
           </span>
         );
       })}
     </div>
+  );
+}
+
+function ActionButton({
+  children,
+  onClick,
+  active = false,
+  disabled = false,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide disabled:opacity-40 ${
+        active
+          ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
+          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -313,8 +470,11 @@ function ErrorBox({ message }: { message: string }) {
   );
 }
 
-async function apiFetch<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
     try {

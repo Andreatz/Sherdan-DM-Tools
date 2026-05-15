@@ -460,4 +460,8 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - **Matrice conoscenza PNG = player x entity override.** `/api/knowledge-matrix` incrocia player attivi e target entity, con default derivato da `entities.visibility` e override da `player_visibility_overrides`. Niente nuovo modello "knowledge": la fonte di verita resta la policy di visibilita gia' usata dal Player Dashboard.
 - **Reveal Tracker unifica briciole e segreti.** `/api/reveal-tracker` normalizza `truth_clues` e `entity_secrets` in una lista unica di reveal protetti/rivelati, includendo override individuali. Il tracker e' un audit operativo, non un secondo editor.
 
-**Tradeoff.** Le azioni inline (`rivela a tutti`, `nascondi a X`, `mark discovered`) restano backlog: il primo slice riduce rischio e duplicazione, ma richiede ancora passare dagli editor dedicati per scrivere. Questo mantiene stabile la semantica player-safe mentre le viste nuove maturano.
+**Evoluzione stessa giornata.** Dopo il primo slice read-first, matrice e reveal tracker hanno ricevuto azioni inline: override individuali via CRUD `player_visibility_overrides`, party reveal su briciole via PATCH `status='understood'`, e reveal/protezione dei segreti via `discoveredAtSession`.
+
+**Combat Tracker.** Il runtime combat non introduce tabella nuova: usa `player_dashboard_states.initiative`, la stessa struttura gia' esposta al Player Dashboard. La UI `/combat-tracker` scrive active/round/turns e puo' fare push realtime ai client collegati.
+
+**Tradeoff.** Restano fuori dal runtime V1 condizioni strutturate, HP numerici con calcolo automatico e turn pointer persistente. Per Sherdan al tavolo e' piu' utile avere una lavagna leggera, editabile e condivisa subito, lasciando i modelli combat completi a un'evoluzione successiva.

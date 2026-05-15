@@ -9,6 +9,7 @@ import {
   players,
   playerVisibilityOverrides,
   plotThreads,
+  sessions,
   truthClues,
 } from "@/db/schema";
 import { fail, ok } from "@/lib/api/respond";
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const q = querySchema.parse(Object.fromEntries(url.searchParams.entries()));
 
-    const [playerRows, clueRows, secretRows] = await Promise.all([
+    const [playerRows, clueRows, secretRows, latestSessionRows] = await Promise.all([
       db
         .select({
           id: players.id,
@@ -65,6 +66,15 @@ export async function GET(req: NextRequest) {
         .leftJoin(plotThreads, eq(plotThreads.id, entitySecrets.plotThreadId))
         .where(eq(entitySecrets.campaignId, q.campaign_id))
         .orderBy(asc(entitySecrets.createdAt)),
+      db
+        .select({
+          id: sessions.id,
+          number: sessions.number,
+          title: sessions.title,
+        })
+        .from(sessions)
+        .where(eq(sessions.campaignId, q.campaign_id))
+        .orderBy(asc(sessions.number)),
     ]);
 
     const targetIds = [
@@ -132,7 +142,11 @@ export async function GET(req: NextRequest) {
       })),
     ];
 
-    return ok({ players: playerRows, targets });
+    return ok({
+      players: playerRows,
+      latestSession: latestSessionRows[latestSessionRows.length - 1] ?? null,
+      targets,
+    });
   } catch (err) {
     return fail(err);
   }
