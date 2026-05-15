@@ -718,17 +718,12 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 2. Contradiction Detector deterministico.
 3. Campo-per-campo per Canon Diff.
 
-### Priorità media
-
-1. Preset Bridge aggiuntivi per eventi politici complessi, downtime e viaggio.
-2. Migliorare Canon Diff con evidenza campo-per-campo.
-3. Contradiction Detector deterministico.
-
 ### Priorità futura
 
 1. Contradiction Detector deterministico.
 2. Campo-per-campo per Canon Diff.
-3. Preset Bridge aggiuntivi per downtime e viaggio.
+3. Preset Bridge aggiuntivi per eventi politici complessi, downtime e viaggio.
+
 
 ---
 
