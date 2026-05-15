@@ -95,6 +95,7 @@ export async function GET(req: NextRequest) {
         appliedChangesCount: Array.isArray(row.appliedChanges)
           ? row.appliedChanges.length
           : 0,
+        appliedChangesPreview: appliedPreview(row.appliedChanges),
         preview: preview(row.markdown),
         characterCount: row.markdown.length,
         createdAt: row.createdAt,
@@ -111,4 +112,23 @@ export async function GET(req: NextRequest) {
 
 function preview(markdown: string) {
   return markdown.replace(/\s+/g, " ").trim().slice(0, 260);
+}
+
+function appliedPreview(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) =>
+      typeof item === "object" && item !== null
+        ? (item as { kind?: unknown; label?: unknown; id?: unknown })
+        : null,
+    )
+    .filter((item): item is { kind?: unknown; label?: unknown; id?: unknown } =>
+      Boolean(item),
+    )
+    .slice(0, 8)
+    .map((item) => ({
+      kind: typeof item.kind === "string" ? item.kind : "change",
+      label: typeof item.label === "string" ? item.label : "Modifica applicata",
+      id: typeof item.id === "string" ? item.id : undefined,
+    }));
 }

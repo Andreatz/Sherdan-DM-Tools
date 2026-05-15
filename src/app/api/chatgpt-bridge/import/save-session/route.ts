@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
     });
     const markdown = analyzed.markdownWithoutUpdatePack || input.content;
     let appendedToSession: { id: string; number: number } | null = null;
+    let appendedToDmNotesSession: { id: string; number: number } | null = null;
     const warnings = [...analyzed.warnings];
 
     const [saved] = await db.transaction(async (tx) => {
@@ -37,13 +38,17 @@ export async function POST(req: NextRequest) {
         })
         .returning();
 
-      if (input.confirmAppendToPrepNotes && (analyzed.detectedSessionNumber ?? input.sessionNumber)) {
+      if (
+        (input.confirmAppendToPrepNotes || input.confirmAppendToDmNotes) &&
+        (analyzed.detectedSessionNumber ?? input.sessionNumber)
+      ) {
         const number = analyzed.detectedSessionNumber ?? input.sessionNumber!;
         let [session] = await tx
           .select({
             id: sessions.id,
             number: sessions.number,
             prepNotes: sessions.prepNotes,
+            dmNotes: sessions.dmNotes,
           })
           .from(sessions)
           .where(and(eq(sessions.campaignId, input.campaignId), eq(sessions.number, number)))
@@ -61,16 +66,21 @@ export async function POST(req: NextRequest) {
               id: sessions.id,
               number: sessions.number,
               prepNotes: sessions.prepNotes,
+              dmNotes: sessions.dmNotes,
             });
           session = created;
         }
         if (session) {
-          const existing = session.prepNotes?.trim();
-          const next = existing
-            ? `${existing}\n\n---\n\n## Import ChatGPT Web Bridge\n\n${markdown}`
-            : `## Import ChatGPT Web Bridge\n\n${markdown}`;
-          await tx.update(sessions).set({ prepNotes: next }).where(eq(sessions.id, session.id));
-          appendedToSession = { id: session.id, number: session.number };
+          const update: Partial<typeof sessions.$inferInsert> = {};
+          if (input.confirmAppendToPrepNotes) {
+            update.prepNotes = appendBridgeBlock(session.prepNotes, "Import ChatGPT Web Bridge", markdown);
+            appendedToSession = { id: session.id, number: session.number };
+          }
+          if (input.confirmAppendToDmNotes) {
+            update.dmNotes = appendBridgeBlock(session.dmNotes, "Debrief ChatGPT Web Bridge", markdown);
+            appendedToDmNotesSession = { id: session.id, number: session.number };
+          }
+          await tx.update(sessions).set(update).where(eq(sessions.id, session.id));
         } else {
           warnings.push(
             `Sessione ${number} non trovata: import salvato solo nel registro Bridge.`,
@@ -81,8 +91,20 @@ export async function POST(req: NextRequest) {
       return [importRow];
     });
 
-    return ok({ ok: true, import: saved, appendedToSession, warnings });
+    return ok({
+      ok: true,
+      import: saved,
+      appendedToSession,
+      appendedToDmNotesSession,
+      warnings,
+    });
   } catch (err) {
     return fail(err);
   }
+}
+
+function appendBridgeBlock(existing: string | null, title: string, markdown: string) {
+  const trimmed = existing?.trim();
+  const block = `## ${title}\n\n${markdown}`;
+  return trimmed ? `${trimmed}\n\n---\n\n${block}` : block;
 }

@@ -19,6 +19,9 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 - **Storico Bridge server-side.** Export e import restano persistiti su DB; `/chatgpt-bridge/history` espone una timeline compatta con warning, Update Pack e modifiche applicate, senza caricare markdown enormi nella lista.
 - **Preset come scorciatoie, non modalita' separate.** I preset Bridge precompilano task type, densita', audience, sezioni e vincoli per casi ricorrenti, preservando campagna/sessione/location selezionate.
 - **Copy-for-ChatGPT locale sulle superfici canoniche.** Entity, sessioni, plot thread e truth clue possono copiare un blocco Markdown mirato senza passare dall'export completo. Questi snippet sono pensati per prompt brevi e interventi puntuali, mentre `/chatgpt-bridge` resta il percorso per pacchetti ampi con relevance budget e storico.
+- **Canon Diff deterministico, non LLM.** L'analisi import confronta righe normalizzate del markdown importato con recap, DM notes e prep notes della sessione target. Non prova a giudicare il significato: mostra similarita', righe nuove e righe presenti solo nel canon, lasciando il DM a decidere.
+- **Debrief post-sessione in `dmNotes`.** Gli output di debrief importati dopo la giocata sono materiale GM operativo, quindi vengono appesi alle `dmNotes` invece che alle prep notes. Il registro Bridge conserva comunque l'import integrale.
+- **Dashboard modifiche applicate dallo storico.** Lo storico Bridge espone una vista compatta derivata da `appliedChanges`, utile per audit rapido senza aprire payload JSON completi.
 - **Database di test locale automatizzato.** `pnpm test:db:setup`, `pnpm test:integration:local` e `pnpm test:e2e:local` derivano `sherdan_dm_test` dal `DATABASE_URL`, applicano guardie sul nome e abilitano `vector`/`pg_trgm`. Playwright usa `.next-e2e` per convivere con il dev server principale.
 
 **Conseguenza.** Per Sherdan, il flusso consigliato diventa: preparare il contesto in `/chatgpt-bridge`, lavorare in ChatGPT Web, importare output e UPDATE PACK, applicare solo cio' che il DM approva, poi controllare lo storico in `/chatgpt-bridge/history`. I generatori storici restano disponibili se in futuro si riattiva un provider LLM, ma non sono piu' un prerequisito operativo.
@@ -444,3 +447,17 @@ Append-only. Una decisione = una sezione datata. Includi contesto, opzioni consi
 **Tradeoff auth.** I token non sono revocabili singolarmente: scadono rapidamente e una rotazione di `SHERDAN_PLAYER_ACCESS_CODE` invalida tutto. Per uso single-DM/Tailscale e' sufficiente; se il dashboard diventasse pubblico, aggiungere `jti` + deny-list DB sarebbe il prossimo passo.
 
 **Test auth.** Unit test su creazione/verifica token, tamper, scadenza e mismatch campagna. Smoke manuale production su `:3203`: token generato con secret locale, connessione `ws://localhost:3203/api/realtime?token=<token>` accettata e risposta `connected` con `campaignId` e `playerId`.
+
+---
+
+## 2026-05-15 - Priorita alte: viste da tavolo senza nuova persistenza
+
+**Contesto.** Dopo il Bridge, le priorita alte erano Session Run Mode, Matrice conoscenza PNG e Spoiler Gate / Reveal Tracker. Il database aveva gia' i mattoni: `player_dashboard_states`, `players`, `player_visibility_overrides`, `truth_clues` ed `entity_secrets`.
+
+**Decisione.** Implementare tre viste aggregate read-first invece di introdurre nuove tabelle o nuovi flussi di scrittura.
+
+- **Session Run Mode usa lo stato live gia' esistente.** `/api/session-run` legge sessione, scena Player Dashboard, iniziativa JSONB, entita attive, thread hot/warm, briciole non chiuse ed eventi della sessione. La UI `/session-run` e' una console da tavolo e include copy-for-ChatGPT, ma rimanda agli editor esistenti per modificare dati canonici.
+- **Matrice conoscenza PNG = player x entity override.** `/api/knowledge-matrix` incrocia player attivi e target entity, con default derivato da `entities.visibility` e override da `player_visibility_overrides`. Niente nuovo modello "knowledge": la fonte di verita resta la policy di visibilita gia' usata dal Player Dashboard.
+- **Reveal Tracker unifica briciole e segreti.** `/api/reveal-tracker` normalizza `truth_clues` e `entity_secrets` in una lista unica di reveal protetti/rivelati, includendo override individuali. Il tracker e' un audit operativo, non un secondo editor.
+
+**Tradeoff.** Le azioni inline (`rivela a tutti`, `nascondi a X`, `mark discovered`) restano backlog: il primo slice riduce rischio e duplicazione, ma richiede ancora passare dagli editor dedicati per scrivere. Questo mantiene stabile la semantica player-safe mentre le viste nuove maturano.

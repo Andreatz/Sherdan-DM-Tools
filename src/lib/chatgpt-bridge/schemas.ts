@@ -82,6 +82,7 @@ export const chatGptBridgeSaveSessionInputSchema =
     detectedTitle: z.string().trim().optional(),
     updatePack: z.unknown().optional(),
     confirmAppendToPrepNotes: z.boolean().default(false),
+    confirmAppendToDmNotes: z.boolean().default(false),
     createSessionIfMissing: z.boolean().default(false),
   });
 

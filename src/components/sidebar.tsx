@@ -64,10 +64,11 @@ const NAV: NavGroup[] = [
   {
     title: "Tavolo",
     items: [
+      { label: "Session Run Mode", href: "/session-run", status: "Pronto" },
       { label: "Player Dashboard", href: "/player", status: "Pronto" },
       { label: "Combat Tracker", status: "Pianificato" },
-      { label: "Matrice conoscenza PNG", status: "Pianificato" },
-      { label: "Spoiler Gate", status: "Pianificato" },
+      { label: "Matrice conoscenza PNG", href: "/knowledge-matrix", status: "Pronto" },
+      { label: "Spoiler Gate", href: "/reveal-tracker", status: "Pronto" },
     ],
   },
 ];

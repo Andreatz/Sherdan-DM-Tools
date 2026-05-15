@@ -64,6 +64,15 @@ interface AnalyzeResponse {
   updatePack?: unknown;
   markdownWithoutUpdatePack: string;
   warnings: string[];
+  canonDiff?: {
+    comparedTo: string;
+    sections: Array<{
+      label: string;
+      similarity: number;
+      added: string[];
+      removed: string[];
+    }>;
+  };
 }
 
 const TASK_TYPES: Array<{ value: ChatGptBridgeTaskType; label: string }> = [
@@ -205,6 +214,7 @@ export function ChatGptBridgeWorkbench({
   const [exportResult, setExportResult] = useState<ExportResponse | null>(null);
   const [importContent, setImportContent] = useState("");
   const [appendToPrepNotes, setAppendToPrepNotes] = useState(false);
+  const [appendToDmNotes, setAppendToDmNotes] = useState(false);
   const [createSessionIfMissing, setCreateSessionIfMissing] = useState(false);
   const [savedImportId, setSavedImportId] = useState<string | null>(null);
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResponse | null>(null);
@@ -387,6 +397,7 @@ export function ChatGptBridgeWorkbench({
           updatePack: analyzeResult?.updatePack,
           detectedTitle: analyzeResult?.detectedTitle,
           confirmAppendToPrepNotes: appendToPrepNotes,
+          confirmAppendToDmNotes: appendToDmNotes,
           createSessionIfMissing,
         }),
         },
@@ -467,6 +478,7 @@ export function ChatGptBridgeWorkbench({
     setExportResult(null);
     setImportContent("");
     setAppendToPrepNotes(false);
+    setAppendToDmNotes(false);
     setCreateSessionIfMissing(false);
     setSavedImportId(null);
     setAnalyzeResult(null);
@@ -675,11 +687,19 @@ export function ChatGptBridgeWorkbench({
         <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">
           <input
             type="checkbox"
-            checked={createSessionIfMissing}
-            disabled={!appendToPrepNotes}
+          checked={createSessionIfMissing}
+            disabled={!appendToPrepNotes && !appendToDmNotes}
             onChange={(event) => setCreateSessionIfMissing(event.target.checked)}
           />
           <span>Crea la sessione se manca</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">
+          <input
+            type="checkbox"
+            checked={appendToDmNotes}
+            onChange={(event) => setAppendToDmNotes(event.target.checked)}
+          />
+          <span>Appendi alle dm_notes come debrief post-sessione</span>
         </label>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={analyzeImport} disabled={busy === "analyze" || !importContent.trim()} className={primaryButtonClass}>Analizza output</button>
@@ -704,6 +724,10 @@ export function ChatGptBridgeWorkbench({
             </pre>
           </div>
         )}
+
+        {analyzeResult?.canonDiff ? (
+          <CanonDiffPanel diff={analyzeResult.canonDiff} />
+        ) : null}
 
         {reviewChanges.length > 0 && (
           <div className="space-y-3">
@@ -885,6 +909,81 @@ function ReviewJson({ title, value }: { title: string; value: unknown }) {
       <pre className="max-h-48 overflow-auto rounded border border-zinc-200 bg-white p-2 text-[11px] leading-4 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
         {JSON.stringify(value, null, 2)}
       </pre>
+    </div>
+  );
+}
+
+function CanonDiffPanel({
+  diff,
+}: {
+  diff: NonNullable<AnalyzeResponse["canonDiff"]>;
+}) {
+  return (
+    <div className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">Canon Diff</h3>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Confronto con {diff.comparedTo}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 grid gap-3 lg:grid-cols-3">
+        {diff.sections.map((section) => (
+          <div
+            key={section.label}
+            className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wide">
+                {section.label}
+              </h4>
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                {Math.round(section.similarity * 100)}%
+              </span>
+            </div>
+            <DiffList title="Nuovo import" rows={section.added} tone="plus" />
+            <DiffList title="Solo canon attuale" rows={section.removed} tone="minus" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DiffList({
+  title,
+  rows,
+  tone,
+}: {
+  title: string;
+  rows: string[];
+  tone: "plus" | "minus";
+}) {
+  return (
+    <div className="mt-3">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+        {title}
+      </div>
+      {rows.length === 0 ? (
+        <p className="mt-1 text-xs italic text-zinc-400">Nessuna differenza.</p>
+      ) : (
+        <ul className="mt-1 max-h-40 space-y-1 overflow-auto text-xs">
+          {rows.map((row, index) => (
+            <li
+              key={`${tone}-${index}-${row}`}
+              className={
+                tone === "plus"
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : "text-amber-700 dark:text-amber-300"
+              }
+            >
+              {tone === "plus" ? "+ " : "- "}
+              {row}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

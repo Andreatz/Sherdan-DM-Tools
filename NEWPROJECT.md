@@ -219,7 +219,9 @@ Stato implementato al 2026-05-15:
 - relevance budget per densità/focus;
 - leakage guard player-facing anche su contesti sporchi;
 - review con badge match esatto/fuzzy/ambiguo/non trovato;
-- conferma extra per modifiche ad alto rischio.
+- conferma extra per modifiche ad alto rischio;
+- Canon Diff sugli import verso sessione target;
+- import debrief post-sessione verso `dmNotes`.
 
 ### 6.2 `/chatgpt-bridge/import`
 
@@ -249,6 +251,7 @@ Contenuto:
 - conteggi export/import/apply;
 - preview breve del markdown;
 - badge per warning, Update Pack e modifiche applicate.
+- dashboard compatta delle ultime modifiche applicate.
 
 ---
 

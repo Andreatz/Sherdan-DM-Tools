@@ -93,6 +93,7 @@ Vocabolario stato:
 | Plot Thread Tracker | Pronto | Kanban, split GM/pubblico, timeline, stale alerts. |
 | Truth Clue Tracker | Pronto | Briciole filtrabili, status, verità rivelata, sessioni. |
 | Player Dashboard | Pronto | Accesso per-player, cookie firmato, API player-safe, realtime. |
+| Session Run Mode | Pronto | Vista da tavolo con scena live, iniziativa, thread hot/warm, briciole e copy-for-ChatGPT. |
 | Rules Lookup | Pronto | Search ibrida RRF, citazioni, corpus homebrew/SRD, Q&A opzionale. |
 | Procedural Dungeon Generator | Pronto / Opzionale | Layout BSP deterministico; contenuto LLM opzionale. |
 | ChatGPT Web Bridge | Pronto | Export/import manuale, Update Pack, review & apply. |
@@ -101,8 +102,8 @@ Vocabolario stato:
 | Encounter Builder | Pronto / Opzionale | Browser/CR calculator pronto; assist LLM opzionale. |
 | Session Prep Assistant LLM | Opzionale | Sostituito nel workflow consigliato dal ChatGPT Web Bridge. |
 | Combat Tracker runtime | Pianificato | Iniziativa, HP, condizioni live non ancora core. |
-| Matrice conoscenza PNG | Pianificato | Feature consigliata per il prossimo salto qualitativo. |
-| Spoiler Gate / Reveal Tracker | Pianificato | Reveal come entità/stato dedicato. |
+| Matrice conoscenza PNG | Pronto | Matrice player x target basata su visibilita base e override individuali. |
+| Spoiler Gate / Reveal Tracker | Pronto | Dashboard reveal per briciole, segreti stratificati e override per-player. |
 
 ---
 
@@ -118,6 +119,9 @@ Vocabolario stato:
 | `/truth-clues` | Pronto | Tracker briciole/verità. |
 | `/random-tables` | Pronto | Tabelle casuali e roll. |
 | `/player` | Pronto | Dashboard player-safe. |
+| `/session-run` | Pronto | Vista operativa da tavolo: scena, iniziativa, thread e briciole. |
+| `/knowledge-matrix` | Pronto | Matrice conoscenza player x PNG/target. |
+| `/reveal-tracker` | Pronto | Spoiler gate per briciole e segreti stratificati. |
 | `/rules` | Pronto | Lookup regole e Q&A opzionale. |
 | `/dungeon-generator` | Pronto / Opzionale | Layout dungeon e contenuto assistito. |
 | `/chatgpt-bridge` | Pronto | Export/import manuale per ChatGPT web. |
@@ -473,6 +477,27 @@ Cosa viene importato:
   - `public_description`;
   - `discovered_description`.
 
+### Session Run Mode
+
+- Route `/session-run` per il DM al tavolo.
+- Aggrega scena live dal Player Dashboard, sessione selezionata, iniziativa, entita attive, thread hot/warm e briciole non chiuse.
+- Include copy-for-ChatGPT del contesto runtime per chiedere aiuto rapido senza passare dal Bridge completo.
+- Non crea nuovi dati: rimanda agli editor esistenti per sessioni, plot thread, briciole e dashboard.
+
+### Matrice conoscenza PNG
+
+- Route `/knowledge-matrix`.
+- Tabella player x target con default derivato da `visibility` e override da `player_visibility_overrides`.
+- Filtro per tipo entity, con default sui PNG.
+- Serve come audit rapido per capire chi vede cosa prima di esporre contenuti player-facing.
+
+### Spoiler Gate / Reveal Tracker
+
+- Route `/reveal-tracker`.
+- Raccoglie `truth_clues` e `entity_secrets` in una dashboard unica.
+- Mostra stato party-level, layer dei segreti e override individuali hidden/revealed.
+- Le modifiche restano negli editor dedicati, cosi' il tracker rimane una vista di controllo pulita.
+
 ### Random Tables Engine
 
 - Tabelle pesate o uniformi.
@@ -500,11 +525,14 @@ Cosa viene importato:
 - Relevance budgeting per densità.
 - Audience GM/player.
 - Import output ChatGPT.
+- Canon Diff deterministico sugli import confrontati con recap, DM notes e prep notes della sessione.
+- Session Debrief Import verso `dmNotes`.
 - Parsing `UPDATE PACK`.
 - Review e apply selettivo.
 - Badge match esatto/fuzzy/ambiguo.
 - Conferma extra per modifiche ad alto rischio.
 - Storico export/import.
+- Dashboard compatta delle ultime modifiche applicate.
 
 ---
 
@@ -614,6 +642,9 @@ sherdan-dm-tools/
 |   |   |-- truth-clues/
 |   |   |-- random-tables/
 |   |   |-- player/
+|   |   |-- session-run/
+|   |   |-- knowledge-matrix/
+|   |   |-- reveal-tracker/
 |   |   |-- rules/
 |   |   |-- dungeon-generator/
 |   |   `-- status/
@@ -674,23 +705,21 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 
 ### Priorità alta
 
-1. Canon Diff per output importati.
-2. Session Debrief Import post-sessione.
-3. Dashboard compatta delle ultime modifiche applicate via Bridge.
+1. Hardening operativo delle tre nuove viste da tavolo.
+2. Collegare azioni rapide di reveal/override direttamente da matrice e tracker.
+3. Combat Tracker runtime.
 
 ### Priorità media
 
 1. Preset Bridge aggiuntivi per eventi politici complessi, downtime e viaggio.
 2. Migliorare Canon Diff con evidenza campo-per-campo.
-3. Dashboard compatta delle ultime modifiche applicate via Bridge.
+3. Contradiction Detector deterministico.
 
 ### Priorità futura
 
-1. Session Run Mode al tavolo.
-2. Matrice conoscenza PNG.
-3. Spoiler Gate / Reveal Tracker.
-4. Combat Tracker runtime.
-5. Contradiction Detector deterministico.
+1. Combat Tracker runtime.
+2. Azioni inline per Matrice conoscenza PNG e Spoiler Gate.
+3. Contradiction Detector deterministico.
 
 ---
 
@@ -703,7 +732,7 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 - ChatGPT Web Bridge non automatizza ChatGPT web: prepara export/import manuali.
 - L'Update Pack va sempre revisionato prima dell'apply.
 - Il combat tracker runtime non è ancora implementato.
-- La matrice conoscenza PNG non è ancora nativa.
+- Matrice conoscenza PNG e Reveal Tracker sono viste/audit: per ora le modifiche si fanno dagli editor esistenti.
 
 ---
 

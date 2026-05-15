@@ -872,7 +872,7 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
 - [x] Rafforzare leakage test del ChatGPT Bridge.
   - _Note implementative (2026-05-15): `buildChatGptBridgeExport` ora proietta sempre il contesto in base all'audience prima del relevance budget/render. In audience `player` rimuove `dmNotes`, `prepNotes`, descrizioni GM, `truthRevealed`, segreti, PC hook, properties e target `dm_only`, anche se un chiamante futuro passa un contesto già sporco. Aggiunto test unitario con sentinel `LEAK_*` su sessioni, thread, clue, secrets, hook, fazioni e location._
 - [x] Uniformare status feature tra README, sidebar e `/status`.
-  - _Note implementative (2026-05-15): `/status` usa la stessa matrice feature del README, incluse voci `Opzionale`, `Pronto / Opzionale` e `Pianificato`. La sidebar marca NPC/Loot/Session Prep come opzionali e mostra Combat Tracker, Matrice conoscenza PNG e Spoiler Gate come pianificati._
+  - _Note implementative (2026-05-15): `/status` usa la stessa matrice feature del README, incluse voci `Opzionale`, `Pronto / Opzionale` e `Pianificato`. La sidebar marca NPC/Loot/Session Prep come opzionali, mantiene Combat Tracker pianificato e linka Session Run Mode, Matrice conoscenza PNG e Spoiler Gate come pronti._
 - [x] Aggiungere badge match esatto/fuzzy/ambiguo nella review Update Pack.
   - _Note implementative (2026-05-15): `reviewUpdatePack` ora allega metadata `match` alle change candidate (`exact`, `fuzzy`, `ambiguous`, `none`, requested/matched/matchedBy/score). La UI Review & Apply mostra badge dedicati sulle modifiche applicabili e badge sui warning ambigui/non trovati. Lo schema `reviewChangeSchema` preserva la metadata per il contratto API._
 - [x] Migliorare la pagina storico export/import Bridge.
@@ -883,12 +883,24 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
   - _Note implementative (2026-05-15): il workbench Bridge include preset rapidi che precompilano task type, densita', audience, sezioni incluse, focus e vincoli. I preset preservano campagna/sessione/location gia' selezionate e il recap giocatori forza audience `player` con segreti disabilitati._
 - [x] Copy-for-ChatGPT da ogni pagina entity/session/plot/clue.
   - _Note implementative (2026-05-15): aggiunto componente condiviso `CopyForChatGptButton` e montato su entity detail, sessione selezionata, plot thread selezionato e singola truth clue. Ogni bottone copia un blocco Markdown canonico con campi GM/player separati e contesto correlato già formattato per ChatGPT Web._
+- [x] Canon Diff per output importati.
+  - _Note implementative (2026-05-15): `POST /api/chatgpt-bridge/import/analyze` confronta il markdown importato con recap, DM notes e prep notes della sessione target quando disponibile. La UI mostra similarita', righe nuove nell'import e righe presenti solo nel canon attuale._
+- [x] Session Debrief Import post-sessione.
+  - _Note implementative (2026-05-15): il salvataggio import supporta `confirmAppendToDmNotes`, appende il markdown alle `dmNotes` come "Debrief ChatGPT Web Bridge" e puo' creare la sessione mancante con la stessa opzione gia' usata dalle prep notes._
+- [x] Dashboard compatta delle ultime modifiche applicate via Bridge.
+  - _Note implementative (2026-05-15): `GET /api/chatgpt-bridge/history` include `appliedChangesPreview`; `/chatgpt-bridge/history` mostra una sezione "Ultime modifiche applicate" e, su ogni import, una mini-lista di change applicate._
 - [x] Decision log finale: perché Bridge manuale + `LLM_PROVIDER=none` è il percorso primario del progetto.
+- [x] Session Run Mode al tavolo.
+  - _Note implementative (2026-05-15): aggiunti `GET /api/session-run` e `/session-run`. La vista aggrega sessione selezionata, scena live del Player Dashboard, iniziativa JSONB, entita attive, thread hot/warm, briciole non chiuse ed eventi della sessione, con copy-for-ChatGPT del contesto runtime._
+- [x] Matrice conoscenza PNG.
+  - _Note implementative (2026-05-15): aggiunti `GET /api/knowledge-matrix` e `/knowledge-matrix`. La matrice incrocia player attivi e target entity, defaultando da `visibility` e mostrando override individuali `hidden/revealed` da `player_visibility_overrides`._
+- [x] Spoiler Gate / Reveal Tracker.
+  - _Note implementative (2026-05-15): aggiunti `GET /api/reveal-tracker` e `/reveal-tracker`. La dashboard unifica `truth_clues` e `entity_secrets`, mostra stato party-level, layer/sezione sorgente e override per-player._
 
 ### Prossimo ordine di esecuzione
-1. Canon Diff per output importati.
-2. Session Debrief Import post-sessione.
-3. Dashboard compatta delle ultime modifiche applicate via Bridge.
+1. Combat Tracker runtime.
+2. Azioni inline per matrice/reveal tracker.
+3. Contradiction Detector deterministico.
 
 ### Definition of done
 Con `LLM_PROVIDER=none`, il DM può preparare una sessione Sherdan usando solo `/chatgpt-bridge`: esporta contesto, lavora in ChatGPT Web, importa output, revisiona UPDATE PACK e applica modifiche al DB senza leak verso i giocatori e senza route generative attive.

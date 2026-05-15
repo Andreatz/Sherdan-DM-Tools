@@ -19,6 +19,7 @@ interface HistoryRow {
   metadata: unknown;
   updatePackPresent?: boolean;
   appliedChangesCount?: number;
+  appliedChangesPreview?: Array<{ kind: string; label: string; id?: string }>;
   preview: string;
   characterCount: number;
   createdAt: string;
@@ -119,6 +120,8 @@ export function ChatGptBridgeHistory() {
         <SummaryCard label="Apply" value={summary.appliedCount} />
       </section>
 
+      <AppliedChangesDashboard rows={rows} />
+
       <section className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <Field label="Campagna">
           <select
@@ -208,8 +211,54 @@ function HistoryItem({ row }: { row: HistoryRow }) {
             <Badge tone="emerald">{row.appliedChangesCount} apply</Badge>
           ) : null}
         </div>
+        {row.appliedChangesPreview && row.appliedChangesPreview.length > 0 ? (
+          <ul className="mt-3 space-y-1 rounded-md border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-800 dark:bg-zinc-950">
+            {row.appliedChangesPreview.map((change, index) => (
+              <li key={`${change.kind}-${change.id ?? index}`}>
+                <span className="font-semibold">{kindLabel(change.kind)}</span>:{" "}
+                {change.label}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </li>
+  );
+}
+
+function AppliedChangesDashboard({ rows }: { rows: HistoryRow[] }) {
+  const changes = rows
+    .flatMap((row) =>
+      (row.appliedChangesPreview ?? []).map((change) => ({
+        ...change,
+        createdAt: row.createdAt,
+        campaignName: row.campaignName,
+      })),
+    )
+    .slice(0, 8);
+  if (changes.length === 0) return null;
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <h2 className="text-sm font-semibold">Ultime modifiche applicate</h2>
+      <ul className="mt-3 grid gap-2 lg:grid-cols-2">
+        {changes.map((change, index) => (
+          <li
+            key={`${change.kind}-${change.id ?? index}`}
+            className="rounded-md border border-zinc-200 p-3 text-xs dark:border-zinc-800"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="emerald">{kindLabel(change.kind)}</Badge>
+              <span className="text-zinc-500 dark:text-zinc-400">
+                {change.campaignName} · {formatDate(change.createdAt)}
+              </span>
+            </div>
+            <p className="mt-2 text-sm text-zinc-800 dark:text-zinc-100">
+              {change.label}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -266,6 +315,12 @@ function importTitle(row: HistoryRow) {
   return row.sessionNumber
     ? `Import sessione ${row.sessionNumber}`
     : `Import ${row.id.slice(0, 8)}`;
+}
+
+function kindLabel(kind: string) {
+  return kind
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatDate(value: string) {

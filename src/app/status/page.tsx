@@ -30,6 +30,7 @@ const featureRows = [
   ["Plot Thread Tracker", "Pronto", "Kanban, split GM/pubblico, timeline e stale alerts."],
   ["Truth Clue Tracker", "Pronto", "Briciole filtrabili, status, verita' rivelata e sessioni."],
   ["Player Dashboard", "Pronto", "Accesso per-player, cookie firmato, API player-safe e realtime."],
+  ["Session Run Mode", "Pronto", "Vista da tavolo con scena live, iniziativa, thread hot/warm, briciole e copy-for-ChatGPT."],
   ["Rules Lookup", "Pronto", "Search ibrida RRF, citazioni, corpus homebrew/SRD e Q&A opzionale."],
   ["Procedural Dungeon Generator", "Pronto / Opzionale", "Layout BSP deterministico; contenuto LLM opzionale."],
   ["ChatGPT Web Bridge", "Pronto", "Export/import manuale, Update Pack, review & apply."],
@@ -38,8 +39,8 @@ const featureRows = [
   ["Encounter Builder", "Pronto / Opzionale", "Browser/CR calculator pronto; assist LLM opzionale."],
   ["Session Prep Assistant LLM", "Opzionale", "Sostituito nel workflow consigliato dal ChatGPT Web Bridge."],
   ["Combat Tracker runtime", "Pianificato", "Iniziativa, HP e condizioni live non ancora core."],
-  ["Matrice conoscenza PNG", "Pianificato", "Feature consigliata per il prossimo salto qualitativo."],
-  ["Spoiler Gate / Reveal Tracker", "Pianificato", "Reveal come entita'/stato dedicato."],
+  ["Matrice conoscenza PNG", "Pronto", "Matrice player x target basata su visibilita base e override individuali."],
+  ["Spoiler Gate / Reveal Tracker", "Pronto", "Dashboard reveal per briciole, segreti stratificati e override per-player."],
 ] as const;
 
 const statusClassName: Record<string, string> = {

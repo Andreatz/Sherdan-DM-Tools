@@ -4,6 +4,7 @@ import type {
   ChatGptBridgeTaskType,
 } from "./prompt-templates";
 import type { ChatGptBridgeUpdatePack } from "./schemas";
+import type { CanonDiffResult } from "./canon-diff";
 
 export type { ChatGptBridgeAudience, ChatGptBridgeDensity, ChatGptBridgeTaskType };
 
@@ -106,6 +107,7 @@ export interface ChatGptBridgeImportAnalyzeResponse {
   updatePack?: ChatGptBridgeUpdatePack;
   markdownWithoutUpdatePack: string;
   warnings: string[];
+  canonDiff?: CanonDiffResult;
 }
 
 export interface ReviewMatchInfo {
