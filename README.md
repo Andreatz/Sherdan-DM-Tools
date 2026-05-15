@@ -1,46 +1,137 @@
 # Sherdan DM Tools
 
-Toolkit locale per Dungeon Master dedicato alla campagna D&D 5e homebrew **Sherdan**.
+**Sherdan DM Tools** è un toolkit locale per Dungeon Master dedicato alla campagna D&D 5e homebrew **Sherdan**.
 
-Sherdan DM Tools trasforma l'archivio markdown della campagna in uno spazio di lavoro strutturato: wiki, grafo entità, segreti stratificati, identità multiple, hook dei PG, sessioni, thread narrativi, tabelle casuali e generatori assistiti da LLM.
+L'app trasforma l'archivio della campagna in un workspace strutturato per:
 
-Il progetto nasce Sherdan-first, ma l'architettura è pensata per poter diventare in futuro una base riusabile per campagne D&D/TTRPG narrative molto dense.
+- Campaign Wiki;
+- entità, identità, segreti e relazioni;
+- plot thread;
+- truth clues;
+- hook dei PG;
+- sessioni e prep notes;
+- player dashboard;
+- tabelle casuali;
+- lookup regole;
+- bridge manuale verso ChatGPT web.
+
+La direzione attuale del progetto è:
+
+```txt
+Core app local-first
++
+ChatGPT Web Bridge manuale
++
+LLM server-side opzionali
+```
+
+Il progetto deve essere utile anche senza API LLM, senza billing e senza provider cloud.
 
 ---
 
-## Stato attuale
+## Modalità consigliata: ChatGPT Web Bridge
 
-Il progetto non è più fermo alla Fase 1. La base, la Campaign Wiki, l'import Sherdan, la sicurezza dei contenuti raw, il motore di Random Tables e i primi generatori sono già presenti. Alcune aree sono però ancora beta o solo predisposte a livello schema.
+La modalità consigliata è usare Sherdan DM Tools come **memoria canonica strutturata** e ChatGPT web come **assistente creativo/manuale**.
 
-Vocabolario stato (sidebar, `/status`, README usano gli stessi cinque valori):
+Flusso:
 
-- **Pronto** – feature usabile end-to-end, UI inclusa.
-- **Beta** – usabile ma con rifiniture o limitazioni note.
-- **Schema** – DB/API predisposti, UI dedicata ancora da costruire.
-- **Pianificato** – non iniziato.
-- **Bloccato** – volontariamente fermo finché una precondizione non è soddisfatta.
+```txt
+Sherdan DM Tools
+→ esporta pacchetto markdown/JSON
+→ incolla o carica in ChatGPT web
+→ usa il prompt Architetto di Mondi
+→ incolla output in Sherdan DM Tools
+→ review & apply selettivo nel database
+```
+
+Questa modalità funziona con:
+
+```env
+LLM_PROVIDER=none
+```
+
+Vantaggi:
+
+- nessun costo API;
+- nessun limite Gemini/OpenAI;
+- nessuna dipendenza da Ollama;
+- uso diretto dell'abbonamento ChatGPT web/Plus;
+- controllo manuale prima di aggiornare il canon;
+- migliore protezione dei segreti GM.
+
+La route principale è:
+
+```txt
+/chatgpt-bridge
+```
+
+---
+
+## Stato del progetto
+
+Vocabolario stato:
+
+| Stato | Significato |
+|---|---|
+| **Pronto** | Feature usabile end-to-end. |
+| **Beta** | Usabile, ma con limiti o polish ancora necessari. |
+| **Schema** | DB/API predisposti, UI ancora incompleta. |
+| **Pianificato** | Non ancora iniziato. |
+| **Opzionale** | Feature disponibile solo con provider/servizi extra. |
+
+### Stato feature
 
 | Area | Stato | Nota |
-|---|---|---|
-| Foundation progetto | Pronto | Next.js, TypeScript, DB, logging, env check, CI |
-| Campaign Wiki | Pronto | CRUD entità, identità, segreti, link, tag e PC hooks |
-| Grafo entità | Pronto | Visualizzazione relazioni tra entità |
-| Import Sherdan | Pronto | Parser + bootstrap idempotente dei markdown privati |
-| Content safety gate | Pronto | Blocca markdown Sherdan raw in `public/` |
-| Random Tables Engine | Pronto | CRUD, import, roll, subtabelle, template e history locale |
-| NPC Generator | Pronto | Preview, re-roll parziale, salvataggio entity, embedding fail-forward + `pnpm db:embed:backfill`, link "Storico generazioni LLM" nella entity detail |
-| Loot Generator | Pronto | Generatore + salvataggio + link a encounter/sessione, lista bundle filtrabile per campagna/sessione/encounter |
-| Encounter Builder | Pronto | Browser mostri, CR calculator, LLM assist, marker "usato in sessione", lista filtrabile per sessione/location/plot |
-| Player Dashboard | Pronto | Per-player codici hashati, scoping per campagna, rate limit, audit log, leakage tests, override granulari, scena corrente realtime, handout/mappa/fog, push WebSocket e smoke E2E Playwright |
-| Truth Clue Tracker | Pronto | CRUD briciole, filtri per status/thread/sessione, plant/update status, dashboard verità rivelata per thread |
-| Plot Thread Tracker | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen GM vs percepito, timeline eventi, entita per ruolo, briciole correlate, stale alerts |
-| Sessioni | Pronto | Lista, recap rendered, toggle DM notes, prep notes, plot thread avanzati per sessione, briciole piantate per sessione |
-| Session Prep Assistant | Pronto | Agent LLM con tool read-only Sherdan-aware, `rules_search`, tool agentici `generate_npc`, `generate_encounter`, `generate_loot`, streaming progressivo via SSE e accept granulare: ogni briciola/NPC/encounter/hook accettato diventa un record reale (`truth_clue`, entity NPC stub `dm_only`, encounter draft, `pc_hook`) e finisce nelle `prep_notes`. |
-| Rules Lookup | Pronto | Fase 9 completa: ingestion manuali homebrew + SRD 2014 essenziale, hybrid search RRF (vector + pg_trgm), reranker LLM opzionale, UI Q&A `/rules` con citazioni cliccabili + history locale + tool `rules_search` esposto al Session Prep agent + shortcut globale `Cmd+/`. |
-| Procedural Dungeon Generator | Pronto | Fase 8 completa: layout BSP deterministico + contenuto LLM per stanza con `StyleCalibrator` opzionale + persistenza come grafo entity (root location `kind='dungeon'` con `map_data`, child rooms `kind='room'` con `parentId`, encounter draft con `locationId` su ogni room con `encounterHook`). Navigabile dal grafo entità campagna. |
-| Polish & integrazione | Pronto | Fase 11 completa: command palette globale `Cmd+K`, quick actions, tema dark/light persistente, shell responsive, import/export JSON campagna, re-export Markdown, paginazione log e cost monitoring LLM stimato. |
+|---|---:|---|
+| Foundation progetto | Pronto | Next.js, TypeScript, Postgres, Drizzle, Zod, logging, env check. |
+| Campaign Wiki | Pronto | CRUD entità, identità, segreti, link, tag e PC hooks. |
+| Grafo entità | Pronto | Visualizzazione relazioni con pan/zoom. |
+| Import Sherdan | Pronto | Parser e bootstrap idempotente da `content/sherdan/`. |
+| Content safety gate | Pronto | Blocca markdown Sherdan raw in `public/`. |
+| Random Tables Engine | Pronto | CRUD, import, roll, subtabelle, template e history. |
+| Sessioni | Pronto | Lista, recap, DM notes, prep notes, plot e briciole per sessione. |
+| Plot Thread Tracker | Pronto | Kanban, split GM/pubblico, timeline, stale alerts. |
+| Truth Clue Tracker | Pronto | Briciole filtrabili, status, verità rivelata, sessioni. |
+| Player Dashboard | Pronto | Accesso per-player, cookie firmato, API player-safe, realtime. |
+| Rules Lookup | Pronto | Search ibrida RRF, citazioni, corpus homebrew/SRD, Q&A opzionale. |
+| Procedural Dungeon Generator | Pronto / Opzionale | Layout BSP deterministico; contenuto LLM opzionale. |
+| ChatGPT Web Bridge | Pronto | Export/import manuale, Update Pack, review & apply. |
+| NPC Generator | Opzionale | Richiede LLM server-side se usato come generatore automatico. |
+| Loot Generator | Opzionale | Richiede LLM server-side per generazione automatica. |
+| Encounter Builder | Pronto / Opzionale | Browser/CR calculator pronto; assist LLM opzionale. |
+| Session Prep Assistant LLM | Opzionale | Sostituito nel workflow consigliato dal ChatGPT Web Bridge. |
+| Combat Tracker runtime | Pianificato | Iniziativa, HP, condizioni live non ancora core. |
+| Matrice conoscenza PNG | Pianificato | Feature consigliata per il prossimo salto qualitativo. |
+| Spoiler Gate / Reveal Tracker | Pianificato | Reveal come entità/stato dedicato. |
 
-Snapshot import Sherdan validato:
+---
+
+## Route principali
+
+| Route | Stato | Scopo |
+|---|---:|---|
+| `/` | Pronto | Home progetto. |
+| `/status` | Pronto | Stato feature e sicurezza contenuti. |
+| `/campaigns` | Pronto | Campaign Wiki, entità, dettagli, grafo. |
+| `/sessions` | Pronto | Sessioni, recap, note e prep. |
+| `/plot-threads` | Pronto | Tracker thread narrativi. |
+| `/truth-clues` | Pronto | Tracker briciole/verità. |
+| `/random-tables` | Pronto | Tabelle casuali e roll. |
+| `/player` | Pronto | Dashboard player-safe. |
+| `/rules` | Pronto | Lookup regole e Q&A opzionale. |
+| `/dungeon-generator` | Pronto / Opzionale | Layout dungeon e contenuto assistito. |
+| `/chatgpt-bridge` | Pronto | Export/import manuale per ChatGPT web. |
+| `/generation-log` | Pronto | Log chiamate LLM quando abilitate. |
+| `/npc-generator` | Opzionale | Generatore automatico via LLM. |
+| `/loot-generator` | Opzionale | Generatore automatico via LLM. |
+| `/encounter-builder` | Pronto / Opzionale | Builder incontri + assist LLM opzionale. |
+| `/session-prep` | Opzionale | Agent LLM server-side; non necessario con Bridge. |
+
+---
+
+## Snapshot dataset Sherdan
+
+Snapshot validato del dataset Sherdan importato:
 
 | Metrica | Conteggio |
 |---|---:|
@@ -53,55 +144,6 @@ Snapshot import Sherdan validato:
 | Plot thread | 10 |
 | Documenti regole | 47 |
 | Embedding entità | 151 / 151 |
-
-Documenti utili:
-
-- [Roadmap](./ROADMAP.md)
-- [Decisioni architetturali](./docs/decisions.md)
-- [Sherdan import report](./docs/sherdan-import-report.md)
-- [Sherdan Phase 1.5 validation](./docs/sherdan-phase-1-5-validation.md)
-
----
-
-## Avviso critico: privacy e spoiler GM
-
-I markdown sorgenti di Sherdan contengono segreti GM-only, twist di campagna, identità reali, verità cosmologiche e informazioni non player-safe.
-
-La posizione corretta dei sorgenti raw è:
-
-```txt
-content/sherdan/
-```
-
-I file reali in quella cartella devono restare ignorati da git. `public/*.md` è solo un fallback temporaneo per sviluppo locale e non deve essere usato prima di esporre il progetto a giocatori o a una rete pubblica/semi-pubblica.
-
-File attesi:
-
-- `NPC.md`
-- `Fazioni.md`
-- `Lore.md`
-- `Campagna.md`
-- `Background Personaggi.md`
-- `Manuale del Giocatore.md`
-- `Agente AI Worldbuilding.md`
-
-Flusso consigliato:
-
-```bash
-pnpm content:migrate:sherdan
-pnpm content:check
-pnpm content:migrate:sherdan:delete-public
-pnpm content:check:safe
-```
-
-Modalità stretta:
-
-```bash
-pnpm content:check:strict
-SHERDAN_CONTENT_STRICT=1 pnpm db:bootstrap:sherdan
-```
-
-Prima di usare davvero il Player Dashboard con giocatori, ogni rotta player-facing deve passare da proiezioni player-safe e da un access gate. Non esporre mai direttamente entità raw, `description` GM, `properties`, segreti, clues, note GM, prep notes o markdown statici.
 
 ---
 
@@ -117,12 +159,11 @@ Prima di usare davvero il Player Dashboard con giocatori, ogni rotta player-faci
 | Fuzzy search | pg_trgm |
 | ORM | Drizzle |
 | Validazione | Zod |
-| Test | Vitest |
+| Test | Vitest, Playwright |
 | Logging | Pino |
 | Grafi | D3 |
 | Editor | Lexical |
-| LLM cloud | Gemini API |
-| LLM locale / embedding | Ollama |
+| LLM opzionali | Gemini API, OpenAI API, Ollama |
 | Package manager | pnpm |
 
 ---
@@ -134,14 +175,15 @@ Prima di usare davvero il Player Dashboard con giocatori, ogni rotta player-faci
 | Node.js | 24+ |
 | pnpm | 10+ |
 | Docker Desktop | recente |
-| Ollama | richiesto per embedding |
+| PostgreSQL | via Docker Compose |
+| Ollama | opzionale, richiesto solo per embedding/LLM locale |
 
 Macchina consigliata:
 
 - 16 GB RAM o più;
 - Docker attivo;
-- Ollama con `mxbai-embed-large` per embedding;
-- opzionale: API key Gemini per chat/generazione strutturata.
+- Ollama opzionale con `mxbai-embed-large` se vuoi embedding locali;
+- nessuna API key richiesta se usi `LLM_PROVIDER=none`.
 
 ---
 
@@ -168,7 +210,7 @@ App locale:
 http://localhost:3000
 ```
 
-Pannello stato progetto:
+Pannello stato:
 
 ```txt
 http://localhost:3000/status
@@ -176,67 +218,187 @@ http://localhost:3000/status
 
 ---
 
-## Variabili ambiente principali
+## Configurazione ambiente
 
-```txt
+Configurazione consigliata per workflow senza API:
+
+```env
 DATABASE_URL=postgresql://sherdan:sherdan_dev@localhost:5432/sherdan_dm
+
 LLM_PROVIDER=none
+
 GOOGLE_AI_API_KEY=
 GEMINI_MODEL=gemini-3-flash-preview
+
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.5
+
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
 OLLAMA_EMBED_MODEL=mxbai-embed-large
+
+SHERDAN_PLAYER_ACCESS_CODE=
 ```
 
-Per usare il Player Dashboard locale:
+Provider disponibili:
 
-```txt
-SHERDAN_PLAYER_ACCESS_CODE=un-codice-lungo-non-indovinabile
-```
+| Provider | Uso |
+|---|---|
+| `none` | Nessun LLM server-side. Usa ChatGPT Web Bridge. |
+| `gemini` | Gemini API come provider primario. |
+| `openai` | OpenAI API come provider primario. |
+| `ollama` | Solo locale via Ollama. |
 
-Nota: con `LLM_PROVIDER=none` nessuna route deve chiamare provider LLM server-side. Usa `/chatgpt-bridge` per esportare pacchetti manuali verso ChatGPT web.
-
-Verifica allineamento env:
+Verifica env:
 
 ```bash
 pnpm env:check
 ```
 
-Setup Ollama:
+Verifica LLM, solo se usi provider diversi da `none`:
 
 ```bash
-ollama pull mxbai-embed-large
-ollama pull qwen2.5:7b-instruct-q4_K_M
 pnpm llm:ping
 ```
 
+Con `LLM_PROVIDER=none`, il ping deve uscire senza errore e indicare che il Bridge è attivo.
+
 ---
 
-## Route principali
+## Come usare ChatGPT Web Bridge
 
-| Route | Stato | Scopo |
-|---|---|---|
-| `/` | Pronto | Home progetto |
-| `/status` | Pronto | Stato feature + sicurezza contenuti |
-| `/campaigns` | Pronto | Campaign Wiki e grafo entità |
-| `/random-tables` | Pronto | Workbench tabelle casuali |
-| `/npc-generator` | Beta | Generatore NPC contestuale |
-| `/loot-generator` | Beta | Generatore loot |
-| `/encounter-builder` | Beta | Prima slice encounter/monster browser |
-| `/sessions` | Pronto | Lista sessioni + recap, toggle DM notes, plot/briciole per sessione |
-| `/plot-threads` | Pronto | Kanban hot/warm/cold/resolved/abandoned, split-screen, timeline, stale alerts |
-| `/truth-clues` | Pronto | Briciole filtrabili, plant/update status, dashboard verità rivelata |
-| `/generation-log` | Pronto | Audit di ogni chiamata LLM dei generators |
-| `/session-prep` | Beta | Agent LLM che legge stato campagna e propone prep di sessione (hooks, NPC seeds, encounter seeds, briciole, previously on) |
-| `/player` | Pronto | Dashboard player read-only/mobile con scena realtime, entità in scena, mappa, handout, access code e API player-safe |
-| `/dungeon-generator` | Pronto | Layout BSP + contenuto LLM per stanza con StyleCalibrator opzionale + re-roll per stanza + salvataggio nel Wiki come root location + room children + encounter draft. |
-| `/rules` | Pronto | Q&A LLM sul corpus regole homebrew di Sherdan con citazioni cliccabili + history locale. Shortcut globale `Cmd+/`. |
+### 1. Vai alla pagina Bridge
+
+```txt
+http://localhost:3000/chatgpt-bridge
+```
+
+### 2. Genera un pacchetto
+
+Scegli:
+
+- campagna;
+- tipo task;
+- densità;
+- audience;
+- sessione;
+- focus;
+- vincoli;
+- sezioni da includere.
+
+Task supportati:
+
+| Tipo | Comando prompt |
+|---|---|
+| Sessione MD | `/sessione --md [numero]` |
+| Brief sessione | `/sessione [numero]` |
+| Audit sessione | `/sessione --audit [file/testo]` |
+| Patch sessione | `/sessione --patch [scena/problema]` |
+| Dialogo | `/dialogo [PNG] [situazione]` |
+| TXC | `/txc [scena]` |
+| Recap giocatori | `/recap giocatori` |
+| Recap GM | `/recap gm` |
+| Lore | `/lore [argomento]` |
+| NPC | `/npc [nome/ruolo]` |
+| Fazione | `/fazione [nome]` |
+| Città | `/citta [nome]` |
+| Dungeon | `/dungeon [tema]` |
+
+Densità disponibili:
+
+| Modalità | Uso |
+|---|---|
+| `Light` | Idee rapide, scene secondarie, brainstorming. |
+| `Standard` | Sessione normale, PNG importanti, archi medi. |
+| `Full` | Finali d'arco, dungeon complessi, eventi politici. |
+| `Table-Ready` | Materiale pronto da usare al tavolo. |
+| `Design-Only` | Progettazione GM, non testo player-facing. |
+
+### 3. Usa ChatGPT web
+
+Copia o scarica il pacchetto `.md`, poi incollalo/caricalo in ChatGPT web.
+
+### 4. Importa la risposta
+
+Incolla l'output prodotto da ChatGPT nella sezione import.
+
+L'app può:
+
+- salvare il markdown;
+- rilevare titolo/sessione;
+- estrarre `UPDATE PACK`;
+- generare modifiche candidate;
+- applicare solo quelle selezionate.
+
+### 5. Review & Apply
+
+L'Update Pack può proporre:
+
+- aggiornamento sessione;
+- nuovo evento plot thread;
+- nuova truth clue;
+- aggiornamento NPC;
+- nuovo PC hook;
+- nuova identità;
+- nuovo segreto;
+- nuovo link entità.
+
+Nulla viene applicato senza selezione manuale.
+
+---
+
+## Privacy e spoiler GM
+
+I markdown sorgenti di Sherdan contengono:
+
+- segreti GM;
+- identità reali;
+- twist di campagna;
+- verità cosmologiche;
+- informazioni non player-safe.
+
+I sorgenti raw devono stare in:
+
+```txt
+content/sherdan/
+```
+
+Non in:
+
+```txt
+public/
+```
+
+Flusso consigliato:
+
+```bash
+pnpm content:migrate:sherdan
+pnpm content:check
+pnpm content:migrate:sherdan:delete-public
+pnpm content:check:safe
+```
+
+Modalità stretta:
+
+```bash
+pnpm content:check:strict
+SHERDAN_CONTENT_STRICT=1 pnpm db:bootstrap:sherdan
+```
+
+Regole fondamentali:
+
+1. non esporre mai `description` GM ai player;
+2. usare `publicDescription` per contenuti player-facing;
+3. non esportare `entity_secrets` in audience player;
+4. non esportare `truthRevealed` in audience player;
+5. non esportare `dmNotes` o `prepNotes` in audience player;
+6. revisionare sempre l'Update Pack prima dell'apply.
 
 ---
 
 ## Pipeline Sherdan
 
-Il bootstrap importa i markdown Sherdan da `content/sherdan/` nel database strutturato. Se la cartella privata è incompleta e la modalità strict è disattivata, può usare temporaneamente `public/` come fallback locale.
+Import dei markdown privati:
 
 ```bash
 pnpm content:migrate:sherdan
@@ -246,68 +408,98 @@ pnpm db:report:sherdan
 pnpm db:validate:sherdan
 ```
 
+File attesi in `content/sherdan/`:
+
+- `NPC.md`
+- `Fazioni.md`
+- `Lore.md`
+- `Campagna.md`
+- `Background Personaggi.md`
+- `Manuale del Giocatore.md`
+- `Agente AI Worldbuilding.md`
+
 Cosa viene importato:
 
-- `NPC.md` -> NPC, identità, segreti stratificati, hook PG e link;
-- `Fazioni.md` -> fazioni, luogotenenti, segreti, hook e link;
-- `Lore.md` -> luoghi, organizzazioni, divinità, descrizione pubblica e verità GM;
-- `Campagna.md` -> sessioni, plot thread e prep notes separate;
-- `Background Personaggi.md` -> PG, alias e identità;
-- `Manuale del Giocatore.md` -> documenti regole;
-- `Agente AI Worldbuilding.md` -> prompt Architetto di Mondi usato dal ChatGPT Web Bridge.
-
-L'import è idempotente: rilanciarlo aggiorna i record esistenti invece di duplicarli.
+- `NPC.md` → NPC, identità, segreti, hook e link;
+- `Fazioni.md` → fazioni, luogotenenti, segreti, hook e link;
+- `Lore.md` → luoghi, organizzazioni, divinità, verità GM e versioni pubbliche;
+- `Campagna.md` → sessioni, plot thread e prep notes;
+- `Background Personaggi.md` → PG, alias e identità;
+- `Manuale del Giocatore.md` → rule documents;
+- `Agente AI Worldbuilding.md` → prompt Architetto di Mondi per il Bridge.
 
 ---
 
-## Funzionalità implementate
+## Funzionalità principali
 
 ### Campaign Wiki
 
 - Entità tipizzate: NPC, PG, fazioni, luoghi, divinità, oggetti, mostri, organizzazioni.
 - Separazione tra descrizione pubblica e descrizione GM.
-- Identità multiple per la stessa entità.
+- Identità multiple.
 - Segreti stratificati: `surface`, `intermediate`, `deep`.
 - Link tra entità con relazione reale e relazione pubblica.
 - Hook PG separati dai link in-fiction.
 - Grafo relazionale.
 - Editor markdown.
 
+### Plot Thread Tracker
+
+- Kanban hot/warm/cold/resolved/abandoned.
+- Descrizione GM e descrizione pubblica separate.
+- Timeline eventi.
+- Entità per ruolo.
+- Briciole correlate.
+- Stale alerts.
+
+### Truth Clue Tracker
+
+- Tracking di cosa è stato piantato, notato, frainteso o capito.
+- Collegamento a plot thread e sessioni.
+- Verità rivelata separata dalla briciola percepita.
+- Supporto a override player-facing.
+
+### Player Dashboard
+
+- Accesso tramite codice per-player.
+- Cookie HTTP-only firmato.
+- API `/api/player/*`.
+- WebSocket con token firmato.
+- Scena corrente realtime.
+- Handout, mappa, fog.
+- Entità esposte con policy:
+  - `name_only`;
+  - `public_description`;
+  - `discovered_description`.
+
 ### Random Tables Engine
 
 - Tabelle pesate o uniformi.
-- Sub-tabelle annidate.
-- Template interpolation, per esempio `Taverniere {name}, {attitude}`.
-- Import JSON, CSV e markdown bullet list.
+- Subtabelle.
+- Template interpolation.
+- Import JSON/CSV/markdown.
 - Roll history locale.
-- Salvataggio rapido del risultato come entità Wiki.
-- Seed idempotente di tabelle fantasy/Sherdan-style.
+- Salvataggio rapido nel Wiki.
 
-Seed tabelle:
+### Rules Lookup
 
-```bash
-pnpm db:seed:tables
-```
+- Corpus homebrew e SRD.
+- Search ibrida vector + trigram.
+- Reciprocal Rank Fusion.
+- Citazioni cliccabili.
+- Q&A opzionale se LLM abilitato.
+- Shortcut globale `Cmd+/`.
 
-### Generator Framework e NPC Generator
+### ChatGPT Web Bridge
 
-- Recupero contesto da campagna, location e NPC di riferimento.
-- Prompt builder coerente con il tono Sherdan.
-- Output strutturato validato con Zod.
-- Preview prima del salvataggio.
-- Re-roll parziale di nome, voce e segreti.
-- Salvataggio come entity + secrets.
-- Embedding fail-forward: l'NPC viene salvato anche se Ollama non è disponibile.
-
-### Player Dashboard locale
-
-- Accesso tramite codice server-side.
-- Cookie HTTP-only firmato.
-- API dedicate `/api/player/*`.
-- WebSocket signed-token per push realtime dal DM.
-- Proiezione player-safe per campagne, recap, scena corrente, handout, mappa ed entità conosciute.
-- Policy per entità: solo nome/tipo, descrizione pubblica, oppure descrizione pubblica + soli segreti scoperti.
-- Nessuna esposizione diretta di `description` GM raw, `properties`, `tags`, embedding, segreti non scoperti, identità o note GM.
+- Export markdown contestuale.
+- Prompt Architetto di Mondi incluso o sintetico.
+- Relevance budgeting per densità.
+- Audience GM/player.
+- Import output ChatGPT.
+- Parsing `UPDATE PACK`.
+- Review e apply selettivo.
+- Storico export/import.
 
 ---
 
@@ -318,16 +510,15 @@ pnpm db:seed:tables
 ```bash
 pnpm dev
 pnpm db:studio
-pnpm llm:ping
 ```
 
-### Quality gate completo
+### Quality gate
 
 ```bash
 pnpm check
 ```
 
-Equivalente espanso:
+Equivalente:
 
 ```bash
 pnpm env:check
@@ -338,34 +529,20 @@ pnpm test
 pnpm build
 ```
 
-### Test E2E browser (Playwright)
+### Test
 
 ```bash
-# Una volta sola: installa Chromium (~110 MB, in cache utente)
-pnpm exec playwright install chromium
-
-# Esegui lo smoke E2E (avvia un dev server temporaneo sulla porta 3100)
-pnpm test:e2e:local
-
-# UI Playwright per debug
-pnpm test:e2e:ui
-```
-
-I test E2E coprono il flusso player end-to-end e uno smoke ChatGPT Bridge: export pacchetto, import output finto, rilevamento UPDATE PACK.
-
-### Test integrazione DB/API
-
-```bash
-# Una tantum o quando vuoi verificare il setup:
-pnpm test:db:setup
-
-# Esegui i test su un DB locale derivato da DATABASE_URL, es. sherdan_dm_test.
+pnpm test
 pnpm test:integration:local
+pnpm test:e2e:local
 ```
 
-Il setup di sicurezza richiede che il DB usato dai test abbia `test` nel nome (o sia `ci`): è una guardia per evitare di TRUNCATE-are il DB di sviluppo per errore.
+Playwright:
 
-`pnpm test:db:setup` crea automaticamente il database `_test` gemello del `DATABASE_URL` corrente e abilita `vector` + `pg_trgm`.
+```bash
+pnpm exec playwright install chromium
+pnpm test:e2e:local
+```
 
 ### Database
 
@@ -374,89 +551,34 @@ pnpm db:generate
 pnpm db:migrate
 pnpm db:push
 pnpm db:ping
+pnpm db:studio
 pnpm test:db:setup
 pnpm db:seed
 pnpm db:seed:tables
 ```
 
-### Embedding backfill
+### Backup ed export
 
 ```bash
-# Ricalcola l'embedding per ogni entity con `embedding IS NULL`
-# (es. NPC salvati dal generator quando Ollama era offline).
-# Idempotente, può girare in qualsiasi momento.
-pnpm db:embed:backfill                      # tutte le campagne
-pnpm db:embed:backfill --campaign-id=<uuid> # solo una campagna
-pnpm db:embed:backfill --dry-run            # solo report, no scrittura
-
-# Embedding dei rule_documents (Manuale del Giocatore, La Forgia di Sherdan).
-# Idempotente: tocca solo le righe con embedding IS NULL.
-pnpm db:embed:rules                         # tutti i source
-pnpm db:embed:rules --source=sherdan-custom # solo il corpus Sherdan
-pnpm db:embed:rules --force                 # rifa' tutto (dopo cambio modello)
-
-# Importa sezioni regole SRD 2014 + spell chiave (source=srd-2014).
-# Usa --all-spells per caricare anche l'intero catalogo spell SRD.
-pnpm db:import:srd-rules
-pnpm db:embed:rules --source=srd-2014
-```
-
-### Backup & export
-
-```bash
-# Dump SQL completo (via docker exec sul container sherdan-postgres):
 pnpm db:backup
-# → backups/sherdan-YYYYMMDD-HHMMSS.sql
-
-# Ripristino (DISTRUTTIVO, richiede conferma esplicita):
 CONFIRM=yes pnpm db:restore -- backups/sherdan-YYYYMMDD-HHMMSS.sql
 
-# Export JSON autoportante di una singola campagna:
 pnpm db:export:campaign -- --name "Sherdan"
-# oppure
-pnpm db:export:campaign -- --id <campaign-uuid>
-# → backups/campaign-<slug>-<timestamp>.json
-
-# Import di un export JSON come nuova campagna (UUID rimappati):
 pnpm db:import:campaign -- backups/campaign-sherdan-YYYYMMDD-HHMMSS.json
-pnpm db:import:campaign -- backups/campaign-sherdan-YYYYMMDD-HHMMSS.json --name "Sherdan copia"
-
-# Re-export Markdown leggibile, in file vicini ai sorgenti originali:
 pnpm db:export:campaign:markdown -- --name "Sherdan"
-# → exports/markdown/<campaign-slug>-<timestamp>/
 ```
 
-Le cartelle `backups/` ed `exports/` sono git-ignored (i dump contengono segreti GM-only).
+Le cartelle `backups/` ed `exports/` sono git-ignored perché possono contenere segreti GM.
 
-### Dataset Sherdan
+### Embedding opzionali
 
 ```bash
-pnpm content:check
-pnpm content:check:safe
-pnpm content:check:strict
-pnpm content:migrate:sherdan
-pnpm content:migrate:sherdan:delete-public
-pnpm db:bootstrap:sherdan
+ollama serve
+ollama pull mxbai-embed-large
 pnpm db:embed:sherdan
-pnpm db:report:sherdan
-pnpm db:validate:sherdan
+pnpm db:embed:backfill
+pnpm db:embed:rules
 ```
-
-### Docker
-
-```bash
-docker compose up -d
-docker compose down
-docker compose down -v
-```
-
-Attenzione:
-
-```bash
-docker compose down -v
-```
-
-cancella il volume Postgres locale e tutti i dati campagna locali.
 
 ---
 
@@ -466,64 +588,62 @@ cancella il volume Postgres locale e tutti i dati campagna locali.
 sherdan-dm-tools/
 |-- README.md
 |-- ROADMAP.md
+|-- NEWPROJECT.md
 |-- docker-compose.yml
 |-- content/
 |   `-- sherdan/
 |       |-- README.md
-|       `-- *.md        # ignorati da git, locali/privati
+|       `-- *.md
 |-- docs/
 |   |-- decisions.md
 |   |-- sherdan-import-report.md
 |   `-- sherdan-phase-1-5-validation.md
 |-- scripts/
-|   |-- bootstrap-sherdan.ts
-|   |-- migrate-sherdan-content.ts
-|   |-- seed-random-tables.ts
-|   |-- embed-sherdan-entities.ts
-|   |-- report-sherdan-import.ts
-|   `-- validate-sherdan-phase-1-5.ts
 |-- src/
 |   |-- app/
 |   |   |-- api/
 |   |   |-- campaigns/
+|   |   |-- chatgpt-bridge/
+|   |   |-- sessions/
+|   |   |-- plot-threads/
+|   |   |-- truth-clues/
 |   |   |-- random-tables/
-|   |   |-- npc-generator/
-|   |   |-- loot-generator/
-|   |   |-- encounter-builder/
 |   |   |-- player/
+|   |   |-- rules/
+|   |   |-- dungeon-generator/
 |   |   `-- status/
 |   |-- components/
 |   |-- db/
 |   |   `-- schema/
 |   |-- lib/
-|   |   |-- api/
-|   |   |-- generators/
-|   |   |-- import/
+|   |   |-- chatgpt-bridge/
 |   |   |-- llm/
 |   |   |-- random-tables/
+|   |   |-- rules/
 |   |   |-- security/
 |   |   `-- validation/
 |   `-- ...
 `-- tests/
-    `-- unit/
+    |-- unit/
+    |-- integration/
+    `-- e2e/
 ```
 
 ---
 
-## Architettura
-
-Il cuore del progetto è il database campagna strutturato.
+## Architettura dati
 
 Principi:
 
 - ogni oggetto importante diventa una entity;
 - la verità GM e la versione pubblica sono campi separati;
 - le identità sono record di primo livello;
-- i segreti sono informazioni stratificate, non testo disperso;
+- i segreti sono informazioni stratificate;
 - i link descrivono relazioni in-fiction;
 - gli hook PG descrivono potenziale narrativo;
-- i generatori devono usare il database come contesto, non prompt generici;
-- ogni superficie player-facing deve passare da una proiezione player-safe.
+- le briciole tracciano il percorso verso una verità;
+- ogni superficie player-facing passa da una proiezione sicura;
+- ChatGPT può proporre, ma il database canonico viene aggiornato solo dopo review.
 
 Flusso dati:
 
@@ -537,33 +657,56 @@ Parser
 Bootstrap idempotente
         |
         v
-Postgres: entities, secrets, identities, links, sessions, plot, rules
+Postgres: entities, identities, secrets, links, sessions, plot, clues, rules
         |
         v
-Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
+Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 ```
 
 ---
 
-## Priorità consigliate
+## Roadmap consigliata
 
-1. Hardening post-uso al tavolo: raccogli attriti reali su mobile, search, dashboard player e tempi LLM dopo una o due sessioni giocate con la build corrente.
-2. Slice successiva opzionale: combat tracker run-time (iniziativa, HP live, condizioni) se emerge come bisogno reale al tavolo.
+### Priorità alta
+
+1. Rafforzare leakage test del ChatGPT Bridge.
+2. Uniformare status feature tra README, sidebar e `/status`.
+3. Aggiungere badge match esatto/fuzzy/ambiguo nella review Update Pack.
+4. Migliorare la pagina storico export/import Bridge.
+5. Aggiungere conferma extra per modifiche ad alto rischio.
+
+### Priorità media
+
+1. Preset Bridge:
+   - sessione politica;
+   - dungeon;
+   - heist;
+   - recap giocatori;
+   - audit anti-railroad.
+2. Copy-for-ChatGPT da ogni pagina entity/session/plot/clue.
+3. Canon Diff per output importati.
+4. Session Debrief Import post-sessione.
+
+### Priorità futura
+
+1. Session Run Mode al tavolo.
+2. Matrice conoscenza PNG.
+3. Spoiler Gate / Reveal Tracker.
+4. Combat Tracker runtime.
+5. Contradiction Detector deterministico.
 
 ---
 
 ## Limitazioni note
 
-- Il progetto è ancora single-user e local-first: non è pronto come SaaS o app multiutente.
-- Il Player Dashboard è pronto: modalità per-player, realtime, scena live, handout/mappa/fog, override visibilità per giocatore e policy di esposizione entity sono attivi.
-- Accesso player: per-giocatore (tabella `players`, codici HMAC-hashed, UI DM in `/campaigns/[id]`) con fallback al codice globale `SHERDAN_PLAYER_ACCESS_CODE`.
-- Rate limit attivo: login `/api/player/access/login` 5 tentativi / 15 min per IP, altre API player 120 req / minuto per IP.
-- Override visibilità per giocatore: ogni entità, `truth_clue` o `entity_secret` può essere `hidden` o `revealed` per uno specifico player. UI DM disponibile nei pannelli "Visibilita' per giocatore" della entity detail, del Truth Clue Tracker e dell'Entity Secret Manager. Il pannello live della campagna aggiunge anche la policy globale per ogni entity esposta (`name_only`, `public_description`, `discovered_description`).
-- `generation_log` ora cattura ogni chiamata LLM (NPC/Loot/Encounter assist) con input, prompt, output, status e latenza, ma `input_tokens`/`output_tokens`/`cost_usd` restano `null` finché `LLMProvider` non espone l'usage del provider.
-- ChatGPT Web Bridge (`/chatgpt-bridge`) esporta contesto markdown/JSON per ChatGPT web, importa output incollato, rileva UPDATE PACK e applica solo modifiche selezionate dopo review.
-- Encounter Builder copre il flusso DM (browser mostri, CR calculator, LLM assist, marker "usato in sessione"); un combat tracker run-time (iniziativa, HP live, condizioni) resta fuori scope per ora.
-- Test di integrazione DB/API in posto (`pnpm test:integration`) + smoke E2E browser player e ChatGPT Bridge.
-- I seed delle Random Tables sono stato locale DB: rilanciare `pnpm db:seed:tables` dopo reset del database.
+- Progetto single-user e local-first.
+- Non è un SaaS multiutente.
+- LLM server-side opzionali possono fallire per quota, billing o memoria locale.
+- Con `LLM_PROVIDER=none`, i generatori automatici LLM non devono essere usati come percorso principale.
+- ChatGPT Web Bridge non automatizza ChatGPT web: prepara export/import manuali.
+- L'Update Pack va sempre revisionato prima dell'apply.
+- Il combat tracker runtime non è ancora implementato.
+- La matrice conoscenza PNG non è ancora nativa.
 
 ---
 
@@ -571,7 +714,7 @@ Wiki / Search / Graph / Random Tables / Generators / Player Dashboard
 
 ### `pnpm db:ping` fallisce con `ECONNREFUSED`
 
-Postgres probabilmente non è avviato.
+Postgres non è avviato.
 
 ```bash
 docker compose up -d
@@ -582,11 +725,11 @@ pnpm db:ping
 
 `.env.example` e `src/lib/env.ts` non sono allineati.
 
-Aggiorna entrambi prima di continuare.
+Aggiorna entrambi.
 
 ### `pnpm content:check:safe` fallisce
 
-Ci sono ancora markdown Sherdan raw in `public/`.
+Ci sono markdown Sherdan raw in `public/`.
 
 ```bash
 pnpm content:migrate:sherdan
@@ -594,19 +737,11 @@ pnpm content:migrate:sherdan:delete-public
 pnpm content:check:safe
 ```
 
-### `pnpm content:check:strict` fallisce
+### `pnpm llm:ping` fallisce
 
-Mancano file in `content/sherdan/` o sono ancora presenti in `public/`.
+Se usi `LLM_PROVIDER=none`, non dovrebbe servire.
 
-```bash
-pnpm content:migrate:sherdan
-pnpm content:migrate:sherdan:delete-public
-pnpm content:check:strict
-```
-
-### `pnpm llm:ping` fallisce per Ollama
-
-Controlla che Ollama sia attivo e che i modelli siano stati scaricati.
+Se usi Ollama:
 
 ```bash
 ollama serve
@@ -615,11 +750,13 @@ ollama pull qwen2.5:7b-instruct-q4_K_M
 pnpm llm:ping
 ```
 
+Se usi Gemini/OpenAI, verifica API key, quota e billing.
+
 ### Build Next.js fallisce per accesso database
 
 Una pagina potrebbe essere trattata come statica mentre interroga il DB.
 
-Marcarla come dinamica:
+Aggiungi:
 
 ```ts
 export const dynamic = "force-dynamic";
@@ -627,12 +764,12 @@ export const dynamic = "force-dynamic";
 
 ---
 
-## Metadata consigliati repository
+## Metadata repository consigliati
 
 Descrizione:
 
 ```txt
-Local-first DM toolkit for the Sherdan D&D 5e campaign: campaign wiki, entity graph, secrets, session prep and AI-assisted generators.
+Local-first DM toolkit for the Sherdan D&D 5e campaign: campaign wiki, secrets, entity graph, player dashboard, random tables and ChatGPT Web Bridge.
 ```
 
 Topic suggeriti:
@@ -640,16 +777,18 @@ Topic suggeriti:
 ```txt
 dnd
 dnd5e
+ttrpg
+dm-tools
+campaign-management
 nextjs
 typescript
 postgres
 pgvector
 drizzle
 ollama
-gemini
-campaign-management
-ttrpg
-dm-tools
+chatgpt
+local-first
+worldbuilding
 ```
 
 ---
