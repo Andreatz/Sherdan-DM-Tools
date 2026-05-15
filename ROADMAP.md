@@ -927,11 +927,6 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
 - [x] Debito test Forgia.
   - _Note implementative: `tests/unit/parsers/sherdan-forgia.test.ts` usa una fixture fallback quando il markdown raw non e' presente in `public/`, mantenendo copertura parser senza violare il content safety gate._
 
-### Prossimo ordine di esecuzione
-1. Quick fix piu ricchi per duplicati entity/alias, sempre con review manuale.
-2. Report mensile di salute canon: detector + reveal + knowledge matrix.
-3. E2E smoke dedicato per Contradiction Detector e Bridge diff export.
-
 ### Definition of done
 Con `LLM_PROVIDER=none`, il DM può preparare una sessione Sherdan usando solo `/chatgpt-bridge`: esporta contesto, lavora in ChatGPT Web, importa output, revisiona UPDATE PACK e applica modifiche al DB senza leak verso i giocatori e senza route generative attive.
 

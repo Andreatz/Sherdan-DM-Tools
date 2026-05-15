@@ -726,22 +726,6 @@ Postgres: entities, identities, secrets, links, sessions, plot, clues, rules
 Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 ```
 
----
-
-## Roadmap consigliata
-
-### Priorità alta
-
-1. [x] Rifinitura UX delle viste da tavolo dopo uso reale in sessione.
-2. [x] Contradiction Detector deterministico.
-3. [x] Campo-per-campo per Canon Diff.
-
-### Priorità futura
-
-1. Quick fix piu ricchi per duplicati entity/alias, sempre con review manuale.
-2. Report mensile di salute canon: detector + reveal + knowledge matrix.
-3. E2E smoke dedicato per Contradiction Detector e Bridge diff export.
-
 
 ---
 
