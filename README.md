@@ -563,6 +563,17 @@ Cosa viene importato:
 
 ---
 
+## Limiti noti
+
+- Il progetto resta local-first e single-DM: non implementa ancora ruoli completi `dm` / `player` / `admin`.
+- Il rate limit player-facing è in-memory; va bene per uso locale/Tailscale, non per scale-out multi-processo.
+- I provider LLM server-side sono opzionali. Il percorso primario resta `LLM_PROVIDER=none` con ChatGPT Web Bridge manuale.
+- Gli E2E coprono smoke e flussi critici, ma non ancora ogni workbench.
+- I sorgenti narrativi raw devono restare in `content/sherdan/`; `public/` non deve contenere markdown Sherdan.
+- Backup ed export possono contenere segreti GM: non vanno committati né condivisi con i player.
+
+---
+
 ## Comandi comuni
 
 ### Sviluppo
@@ -589,6 +600,20 @@ pnpm test
 pnpm build
 ```
 
+Percorso completo locale, consigliato prima di una sessione importante:
+
+```bash
+pnpm env:check
+pnpm content:check:safe
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:integration:local
+pnpm test:e2e:local
+pnpm db:backup:smoke
+pnpm build
+```
+
 ### Test
 
 ```bash
@@ -596,6 +621,8 @@ pnpm test
 pnpm test:integration:local
 pnpm test:e2e:local
 ```
+
+Le varianti `:local` derivano un database test da `DATABASE_URL` e rifiutano il DB reale. Vedi `docs/e2e.md`.
 
 Playwright:
 
@@ -621,14 +648,25 @@ pnpm db:seed:tables
 
 ```bash
 pnpm db:backup
+pnpm db:backup:smoke
 CONFIRM=yes pnpm db:restore -- backups/sherdan-YYYYMMDD-HHMMSS.sql
+pnpm db:cleanup:player-overrides -- --dry-run
 
 pnpm db:export:campaign -- --name "Sherdan"
 pnpm db:import:campaign -- backups/campaign-sherdan-YYYYMMDD-HHMMSS.json
 pnpm db:export:campaign:markdown -- --name "Sherdan"
 ```
 
-Le cartelle `backups/` ed `exports/` sono git-ignored perché possono contenere segreti GM.
+Le cartelle `backups/` ed `exports/` sono git-ignored perché possono contenere segreti GM. I nuovi dump SQL includono `--clean --if-exists`, cosi il restore puo ricreare lo schema.
+
+### Performance locale
+
+```bash
+pnpm perf:seed -- --campaign "Performance Seed" --entities 1000
+pnpm perf:profile -- <campaign_id>
+```
+
+Vedi `docs/performance.md` per seed volumetrico e profiling `EXPLAIN`.
 
 ### Embedding opzionali
 
@@ -648,6 +686,7 @@ pnpm db:embed:rules
 sherdan-dm-tools/
 |-- README.md
 |-- ROADMAP.md
+|-- ROADMAP_IMPROVEMENT.md
 |-- NEWPROJECT.md
 |-- docker-compose.yml
 |-- content/
@@ -656,6 +695,16 @@ sherdan-dm-tools/
 |       `-- *.md
 |-- docs/
 |   |-- decisions.md
+|   |-- bridge-workflow.md
+|   |-- current-architecture.md
+|   |-- e2e.md
+|   |-- frontend-refactor.md
+|   |-- manuale-tool.md
+|   |-- operator-guide.md
+|   |-- performance.md
+|   |-- player-access-gate.md
+|   |-- release-local.md
+|   |-- ui-design-system.md
 |   |-- sherdan-import-report.md
 |   `-- sherdan-phase-1-5-validation.md
 |-- scripts/

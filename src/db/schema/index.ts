@@ -1,4 +1,5 @@
 export * from "./campaigns";
+export * from "./audit";
 export * from "./chatgpt-bridge";
 export * from "./contradictions";
 export * from "./encounters";

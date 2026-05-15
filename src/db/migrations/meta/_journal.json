@@ -50,6 +50,13 @@
       "when": 1778841600000,
       "tag": "0006_contradiction_ignores",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778846760000,
+      "tag": "0007_audit_observability_performance",
+      "breakpoints": true
     }
   ]
 }

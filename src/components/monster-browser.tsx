@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { apiFetch, messageForError } from "@/lib/client-api";
 import type {
   EncounterDraftParticipant,
 } from "@/lib/encounters/encounter-composer";
@@ -1548,31 +1549,6 @@ function speedLabel(speed: MonsterBrowserRecord["properties"]["speed"]) {
   return entries
     .map(([key, value]) => (key === "hover" ? "hover" : `${key} ${value} ft.`))
     .join(", ");
-}
-
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`;
-    try {
-      const body = (await res.json()) as { error?: { message?: string } };
-      message = body.error?.message ?? message;
-    } catch {
-      // Response not JSON.
-    }
-    throw new Error(message);
-  }
-  return (await res.json()) as T;
-}
-
-function messageForError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 function sessionLabel(session: SessionRow) {

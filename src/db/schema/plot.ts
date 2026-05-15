@@ -47,6 +47,11 @@ export const plotThreads = pgTable(
   (t) => [
     index("idx_plot_threads_campaign").on(t.campaignId),
     index("idx_plot_threads_status").on(t.status),
+    index("idx_plot_threads_campaign_status_priority").on(
+      t.campaignId,
+      t.status,
+      t.priority,
+    ),
   ],
 );
 
@@ -140,6 +145,7 @@ export const truthClues = pgTable(
   },
   (t) => [
     index("idx_truth_clues_campaign_status").on(t.campaignId, t.status),
+    index("idx_truth_clues_campaign_created").on(t.campaignId, t.createdAt),
     index("idx_truth_clues_thread").on(t.relatedPlotThreadId),
     index("idx_truth_clues_related_gin").using("gin", t.relatedEntities),
   ],

@@ -5,6 +5,8 @@ import { db } from "@/db/client";
 import { players, playerVisibilityOverrides } from "@/db/schema";
 import { BadRequestError, ConflictError } from "@/lib/api/errors";
 import { created, fail, ok } from "@/lib/api/respond";
+import { withApiTelemetry } from "@/lib/api/request-telemetry";
+import { writeAuditLog } from "@/lib/audit-log";
 import {
   createPlayerOverrideInputSchema,
   listPlayerOverridesQuerySchema,
@@ -67,12 +69,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  return withApiTelemetry(req, "/api/player-visibility-overrides", async ({ requestId }) => {
   try {
     const body = (await req.json()) as unknown;
     const input = createPlayerOverrideInputSchema.parse(body);
 
     const [player] = await db
-      .select({ id: players.id })
+      .select({ id: players.id, campaignId: players.campaignId })
       .from(players)
       .where(eq(players.id, input.playerId))
       .limit(1);
@@ -89,6 +92,18 @@ export async function POST(req: NextRequest) {
           notes: input.notes?.trim() ? input.notes.trim() : null,
         })
         .returning(overrideColumns);
+      if (!row) throw new Error("Override creato ma non ritornato dal database.");
+      await writeAuditLog({
+        action: "player_visibility_override.create",
+        actorType: "dm",
+        playerId: row.playerId,
+        campaignId: player.campaignId,
+        targetType: row.targetType,
+        targetId: row.targetId,
+        outcome: "succeeded",
+        requestId,
+        metadata: { mode: row.mode },
+      });
       return created(row);
     } catch (err) {
       if (err instanceof Error && /uq_pvo_player_target/.test(err.message)) {
@@ -101,4 +116,5 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return fail(err);
   }
+  });
 }

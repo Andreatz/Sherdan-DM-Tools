@@ -6,6 +6,8 @@ import { db } from "@/db/client";
 import { players } from "@/db/schema";
 import { BadRequestError, UnauthorizedError } from "@/lib/api/errors";
 import { fail } from "@/lib/api/respond";
+import { withApiTelemetry } from "@/lib/api/request-telemetry";
+import { writeAuditLog } from "@/lib/audit-log";
 import { getLogger } from "@/lib/logger";
 import {
   hashPlayerCode,
@@ -30,6 +32,12 @@ const loginInputSchema = z
   .strict();
 
 export async function POST(req: NextRequest) {
+  return withApiTelemetry(req, "/api/player/access/login", ({ requestId }) =>
+    handlePost(req, requestId),
+  );
+}
+
+async function handlePost(req: NextRequest, requestId: string) {
   const ip = clientKey(req);
   const userAgent = req.headers.get("user-agent") ?? null;
   try {
@@ -88,6 +96,17 @@ export async function POST(req: NextRequest) {
         },
         "player login granted (per-player)",
       );
+      await writeAuditLog({
+        action: "player.login",
+        actorType: "player",
+        playerId: player.id,
+        campaignId: player.campaignId,
+        outcome: "succeeded",
+        requestId,
+        ip,
+        userAgent,
+        metadata: { mode: "per-player", playerName: player.name },
+      });
       const res = NextResponse.json(
         { ok: true, mode: "per-player", playerName: player.name },
         { status: 200 },
@@ -104,6 +123,15 @@ export async function POST(req: NextRequest) {
         { ip, userAgent, outcome: "granted", mode: "legacy-global" },
         "player login granted (legacy global)",
       );
+      await writeAuditLog({
+        action: "player.login",
+        actorType: "player",
+        outcome: "succeeded",
+        requestId,
+        ip,
+        userAgent,
+        metadata: { mode: "legacy-global" },
+      });
       const res = NextResponse.json(
         { ok: true, mode: "legacy-global" },
         { status: 200 },
@@ -116,6 +144,15 @@ export async function POST(req: NextRequest) {
       { ip, userAgent, outcome: "denied" },
       "player login denied (codice non valido)",
     );
+    await writeAuditLog({
+      action: "player.login",
+      actorType: "player",
+      outcome: "denied",
+      requestId,
+      ip,
+      userAgent,
+      metadata: { reason: "invalid_code" },
+    });
     throw new UnauthorizedError("Codice player non valido");
   } catch (err) {
     return fail(err);

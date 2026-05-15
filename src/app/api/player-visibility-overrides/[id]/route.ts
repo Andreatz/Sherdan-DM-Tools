@@ -3,9 +3,11 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db/client";
-import { playerVisibilityOverrides } from "@/db/schema";
+import { players, playerVisibilityOverrides } from "@/db/schema";
 import { BadRequestError, NotFoundError } from "@/lib/api/errors";
 import { fail, noContent, ok } from "@/lib/api/respond";
+import { withApiTelemetry } from "@/lib/api/request-telemetry";
+import { writeAuditLog } from "@/lib/audit-log";
 import { updatePlayerOverrideInputSchema } from "@/lib/validation/player-override-input";
 
 const idParamSchema = z.object({ id: z.uuid() });
@@ -44,6 +46,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
 }
 
 export async function PATCH(req: NextRequest, ctx: RouteContext) {
+  return withApiTelemetry(req, "/api/player-visibility-overrides/[id]", async ({ requestId }) => {
   try {
     const id = await resolveId(ctx);
     const body = (await req.json()) as unknown;
@@ -68,22 +71,57 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       .where(eq(playerVisibilityOverrides.id, id))
       .returning(overrideColumns);
     if (!row) throw new NotFoundError("player-visibility-override", id);
+    const [player] = await db
+      .select({ campaignId: players.campaignId })
+      .from(players)
+      .where(eq(players.id, row.playerId))
+      .limit(1);
+    await writeAuditLog({
+      action: "player_visibility_override.update",
+      actorType: "dm",
+      playerId: row.playerId,
+      campaignId: player?.campaignId ?? null,
+      targetType: row.targetType,
+      targetId: row.targetId,
+      outcome: "succeeded",
+      requestId,
+      metadata: { mode: row.mode },
+    });
     return ok(row);
   } catch (err) {
     return fail(err);
   }
+  });
 }
 
 export async function DELETE(_req: NextRequest, ctx: RouteContext) {
+  return withApiTelemetry(_req, "/api/player-visibility-overrides/[id]", async ({ requestId }) => {
   try {
     const id = await resolveId(ctx);
     const [row] = await db
       .delete(playerVisibilityOverrides)
       .where(eq(playerVisibilityOverrides.id, id))
-      .returning({ id: playerVisibilityOverrides.id });
+      .returning(overrideColumns);
     if (!row) throw new NotFoundError("player-visibility-override", id);
+    const [player] = await db
+      .select({ campaignId: players.campaignId })
+      .from(players)
+      .where(eq(players.id, row.playerId))
+      .limit(1);
+    await writeAuditLog({
+      action: "player_visibility_override.delete",
+      actorType: "dm",
+      playerId: row.playerId,
+      campaignId: player?.campaignId ?? null,
+      targetType: row.targetType,
+      targetId: row.targetId,
+      outcome: "succeeded",
+      requestId,
+      metadata: { mode: row.mode },
+    });
     return noContent();
   } catch (err) {
     return fail(err);
   }
+  });
 }

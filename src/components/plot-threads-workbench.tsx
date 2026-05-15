@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { CopyForChatGptButton } from "@/components/copy-for-chatgpt-button";
 import { plotRole, plotThreadStatus } from "@/db/schema";
+import { apiFetch, messageForError } from "@/lib/client-api";
 
 const STATUSES = plotThreadStatus.enumValues;
 type PlotStatus = (typeof STATUSES)[number];
@@ -1295,31 +1296,6 @@ function formatRelative(iso: string): string {
   if (months < 12) return `${months} mesi fa`;
   const years = Math.floor(days / 365);
   return `${years} anni fa`;
-}
-
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`;
-    try {
-      const body = (await res.json()) as { error?: { message?: string } };
-      message = body.error?.message ?? message;
-    } catch {
-      // not JSON
-    }
-    throw new Error(message);
-  }
-  return (await res.json()) as T;
-}
-
-function messageForError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 function buildPlotThreadChatGptMarkdown({

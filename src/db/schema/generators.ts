@@ -40,5 +40,7 @@ export const generationLogs = pgTable(
     index("idx_generation_log_generator").on(table.generatorName),
     index("idx_generation_log_created").on(table.createdAt),
     index("idx_generation_log_status").on(table.status),
+    index("idx_generation_log_provider_model").on(table.provider, table.model),
+    index("idx_generation_log_metadata_gin").using("gin", table.metadata),
   ],
 );

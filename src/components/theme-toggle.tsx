@@ -34,7 +34,7 @@ export function ThemeToggle() {
   }
 
   return (
-    <div className="grid grid-cols-3 rounded-md border border-zinc-200 p-0.5 text-[11px] dark:border-zinc-800">
+    <div className="grid grid-cols-3 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] p-0.5 text-[11px]">
       {(["light", "dark", "system"] as const).map((option) => (
         <button
           key={option}
@@ -42,8 +42,8 @@ export function ThemeToggle() {
           onClick={() => update(option)}
           className={`rounded px-2 py-1 capitalize transition-colors ${
             mode === option
-              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
-              : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              ? "bg-[var(--foreground)] text-[var(--background)] shadow-sm"
+              : "text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
           }`}
           aria-pressed={mode === option}
         >

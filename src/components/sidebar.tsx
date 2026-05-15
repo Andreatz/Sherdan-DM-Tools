@@ -75,27 +75,27 @@ const NAV: NavGroup[] = [
 ];
 
 const statusClassName: Record<NonNullable<NavItem["status"]>, string> = {
-  Pronto: "text-emerald-700 dark:text-emerald-400",
-  Beta: "text-amber-700 dark:text-amber-400",
-  Schema: "text-sky-700 dark:text-sky-400",
-  Opzionale: "text-violet-700 dark:text-violet-400",
+  Pronto: "text-emerald-700 dark:text-emerald-300",
+  Beta: "text-amber-700 dark:text-amber-300",
+  Schema: "text-sky-700 dark:text-sky-300",
+  Opzionale: "text-indigo-700 dark:text-indigo-300",
   Pianificato: "text-zinc-500 dark:text-zinc-400",
 };
 
 export function Sidebar() {
   return (
-    <aside className="border-b border-zinc-200 bg-white lg:min-h-screen lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r dark:border-zinc-800 dark:bg-zinc-900">
+    <aside className="border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] backdrop-blur lg:sticky lg:top-0 lg:min-h-screen lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-r dark:bg-[color-mix(in_srgb,var(--surface)_88%,transparent)]">
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between gap-4 px-4 py-4 lg:block lg:px-6 lg:py-6">
-          <div>
+        <div className="flex items-center justify-between gap-4 border-b border-[var(--border)] px-4 py-4 lg:block lg:px-5 lg:py-5">
+          <div className="min-w-0">
             <Link
               href="/"
-              className="block text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
+              className="block truncate text-xl font-semibold text-zinc-950 dark:text-zinc-50"
             >
               Sherdan
             </Link>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              DM Tools
+            <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-[var(--muted)]">
+              DM Tools Workspace
             </p>
           </div>
           <div className="lg:mt-4">
@@ -103,12 +103,12 @@ export function Sidebar() {
           </div>
         </div>
 
-        <nav className="flex max-h-[45vh] gap-4 overflow-x-auto overflow-y-auto px-3 pb-4 lg:block lg:max-h-none lg:flex-1 lg:overflow-x-hidden lg:pb-6">
+        <nav className="flex max-h-[48vh] gap-4 overflow-x-auto overflow-y-auto px-3 py-4 lg:block lg:max-h-[calc(100vh-9rem)] lg:flex-1 lg:overflow-x-hidden lg:px-4 lg:py-5">
           <EntitySidebarSection />
 
           {NAV.map((group) => (
-            <div key={group.title} className="mb-4 min-w-48 lg:mb-6 lg:min-w-0">
-              <h2 className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            <div key={group.title} className="mb-4 min-w-52 lg:mb-5 lg:min-w-0">
+              <h2 className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
                 {group.title}
               </h2>
               <ul className="space-y-0.5">
@@ -117,12 +117,12 @@ export function Sidebar() {
                     {item.href ? (
                       <Link
                         href={item.href}
-                        className="flex items-center justify-between gap-2 rounded-md px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        className="group flex items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-[var(--surface-muted)] hover:text-zinc-950 dark:text-zinc-200 dark:hover:text-white"
                       >
                         <span className="truncate">{item.label}</span>
                         {item.status && (
                           <span
-                            className={`shrink-0 text-[10px] uppercase tracking-wider ${statusClassName[item.status]}`}
+                            className={`status-pill shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${statusClassName[item.status]}`}
                           >
                             {item.status}
                           </span>
@@ -136,7 +136,7 @@ export function Sidebar() {
                         <span className="truncate">{item.label}</span>
                         {item.status && (
                           <span
-                            className={`shrink-0 text-[10px] uppercase tracking-wider ${statusClassName[item.status]}`}
+                            className={`status-pill shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${statusClassName[item.status]}`}
                           >
                             {item.status}
                           </span>

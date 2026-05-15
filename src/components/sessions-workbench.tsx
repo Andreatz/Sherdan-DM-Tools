@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { CopyForChatGptButton } from "@/components/copy-for-chatgpt-button";
+import { apiFetch, messageForError } from "@/lib/client-api";
 
 interface CampaignRow {
   id: string;
@@ -625,28 +626,6 @@ function RecapPanel({ title, hint, value, accent }: RecapPanelProps) {
       </div>
     </div>
   );
-}
-
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`;
-    try {
-      const body = (await res.json()) as { error?: { message?: string } };
-      message = body.error?.message ?? message;
-    } catch {
-      // not JSON
-    }
-    throw new Error(message);
-  }
-  return (await res.json()) as T;
-}
-
-function messageForError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 function buildSessionChatGptMarkdown({

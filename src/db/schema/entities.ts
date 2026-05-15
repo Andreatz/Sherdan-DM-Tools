@@ -51,6 +51,8 @@ export const entities = pgTable(
   },
   (t) => [
     index("idx_entities_campaign").on(t.campaignId),
+    index("idx_entities_campaign_name").on(t.campaignId, t.name),
+    index("idx_entities_campaign_updated").on(t.campaignId, t.updatedAt),
     index("idx_entities_type").on(t.type),
     index("idx_entities_parent").on(t.parentId),
     index("idx_entities_tags_gin").using("gin", t.tags),
@@ -146,6 +148,7 @@ export const entitySecrets = pgTable(
   },
   (t) => [
     index("idx_entity_secrets_entity").on(t.entityId),
+    index("idx_entity_secrets_campaign").on(t.campaignId),
     index("idx_entity_secrets_plot_thread").on(t.plotThreadId),
     index("idx_entity_secrets_layer").on(t.layer),
     check(

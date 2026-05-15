@@ -21,8 +21,9 @@ const log = getLogger("db-backup");
 
 const POSTGRES_CONTAINER =
   process.env.SHERDAN_POSTGRES_CONTAINER ?? "sherdan-postgres";
-const DB_NAME = env.POSTGRES_DB ?? "sherdan_dm";
-const DB_USER = env.POSTGRES_USER ?? "sherdan";
+const databaseUrl = new URL(env.DATABASE_URL);
+const DB_NAME = decodeURIComponent(databaseUrl.pathname.replace(/^\//, ""));
+const DB_USER = decodeURIComponent(databaseUrl.username || env.POSTGRES_USER || "sherdan");
 
 async function main() {
   const backupsDir = path.join(process.cwd(), "backups");
@@ -54,6 +55,8 @@ async function main() {
     DB_USER,
     "-d",
     DB_NAME,
+    "--clean",
+    "--if-exists",
     "--no-owner",
     "--no-privileges",
   ];

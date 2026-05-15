@@ -1,75 +1,50 @@
-# Player access gate
+# Player Access Gate
 
-This document defines the first access gate for player-facing API routes.
+Documento corrente del modello player-facing.
 
-## Goal
+## Stato Attuale
 
-Player-facing APIs must not be reachable by accident. Even though the API output is already player-safe, routes under `/api/player/*` are now closed unless a local access code is configured and the browser has a valid signed cookie.
+Le route sotto `/api/player/*` sono chiuse da cookie firmato `httpOnly`.
+Il login supporta due modalita:
 
-## Environment variable
+- **per-player**: ogni record `players` ha `campaign_id`, `name`, `code_hash`, `active`, `last_seen_at`;
+- **legacy global**: il codice `SHERDAN_PLAYER_ACCESS_CODE` apre un cookie non scoped, utile per uso locale del DM.
 
-Set this only on the server/local machine running the app:
+Il codice in chiaro non viene salvato: `code_hash` e derivato con HMAC lato server.
 
-```txt
-SHERDAN_PLAYER_ACCESS_CODE=<choose-a-private-code>
+## Visibilita
+
+- `public`: contenuto mostrabile al player senza override.
+- `discovered`: contenuto scoperto dal party, mostrabile al player.
+- `dm_only`: contenuto GM-only, mai esposto dalle route player salvo override esplicito.
+- `hidden`: override per-player che nasconde un target anche se pubblico.
+- `revealed`: override per-player che rende visibile un target normalmente non visibile.
+
+Gli override vivono in `player_visibility_overrides` e puntano a target polimorfici:
+`entity`, `truth_clue`, `entity_secret`. Non hanno FK diretta perche una sola colonna
+`target_id` punta a tabelle diverse; per questo esiste il cleanup:
+
+```bash
+pnpm db:cleanup:player-overrides -- --dry-run
+pnpm db:cleanup:player-overrides
 ```
 
-If this value is missing, player APIs stay closed and return a configuration error instead of opening publicly.
+## Audit
 
-## Current endpoints
+Le azioni sensibili scrivono in `audit_logs`:
 
-```txt
-POST /api/player/access/login
-POST /api/player/access/logout
-GET  /api/player/access/status
-```
+- login player riuscito o negato;
+- logout;
+- generazione token realtime;
+- create/update/delete override player;
+- apply Update Pack dal ChatGPT Bridge.
 
-`POST /api/player/access/login` accepts:
+Ogni record puo includere `request_id`, `campaign_id`, `player_id`, `target_type`,
+`target_id`, outcome e metadata non sensibili. Le route strumentate ritornano anche
+header `x-request-id`.
 
-```json
-{ "code": "..." }
-```
+## Boundary
 
-On success it sets a signed `httpOnly` cookie:
-
-```txt
-sherdan_player_access
-```
-
-The cookie is valid for seven days and uses `sameSite=lax`. In production it is marked `secure`.
-
-## Protected routes
-
-The following routes require the signed cookie:
-
-```txt
-GET /api/player/entities?campaign_id=<uuid>
-GET /api/player/entities/[id]?campaign_id=<uuid>
-```
-
-Without a valid cookie they return `401 unauthorized`.
-
-If `SHERDAN_PLAYER_ACCESS_CODE` is not configured, they return `503 service_unavailable`.
-
-## Security boundaries
-
-This is a simple local-first access gate, not full user management.
-
-It protects against accidental exposure and casual access, but it does not yet provide:
-
-- per-player identity;
-- per-player permissions;
-- role-based access control;
-- audit logs;
-- invite links;
-- revocation per user.
-
-## Next upgrade
-
-Before a real public Player Dashboard, consider one of these upgrades:
-
-1. campaign-level password screen plus session cookie UI;
-2. tokenized read-only invite links;
-3. full auth with `dm` / `player` roles.
-
-The recommended next step is a simple Player Dashboard login page that calls `/api/player/access/login` and then fetches player-safe data only from `/api/player/*` routes.
+Questo resta un modello local-first. E adeguato per LAN/Tailscale e uso personale.
+Prima di esporlo su internet servono rate limit persistente, auth DM vera, HTTPS
+gestito a monte e review dei cookie/sessioni.

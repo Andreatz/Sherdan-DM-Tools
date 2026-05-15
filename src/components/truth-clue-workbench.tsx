@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CopyForChatGptButton } from "@/components/copy-for-chatgpt-button";
 import { clueStatus } from "@/db/schema";
 import { PlayerOverrideEditor } from "@/components/player-override-editor";
+import { apiFetch, messageForError } from "@/lib/client-api";
 
 const CLUE_STATUSES = clueStatus.enumValues;
 
@@ -934,31 +935,6 @@ function sortTargetFirst(rows: TruthClueRow[], targetId: string) {
     if (b.id === targetId) return 1;
     return 0;
   });
-}
-
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`;
-    try {
-      const body = (await res.json()) as { error?: { message?: string } };
-      message = body.error?.message ?? message;
-    } catch {
-      // not JSON
-    }
-    throw new Error(message);
-  }
-  return (await res.json()) as T;
-}
-
-function messageForError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 function buildTruthClueChatGptMarkdown({

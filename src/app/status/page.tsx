@@ -1,5 +1,10 @@
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+
+import postgres from "postgres";
+
+import { Badge, PageHeader, Panel } from "@/components/ui";
+import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -13,22 +18,16 @@ const SHERDAN_SOURCE_FILES = [
   "Agente AI Worldbuilding.md",
 ] as const;
 
-// Vocabolario unico per status sidebar/status-page/README:
-// - Pronto: feature usabile end-to-end, UI inclusa.
-// - Beta: usabile ma con rifiniture o limitazioni note.
-// - Schema: DB/API predisposti, UI dedicata ancora da costruire.
-// - Pianificato: non iniziato.
-// - Opzionale: disponibile solo con provider/servizi extra.
 const featureRows = [
   ["Foundation progetto", "Pronto", "Next.js, TypeScript, Postgres, Drizzle, Zod, logging ed env check."],
-  ["Campaign Wiki", "Pronto", "CRUD entita', identita', segreti, link, tag e PC hooks."],
-  ["Grafo entita'", "Pronto", "Visualizzazione relazioni con pan/zoom."],
+  ["Campaign Wiki", "Pronto", "CRUD entita, identita, segreti, link, tag e PC hooks."],
+  ["Grafo entita", "Pronto", "Visualizzazione relazioni con pan/zoom."],
   ["Import Sherdan", "Pronto", "Parser e bootstrap idempotente da content/sherdan/."],
   ["Content safety gate", "Pronto", "Blocca markdown Sherdan raw in public/."],
   ["Random Tables Engine", "Pronto", "CRUD, import, roll, subtabelle, template e history."],
   ["Sessioni", "Pronto", "Lista, recap, DM notes, prep notes, plot e briciole per sessione."],
   ["Plot Thread Tracker", "Pronto", "Kanban, split GM/pubblico, timeline e stale alerts."],
-  ["Truth Clue Tracker", "Pronto", "Briciole filtrabili, status, verita' rivelata e sessioni."],
+  ["Truth Clue Tracker", "Pronto", "Briciole filtrabili, status, verita rivelata e sessioni."],
   ["Player Dashboard", "Pronto", "Accesso per-player, cookie firmato, API player-safe e realtime."],
   ["Session Run Mode", "Pronto", "Vista da tavolo con scena live, iniziativa, thread hot/warm, briciole e copy-for-ChatGPT."],
   ["Rules Lookup", "Pronto", "Search ibrida RRF, citazioni, corpus homebrew/SRD e Q&A opzionale."],
@@ -44,16 +43,21 @@ const featureRows = [
   ["Spoiler Gate / Reveal Tracker", "Pronto", "Dashboard reveal per briciole, segreti stratificati e override per-player."],
 ] as const;
 
-const statusClassName: Record<string, string> = {
-  Pronto: "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950 dark:text-emerald-300",
-  Beta: "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950 dark:text-amber-300",
-  Schema: "bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-950 dark:text-sky-300",
-  Opzionale: "bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-950 dark:text-violet-300",
-  "Pronto / Opzionale": "bg-teal-50 text-teal-700 ring-teal-600/20 dark:bg-teal-950 dark:text-teal-300",
-  Pianificato: "bg-zinc-100 text-zinc-700 ring-zinc-600/20 dark:bg-zinc-800 dark:text-zinc-300",
-};
+interface DatabaseStatus {
+  ok: boolean;
+  databaseName: string;
+  migrationCount: number | null;
+  publicTableCount: number | null;
+  message: string;
+}
 
-export default function StatusPage() {
+interface BackupStatus {
+  filename: string | null;
+  sizeBytes: number | null;
+  updatedAt: Date | null;
+}
+
+export default async function StatusPage() {
   const root = process.cwd();
   const privateDir = path.join(root, "content", "sherdan");
   const publicDir = path.join(root, "public");
@@ -67,21 +71,60 @@ export default function StatusPage() {
     (file) => !privateFiles.includes(file),
   );
   const isSafeForPlayers = publicFiles.length === 0;
+  const [databaseStatus, backupStatus] = await Promise.all([
+    getDatabaseStatus(),
+    getLatestBackup(root),
+  ]);
 
   return (
     <div className="space-y-8">
-      <header>
-        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-          Operativo · vocabolario stato unificato
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
-          Stato progetto
-        </h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-          Pannello operativo per verificare a colpo d&apos;occhio sicurezza dei contenuti,
-          stato reale delle feature e blocchi prima di qualunque esposizione player-facing.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Operativo · readiness locale"
+        title="Stato progetto"
+      >
+        Pannello operativo per verificare sicurezza dei contenuti, database,
+        migration, backup, LLM mode e blocchi prima di qualunque esposizione
+        player-facing.
+      </PageHeader>
+
+      <section className="grid gap-4 lg:grid-cols-4">
+        <StatusCard
+          title="Database"
+          value={databaseStatus.ok ? "Connesso" : "Errore"}
+          tone={databaseStatus.ok ? "good" : "bad"}
+          description={databaseStatus.message}
+        />
+        <StatusCard
+          title="Migration"
+          value={
+            databaseStatus.migrationCount === null
+              ? "n/d"
+              : String(databaseStatus.migrationCount)
+          }
+          tone={databaseStatus.migrationCount === null ? "warn" : "good"}
+          description={`${databaseStatus.publicTableCount ?? 0} tabelle public rilevate.`}
+        />
+        <StatusCard
+          title="LLM mode"
+          value={env.LLM_PROVIDER}
+          tone={env.LLM_PROVIDER === "none" ? "good" : "warn"}
+          description={
+            env.LLM_PROVIDER === "none"
+              ? "Bridge manuale attivo; nessuna API LLM richiesta."
+              : "Provider server-side abilitato per tool opzionali."
+          }
+        />
+        <StatusCard
+          title="Ultimo backup"
+          value={backupStatus.filename ? "Trovato" : "Assente"}
+          tone={backupStatus.filename ? "good" : "warn"}
+          description={
+            backupStatus.filename
+              ? `${backupStatus.filename} · ${formatBytes(backupStatus.sizeBytes ?? 0)}`
+              : "Esegui pnpm db:backup prima di sessioni importanti."
+          }
+        />
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
         <StatusCard
@@ -101,79 +144,161 @@ export default function StatusPage() {
           }
         />
         <StatusCard
-          title="Player Dashboard"
-          value={isSafeForPlayers ? "Pronto" : "Vietato"}
-          tone={isSafeForPlayers ? "good" : "bad"}
-          description={
-            isSafeForPlayers
-              ? "Codici per-player, cookie HMAC, rate limit, realtime signed-token e proiezioni player-safe."
-              : "Sorgenti raw in public/: NON esporre il dashboard. Esegui pnpm content:check:safe."
-          }
+          title="Realtime"
+          value="/api/realtime"
+          tone="good"
+          description="WebSocket su custom server con token firmato player-facing."
         />
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <Panel className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
               Sicurezza contenuti
             </h2>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              I sorgenti Sherdan raw contengono segreti GM-only. Devono restare fuori da public/.
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              I sorgenti Sherdan raw contengono segreti GM-only. Devono restare
+              fuori da public/.
             </p>
           </div>
-          <code className="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+          <code className="rounded-md bg-[var(--surface-muted)] px-2 py-1 text-xs text-[var(--muted)]">
             pnpm content:check:safe
           </code>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <FileList title="content/sherdan/" files={privateFiles} empty="Nessun file privato trovato." />
-          <FileList title="public/" files={publicFiles} empty="Nessun file raw esposto." danger={publicFiles.length > 0} />
+          <FileList
+            title="content/sherdan/"
+            files={privateFiles}
+            empty="Nessun file privato trovato."
+          />
+          <FileList
+            title="public/"
+            files={publicFiles}
+            empty="Nessun file raw esposto."
+            danger={publicFiles.length > 0}
+          />
         </div>
 
         {missingPrivateFiles.length > 0 && (
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
             Mancano in content/sherdan/: {missingPrivateFiles.join(", ")}
           </div>
         )}
-      </section>
+      </Panel>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-          Stato feature
-        </h2>
-        <div className="mt-4 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
+      <Panel className="overflow-hidden">
+        <div className="border-b border-[var(--border)] p-5">
+          <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+            Stato feature
+          </h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-[var(--surface-muted)] text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
               <tr>
                 <th className="px-4 py-3">Area</th>
                 <th className="px-4 py-3">Stato</th>
                 <th className="px-4 py-3">Nota</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <tbody className="divide-y divide-[var(--border)]">
               {featureRows.map(([area, status, note]) => (
-                <tr key={area}>
-                  <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
+                <tr key={area} className="hover:bg-[var(--surface-muted)]/60">
+                  <td className="px-4 py-3 font-medium text-zinc-950 dark:text-zinc-100">
                     {area}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusClassName[status]}`}
-                    >
-                      {status}
-                    </span>
+                    <FeatureBadge status={status} />
                   </td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{note}</td>
+                  <td className="px-4 py-3 text-[var(--muted)]">{note}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </section>
+      </Panel>
     </div>
   );
+}
+
+async function getDatabaseStatus(): Promise<DatabaseStatus> {
+  const databaseName = getDatabaseName(env.DATABASE_URL);
+  const sql = postgres(env.DATABASE_URL, { max: 1, onnotice: () => undefined });
+  try {
+    const [row] = await sql<
+      { public_table_count: number; migration_count: number | null }[]
+    >`
+      SELECT
+        (SELECT count(*)::int FROM information_schema.tables WHERE table_schema = 'public') AS public_table_count,
+        (SELECT count(*)::int FROM drizzle.__drizzle_migrations) AS migration_count
+    `;
+    return {
+      ok: true,
+      databaseName,
+      publicTableCount: row?.public_table_count ?? null,
+      migrationCount: row?.migration_count ?? null,
+      message: `${databaseName} raggiungibile.`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      databaseName,
+      publicTableCount: null,
+      migrationCount: null,
+      message: err instanceof Error ? err.message : String(err),
+    };
+  } finally {
+    await sql.end();
+  }
+}
+
+async function getLatestBackup(root: string): Promise<BackupStatus> {
+  const backupsDir = path.join(root, "backups");
+  if (!existsSync(backupsDir)) {
+    return { filename: null, sizeBytes: null, updatedAt: null };
+  }
+  const candidates = readdirSync(backupsDir)
+    .filter((file) => /^sherdan-\d{8}-\d{6}\.sql$/.test(file))
+    .map((file) => {
+      const stats = statSync(path.join(backupsDir, file));
+      return { file, stats };
+    })
+    .filter(({ stats }) => stats.size > 0)
+    .sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs);
+  const latest = candidates[0];
+  if (!latest) return { filename: null, sizeBytes: null, updatedAt: null };
+  return {
+    filename: latest.file,
+    sizeBytes: latest.stats.size,
+    updatedAt: latest.stats.mtime,
+  };
+}
+
+function getDatabaseName(databaseUrl: string): string {
+  const url = new URL(databaseUrl);
+  return decodeURIComponent(url.pathname.replace(/^\//, "")) || "unknown";
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function FeatureBadge({ status }: { status: string }) {
+  const tone =
+    status === "Pronto"
+      ? "success"
+      : status === "Opzionale"
+        ? "info"
+        : status === "Pronto / Opzionale"
+          ? "accent"
+          : status === "Beta"
+            ? "warning"
+            : "neutral";
+  return <Badge tone={tone}>{status}</Badge>;
 }
 
 function StatusCard({
@@ -188,19 +313,21 @@ function StatusCard({
   tone: "good" | "warn" | "bad";
 }) {
   const toneClassName = {
-    good: "text-emerald-700 dark:text-emerald-300",
-    warn: "text-amber-700 dark:text-amber-300",
-    bad: "text-red-700 dark:text-red-300",
+    good: "text-[var(--success)]",
+    warn: "text-[var(--warning)]",
+    bad: "text-[var(--danger)]",
   }[tone];
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{title}</p>
-      <p className={`mt-2 text-3xl font-semibold ${toneClassName}`}>{value}</p>
-      <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+    <Panel className="p-5">
+      <p className="text-sm font-medium text-[var(--muted)]">{title}</p>
+      <p className={`mt-2 truncate text-2xl font-semibold ${toneClassName}`}>
+        {value}
+      </p>
+      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
         {description}
       </p>
-    </div>
+    </Panel>
   );
 }
 
@@ -216,20 +343,18 @@ function FileList({
   danger?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-      <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</h3>
+    <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-3">
+      <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+        {title}
+      </h3>
       {files.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{empty}</p>
+        <p className="mt-2 text-sm text-[var(--muted)]">{empty}</p>
       ) : (
         <ul className="mt-2 space-y-1 text-sm">
           {files.map((file) => (
             <li
               key={file}
-              className={
-                danger
-                  ? "text-red-700 dark:text-red-300"
-                  : "text-zinc-700 dark:text-zinc-300"
-              }
+              className={danger ? "text-[var(--danger)]" : "text-[var(--muted)]"}
             >
               {file}
             </li>

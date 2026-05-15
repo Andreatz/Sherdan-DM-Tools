@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { type SQL, and, desc, eq } from "drizzle-orm";
+import { type SQL, and, desc, eq, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { generationLogs } from "@/db/schema";
@@ -41,7 +41,18 @@ export async function GET(req: NextRequest) {
     if (q.generator) {
       conditions.push(eq(generationLogs.generatorName, q.generator));
     }
+    if (q.provider) conditions.push(eq(generationLogs.provider, q.provider));
+    if (q.model) conditions.push(eq(generationLogs.model, q.model));
     if (q.status) conditions.push(eq(generationLogs.status, q.status));
+    if (q.error_only) conditions.push(isNotNull(generationLogs.error));
+    if (q.feature) {
+      conditions.push(sql`${generationLogs.metadata}->>'feature' = ${q.feature}`);
+    }
+    if (q.min_duration_ms !== undefined) {
+      conditions.push(
+        sql`COALESCE((${generationLogs.metadata}->>'latencyMs')::int, 0) >= ${q.min_duration_ms}`,
+      );
+    }
 
     const rows = await db
       .select(compactColumns)

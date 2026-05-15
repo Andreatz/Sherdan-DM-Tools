@@ -39,6 +39,11 @@ export function GenerationLogWorkbench() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [campaignId, setCampaignId] = useState("");
   const [generator, setGenerator] = useState("");
+  const [provider, setProvider] = useState("");
+  const [model, setModel] = useState("");
+  const [feature, setFeature] = useState("");
+  const [errorOnly, setErrorOnly] = useState(false);
+  const [minDurationMs, setMinDurationMs] = useState("");
   const [status, setStatus] = useState<"all" | "succeeded" | "failed">("all");
   const [rows, setRows] = useState<GenerationLogRow[]>([]);
   const [offset, setOffset] = useState(0);
@@ -76,6 +81,11 @@ export function GenerationLogWorkbench() {
         });
         if (campaignId) params.set("campaign_id", campaignId);
         if (generator) params.set("generator", generator);
+        if (provider) params.set("provider", provider);
+        if (model) params.set("model", model);
+        if (feature) params.set("feature", feature);
+        if (errorOnly) params.set("error_only", "true");
+        if (minDurationMs) params.set("min_duration_ms", minDurationMs);
         if (status !== "all") params.set("status", status);
         const list = await apiFetch<GenerationLogRow[]>(
           `/api/generation-logs?${params.toString()}`,
@@ -92,7 +102,17 @@ export function GenerationLogWorkbench() {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, generator, offset, status]);
+  }, [
+    campaignId,
+    errorOnly,
+    feature,
+    generator,
+    minDurationMs,
+    model,
+    offset,
+    provider,
+    status,
+  ]);
 
   const generatorOptions = useMemo(() => {
     const set = new Set<string>();
@@ -198,6 +218,48 @@ export function GenerationLogWorkbench() {
         </label>
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            Provider
+          </span>
+          <input
+            value={provider}
+            onChange={(e) => {
+              setOffset(0);
+              setProvider(e.target.value);
+            }}
+            placeholder="gemini, openai..."
+            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            Modello
+          </span>
+          <input
+            value={model}
+            onChange={(e) => {
+              setOffset(0);
+              setModel(e.target.value);
+            }}
+            placeholder="gemini-3-flash..."
+            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            Feature
+          </span>
+          <input
+            value={feature}
+            onChange={(e) => {
+              setOffset(0);
+              setFeature(e.target.value);
+            }}
+            placeholder="metadata.feature"
+            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
             Generator
           </span>
           <input
@@ -215,6 +277,32 @@ export function GenerationLogWorkbench() {
               <option key={g} value={g} />
             ))}
           </datalist>
+        </label>
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            Durata minima
+          </span>
+          <input
+            value={minDurationMs}
+            inputMode="numeric"
+            onChange={(e) => {
+              setOffset(0);
+              setMinDurationMs(e.target.value.replace(/\D/g, ""));
+            }}
+            placeholder="ms"
+            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+          />
+        </label>
+        <label className="flex items-center gap-2 self-end rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
+          <input
+            type="checkbox"
+            checked={errorOnly}
+            onChange={(e) => {
+              setOffset(0);
+              setErrorOnly(e.target.checked);
+            }}
+          />
+          Solo errori con payload
         </label>
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
