@@ -530,7 +530,7 @@ Cosa viene importato:
 ### ChatGPT Web Bridge
 
 - Export markdown contestuale.
-- Preset operativi per politica, dungeon, heist, downtime, viaggio, recap giocatori e audit anti-railroad.
+- Preset operativi per politica, crisi politica complessa, flashback, dungeon, heist, downtime, viaggio, recap giocatori e audit anti-railroad.
 - Copy-for-ChatGPT da entity, sessioni, plot thread e truth clue.
 - Prompt Architetto di Mondi incluso o sintetico.
 - Relevance budgeting per densità.
@@ -538,6 +538,8 @@ Cosa viene importato:
 - Import output ChatGPT.
 - Canon Diff deterministico sugli import confrontati con recap, DM notes e prep notes della sessione.
 - Canon Diff campo-per-campo per titolo, recap, DM notes e prep notes.
+- Export/copia del Canon Diff in Markdown.
+- Apply dell'Update Pack anche su `prepNotesCandidate`.
 - Session Debrief Import verso `dmNotes`.
 - Parsing `UPDATE PACK`.
 - Review e apply selettivo.
@@ -552,6 +554,10 @@ Cosa viene importato:
 - Audit deterministico senza LLM su canon locale.
 - Rileva nomi entity duplicati, collisioni alias/identita, identita vere multiple, link relazionali incoerenti, gap player-facing e briciole aperte su thread risolti.
 - Mostra severita alta/media/bassa, target coinvolti, azione consigliata e checklist di risoluzione guidata.
+- Deep link dall'audit alla singola entity, briciola o plot thread coinvolto.
+- Quick fix sicuro per gap player-facing non ambigui: riporta il target a `dm_only`.
+- Quick fix guidato per link duplicati esatti: conserva il primo link e rimuove i duplicati.
+- Ignore-list persistente per contraddizioni intenzionali.
 - Esporta/copia il report in Markdown per audit o note di sessione.
 - Utile prima di export Bridge, recap player-facing o reveal importanti.
 
@@ -732,9 +738,9 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 
 ### Priorità futura
 
-1. Preset Bridge aggiuntivi per eventi politici complessi e flashback.
-2. Deep link per aprire direttamente la singola entity/clue/thread dall'audit.
-3. Quick fix sicuri dal Detector per casi non ambigui.
+1. Quick fix piu ricchi per duplicati entity/alias, sempre con review manuale.
+2. Report mensile di salute canon: detector + reveal + knowledge matrix.
+3. E2E smoke dedicato per Contradiction Detector e Bridge diff export.
 
 
 ---
@@ -747,7 +753,7 @@ Wiki / Graph / Search / Dashboard / Bridge / Tables / Tools
 - Con `LLM_PROVIDER=none`, i generatori automatici LLM non devono essere usati come percorso principale.
 - ChatGPT Web Bridge non automatizza ChatGPT web: prepara export/import manuali.
 - L'Update Pack va sempre revisionato prima dell'apply.
-- Matrice conoscenza PNG e Reveal Tracker usano override inline, ma restano viste operative leggere: gli editor canonici continuano a gestire il dettaglio completo.
+- Matrice conoscenza PNG e Reveal Tracker usano override inline e filtri operativi, ma gli editor canonici continuano a gestire il dettaglio completo.
 
 ---
 

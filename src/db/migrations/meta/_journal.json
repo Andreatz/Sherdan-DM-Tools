@@ -43,6 +43,13 @@
       "when": 1778799954076,
       "tag": "0005_same_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778841600000,
+      "tag": "0006_contradiction_ignores",
+      "breakpoints": true
     }
   ]
 }

@@ -127,6 +127,8 @@ export function TruthClueWorkbench() {
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [saving, setSaving] = useState(false);
   const [statusSavingId, setStatusSavingId] = useState<string | null>(null);
+  const [targetClueId] = useState(() => queryParam("clue"));
+  const [targetCampaignId] = useState(() => queryParam("campaign_id"));
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -144,7 +146,11 @@ export function TruthClueWorkbench() {
         const rows = await apiFetch<CampaignRow[]>("/api/campaigns");
         if (cancelled) return;
         setCampaigns(rows);
-        setCampaignId((current) => current || (rows[0]?.id ?? ""));
+        setCampaignId((current) =>
+          targetCampaignId && rows.some((row) => row.id === targetCampaignId)
+            ? targetCampaignId
+            : current || (rows[0]?.id ?? ""),
+        );
       } catch (err) {
         if (!cancelled) setError(messageForError(err));
       } finally {
@@ -155,7 +161,7 @@ export function TruthClueWorkbench() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [targetCampaignId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,7 +218,7 @@ export function TruthClueWorkbench() {
           `/api/truth-clues?${params.toString()}`,
         );
         if (cancelled) return;
-        setClues(rows);
+        setClues(sortTargetFirst(rows, targetClueId));
       } catch (err) {
         if (!cancelled) setError(messageForError(err));
       } finally {
@@ -230,6 +236,7 @@ export function TruthClueWorkbench() {
     filterSessionId,
     filterEntityId,
     refreshToken,
+    targetClueId,
   ]);
 
   useEffect(() => {
@@ -722,7 +729,15 @@ export function TruthClueWorkbench() {
                     ? sessionById.get(clue.plantedInSession)
                     : null;
                   return (
-                    <li key={clue.id} className="space-y-3 px-4 py-4">
+                    <li
+                      key={clue.id}
+                      id={`clue-${clue.id}`}
+                      className={`space-y-3 px-4 py-4 scroll-mt-4 ${
+                        clue.id === targetClueId
+                          ? "bg-amber-50/70 ring-1 ring-inset ring-amber-300 dark:bg-amber-950/30 dark:ring-amber-800"
+                          : ""
+                      }`}
+                    >
                       <div className="flex flex-wrap items-start gap-3">
                         <span
                           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_CLASS[clue.status]}`}
@@ -912,6 +927,15 @@ function FilterSelect({ label, value, onChange, children }: FilterSelectProps) {
   );
 }
 
+function sortTargetFirst(rows: TruthClueRow[], targetId: string) {
+  if (!targetId) return rows;
+  return [...rows].sort((a, b) => {
+    if (a.id === targetId) return -1;
+    if (b.id === targetId) return 1;
+    return 0;
+  });
+}
+
 async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
@@ -972,4 +996,9 @@ function buildTruthClueChatGptMarkdown({
       ? relatedEntities.map((entity) => `- ${entity.name} (${entity.type})`).join("\n")
       : "_Nessuna entita._",
   ].join("\n");
+}
+
+function queryParam(name: string) {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get(name) ?? "";
 }

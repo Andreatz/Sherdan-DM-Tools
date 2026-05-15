@@ -63,6 +63,8 @@ export function KnowledgeMatrixWorkbench() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [campaignId, setCampaignId] = useState("");
   const [entityType, setEntityType] = useState<EntityType>("npc");
+  const [search, setSearch] = useState("");
+  const [onlyOverrides, setOnlyOverrides] = useState(false);
   const [payload, setPayload] = useState<MatrixPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [savingCell, setSavingCell] = useState<string | null>(null);
@@ -155,6 +157,18 @@ export function KnowledgeMatrixWorkbench() {
     }
   }
 
+  async function setRowOverride(entity: EntityMatrixRow, mode: OverrideMode | null) {
+    if (!payload) return;
+    setError(null);
+    try {
+      for (const player of payload.players) {
+        await setEntityOverride(entity, player, mode);
+      }
+    } catch (err) {
+      setError(messageForError(err));
+    }
+  }
+
   const stats = useMemo(() => {
     if (!payload) return { total: 0, revealed: 0, hidden: 0 };
     let revealed = 0;
@@ -167,6 +181,20 @@ export function KnowledgeMatrixWorkbench() {
     }
     return { total: payload.entities.length, revealed, hidden };
   }, [payload]);
+
+  const visibleEntities = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return (payload?.entities ?? []).filter((entity) => {
+      if (onlyOverrides && Object.keys(entity.overrides).length === 0) {
+        return false;
+      }
+      if (!query) return true;
+      return (
+        entity.name.toLowerCase().includes(query) ||
+        (entity.publicDescription ?? "").toLowerCase().includes(query)
+      );
+    });
+  }, [onlyOverrides, payload?.entities, search]);
 
   return (
     <div className="space-y-6">
@@ -200,6 +228,23 @@ export function KnowledgeMatrixWorkbench() {
 
       {error && <ErrorBox message={error} />}
 
+      <section className="grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 md:grid-cols-[minmax(0,1fr)_auto] dark:border-zinc-800 dark:bg-zinc-900">
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Cerca target o descrizione pubblica..."
+          className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+        />
+        <label className="inline-flex h-10 items-center gap-2 rounded-md border border-zinc-300 px-3 text-sm dark:border-zinc-700">
+          <input
+            type="checkbox"
+            checked={onlyOverrides}
+            onChange={(event) => setOnlyOverrides(event.target.checked)}
+          />
+          <span>Solo override</span>
+        </label>
+      </section>
+
       <section className="grid gap-3 md:grid-cols-3">
         <StatCard label="Target" value={String(stats.total)} />
         <StatCard label="Override revealed" value={String(stats.revealed)} />
@@ -223,9 +268,9 @@ export function KnowledgeMatrixWorkbench() {
         </header>
         {loading ? (
           <p className="p-4 text-sm text-zinc-500">Caricamento matrice...</p>
-        ) : !payload || payload.entities.length === 0 ? (
+        ) : !payload || visibleEntities.length === 0 ? (
           <p className="p-4 text-sm text-zinc-500">
-            Nessun target di tipo {entityType} per questa campagna.
+            Nessun target di tipo {entityType} per filtri correnti.
           </p>
         ) : payload.players.length === 0 ? (
           <p className="p-4 text-sm text-zinc-500">
@@ -248,17 +293,43 @@ export function KnowledgeMatrixWorkbench() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {payload.entities.map((entity) => (
+                {visibleEntities.map((entity) => (
                   <tr key={entity.id}>
                     <td className="sticky left-0 z-10 max-w-xs bg-white px-4 py-3 dark:bg-zinc-900">
-                      <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                      <Link
+                        href={`/campaigns/${encodeURIComponent(campaignId)}?focus=${encodeURIComponent(entity.id)}#entity-detail`}
+                        className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                      >
                         {entity.name}
-                      </div>
+                      </Link>
                       {entity.publicDescription && (
                         <div className="mt-1 line-clamp-2 text-xs text-zinc-500">
                           {entity.publicDescription}
                         </div>
                       )}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        <CellButton
+                          disabled={savingCell !== null}
+                          onClick={() => void setRowOverride(entity, "revealed")}
+                        >
+                          Rivela riga
+                        </CellButton>
+                        <CellButton
+                          disabled={savingCell !== null}
+                          onClick={() => void setRowOverride(entity, "hidden")}
+                        >
+                          Nascondi riga
+                        </CellButton>
+                        <CellButton
+                          disabled={
+                            savingCell !== null ||
+                            Object.keys(entity.overrides).length === 0
+                          }
+                          onClick={() => void setRowOverride(entity, null)}
+                        >
+                          Reset riga
+                        </CellButton>
+                      </div>
                     </td>
                     <td className="px-3 py-3">
                       <VisibilityBadge mode={baseModeFor(entity.visibility)} />

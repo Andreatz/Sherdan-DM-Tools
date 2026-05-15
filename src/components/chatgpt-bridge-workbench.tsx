@@ -157,6 +157,42 @@ const BRIDGE_PRESETS: BridgePreset[] = [
     },
   },
   {
+    label: "Crisi politica",
+    description: "Evento complesso, fazioni, escalation e fallout.",
+    patch: {
+      taskType: "session_md",
+      density: "Full",
+      audience: "gm",
+      includeSecrets: true,
+      includePcHooks: true,
+      includeFactions: true,
+      includeTruthClues: true,
+      includePlayerFacingState: false,
+      focus:
+        "Evento politico complesso con piu fazioni, agenda nascosta, crisi pubblica, escalation e conseguenze sul territorio.",
+      constraints:
+        "Mappa interessi, leve, informazioni asimmetriche, timeline della crisi e reazioni se i PG non intervengono. Ogni fazione deve poter vincere/perdere qualcosa.",
+    },
+  },
+  {
+    label: "Flashback",
+    description: "Scena retroattiva con reveal controllato.",
+    patch: {
+      taskType: "session_patch",
+      density: "Standard",
+      audience: "gm",
+      includeSecrets: true,
+      includePcHooks: true,
+      includeFactions: false,
+      includeTruthClues: true,
+      includePlayerFacingState: false,
+      focus:
+        "Flashback giocabile che illumina una scelta passata, un legame PG/PNG o una verita parziale senza chiudere il mistero principale.",
+      constraints:
+        "Definisci trigger, framing, posta emotiva, limiti di agency retroattiva e quale informazione puo cambiare il presente. Evita retcon che annullano scelte gia giocate.",
+    },
+  },
+  {
     label: "Dungeon",
     description: "Struttura esplorativa table-ready.",
     patch: {
@@ -970,6 +1006,7 @@ function CanonDiffPanel({
 }: {
   diff: NonNullable<AnalyzeResponse["canonDiff"]>;
 }) {
+  const markdown = buildCanonDiffMarkdown(diff);
   return (
     <div className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -978,6 +1015,22 @@ function CanonDiffPanel({
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Confronto con {diff.comparedTo}
           </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void navigator.clipboard.writeText(markdown)}
+            className={secondaryButtonClass}
+          >
+            Copia diff
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadText("canon-diff.md", markdown)}
+            className={secondaryButtonClass}
+          >
+            Scarica .md
+          </button>
         </div>
       </div>
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
@@ -1034,6 +1087,67 @@ function CanonDiffPanel({
       </div>
     </div>
   );
+}
+
+function buildCanonDiffMarkdown(diff: NonNullable<AnalyzeResponse["canonDiff"]>) {
+  const lines = [
+    `# Canon Diff - ${diff.comparedTo}`,
+    "",
+    "## Campo per campo",
+    "",
+  ];
+  if (diff.fieldSummary) {
+    lines.push(
+      `- Campi cambiati: ${diff.fieldSummary.changed}`,
+      `- Campi non rilevati: ${diff.fieldSummary.missing}`,
+      `- Similarita media: ${Math.round(diff.fieldSummary.averageSimilarity * 100)}%`,
+      "",
+    );
+  }
+  for (const field of diff.fields ?? []) {
+    lines.push(
+      `### ${field.label}`,
+      "",
+      `- Stato: ${field.changed ? "cambiato" : "uguale"}`,
+      `- Fonte: ${fieldSourceLabel(field.source)}`,
+      `- Similarita: ${Math.round(field.similarity * 100)}%`,
+      "",
+      "Import:",
+      field.imported?.trim() || "_Non rilevato._",
+      "",
+      "Canon:",
+      field.canon?.trim() || "_Vuoto._",
+      "",
+    );
+  }
+  lines.push("## Diff lineare", "");
+  for (const section of diff.sections) {
+    lines.push(
+      `### ${section.label} (${Math.round(section.similarity * 100)}%)`,
+      "",
+      "Nuovo import:",
+      ...(section.added.length > 0
+        ? section.added.map((row) => `- ${row}`)
+        : ["_Nessuna differenza._"]),
+      "",
+      "Solo canon attuale:",
+      ...(section.removed.length > 0
+        ? section.removed.map((row) => `- ${row}`)
+        : ["_Nessuna differenza._"]),
+      "",
+    );
+  }
+  return lines.join("\n").trimEnd();
+}
+
+function downloadText(filename: string, content: string) {
+  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function MiniTextDiff({

@@ -22,8 +22,10 @@ export interface ContradictionIssue {
       | "truth_clue";
     id: string;
     label: string;
+    entityId?: string;
   }>;
   suggestedAction: string;
+  ignored?: boolean;
 }
 
 export interface ContradictionSummary {
@@ -31,6 +33,7 @@ export interface ContradictionSummary {
   high: number;
   medium: number;
   low: number;
+  ignored?: number;
 }
 
 export interface ContradictionReport {
@@ -159,6 +162,7 @@ function detectAliasCollisions(entities: EntityRow[], identities: IdentityRow[])
         type: row.type,
         id: row.id,
         label: row.label,
+        entityId: row.entityId,
       })),
       suggestedAction:
         "Sposta l'alias sull'entity corretta o aggiungi un qualificatore nel nome esposto.",
@@ -182,6 +186,7 @@ function detectTrueIdentityConflicts(identities: IdentityRow[]) {
         type: "identity",
         id: identity.id,
         label: identity.name,
+        entityId: identity.entityId,
       })),
       suggestedAction:
         "Lascia una sola identita vera oppure sposta le altre a maschera/alias con note GM.",
@@ -338,6 +343,7 @@ function linkTarget(link: LinkRow) {
     type: "link" as const,
     id: link.id,
     label: `${link.sourceName} -> ${link.targetName}: ${link.relationType}`,
+    entityId: link.sourceEntityId,
   };
 }
 

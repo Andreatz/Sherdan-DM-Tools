@@ -49,6 +49,8 @@ export function RevealTrackerWorkbench() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [campaignId, setCampaignId] = useState("");
   const [filter, setFilter] = useState<"all" | TargetType>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | RevealTarget["status"]>("all");
+  const [search, setSearch] = useState("");
   const [payload, setPayload] = useState<RevealPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -179,10 +181,18 @@ export function RevealTrackerWorkbench() {
 
   const visibleTargets = useMemo(() => {
     const rows = payload?.targets ?? [];
-    return filter === "all"
-      ? rows
-      : rows.filter((target) => target.targetType === filter);
-  }, [payload?.targets, filter]);
+    const query = search.trim().toLowerCase();
+    return rows.filter((target) => {
+      if (filter !== "all" && target.targetType !== filter) return false;
+      if (statusFilter !== "all" && target.status !== statusFilter) return false;
+      if (!query) return true;
+      return (
+        target.label.toLowerCase().includes(query) ||
+        target.detail.toLowerCase().includes(query) ||
+        (target.source ?? "").toLowerCase().includes(query)
+      );
+    });
+  }, [payload?.targets, filter, search, statusFilter]);
 
   const stats = useMemo(() => {
     const rows = payload?.targets ?? [];
@@ -241,6 +251,37 @@ export function RevealTrackerWorkbench() {
       </header>
 
       {error && <ErrorBox message={error} />}
+
+      <section className="grid gap-3 rounded-lg border border-zinc-200 bg-white p-4 lg:grid-cols-[minmax(0,1fr)_auto_auto] dark:border-zinc-800 dark:bg-zinc-900">
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Cerca reveal, fonte o dettaglio..."
+          className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+        />
+        <SelectFilter
+          value={statusFilter}
+          onChange={(value) =>
+            setStatusFilter(value as "all" | RevealTarget["status"])
+          }
+          options={[
+            { value: "all", label: "Tutti gli stati" },
+            { value: "protected", label: "Protetti" },
+            { value: "party_revealed", label: "Party revealed" },
+          ]}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setSearch("");
+            setFilter("all");
+            setStatusFilter("all");
+          }}
+          className="h-10 rounded-md border border-zinc-300 px-3 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          Reset filtri
+        </button>
+      </section>
 
       <section className="grid gap-3 md:grid-cols-5">
         <StatCard label="Totali" value={stats.total} />
@@ -438,6 +479,30 @@ function StatCard({ label, value }: { label: string; value: number }) {
         {value}
       </p>
     </div>
+  );
+}
+
+function SelectFilter({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }
 

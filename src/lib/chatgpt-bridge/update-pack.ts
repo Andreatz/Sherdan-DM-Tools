@@ -101,6 +101,7 @@ export async function applyReviewChanges(input: {
               title: payload.title ?? undefined,
               recap: payload.recap ?? undefined,
               dmNotes: payload.dmNotes ?? undefined,
+              prepNotes: payload.prepNotes ?? undefined,
             })
             .where(
               and(
@@ -233,6 +234,7 @@ async function appendSessionChange(
     title: pack.session.title ?? before.title,
     recap: pack.session.recapCandidate ?? before.recap,
     dmNotes: pack.session.dmNotesCandidate ?? before.dmNotes,
+    prepNotes: pack.session.prepNotesCandidate ?? before.prepNotes,
   };
   changes.push({
     kind: "session_update",
@@ -496,6 +498,7 @@ function sessionUpdatePayload(value: unknown) {
     title: stringOrUndefined(record.title),
     recap: stringOrUndefined(record.recap),
     dmNotes: stringOrUndefined(record.dmNotes),
+    prepNotes: stringOrUndefined(record.prepNotes),
   };
 }
 
@@ -510,6 +513,7 @@ async function findSession(
     title: sessions.title,
     recap: sessions.recap,
     dmNotes: sessions.dmNotes,
+    prepNotes: sessions.prepNotes,
   };
 
   if (number) {

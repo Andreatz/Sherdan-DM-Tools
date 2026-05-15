@@ -24,7 +24,10 @@ export function ContradictionDetectorWorkbench() {
   const [campaignId, setCampaignId] = useState("");
   const [report, setReport] = useState<ContradictionReport | null>(null);
   const [severity, setSeverity] = useState<"all" | Severity>("all");
+  const [includeIgnored, setIncludeIgnored] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [quickFixingId, setQuickFixingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,8 +59,10 @@ export function ContradictionDetectorWorkbench() {
       setLoading(true);
       setError(null);
       try {
+        const params = new URLSearchParams({ campaign_id: campaignId });
+        if (includeIgnored) params.set("include_ignored", "true");
         const data = await apiFetch<ContradictionReport>(
-          `/api/contradictions?campaign_id=${encodeURIComponent(campaignId)}`,
+          `/api/contradictions?${params.toString()}`,
         );
         if (!cancelled) setReport(data);
       } catch (err) {
@@ -70,7 +75,7 @@ export function ContradictionDetectorWorkbench() {
     return () => {
       cancelled = true;
     };
-  }, [campaignId]);
+  }, [campaignId, includeIgnored, refreshToken]);
 
   const filteredIssues = useMemo(() => {
     const issues = report?.issues ?? [];
@@ -121,6 +126,77 @@ export function ContradictionDetectorWorkbench() {
     setMessage("Checklist issue copiata.");
   }
 
+  async function applyQuickFix(issue: ContradictionIssue) {
+    if (!canQuickFix(issue)) return;
+    setQuickFixingId(issue.id);
+    setError(null);
+    setMessage(null);
+    try {
+      await Promise.all(
+        quickFixTargets(issue).map((target) => {
+          if (target.type === "entity") {
+            return apiFetch(`/api/entities/${encodeURIComponent(target.id)}`, {
+              method: "PATCH",
+              body: JSON.stringify({ visibility: "dm_only" }),
+            });
+          }
+          if (target.type === "plot_thread") {
+            return apiFetch(
+              `/api/plot-threads/${encodeURIComponent(target.id)}`,
+              {
+                method: "PATCH",
+                body: JSON.stringify({ visibility: "dm_only" }),
+              },
+            );
+          }
+          if (target.type === "link") {
+            return apiFetch(`/api/entity-links/${encodeURIComponent(target.id)}`, {
+              method: "DELETE",
+            });
+          }
+          return Promise.resolve(null);
+        }),
+      );
+      setMessage(
+        issue.category === "visibility_gap"
+          ? "Quick fix applicato: target riportato a DM-only."
+          : "Quick fix applicato: link duplicati eliminati.",
+      );
+      setRefreshToken((current) => current + 1);
+    } catch (err) {
+      setError(messageForError(err));
+    } finally {
+      setQuickFixingId(null);
+    }
+  }
+
+  async function setIgnored(issue: ContradictionIssue, ignored: boolean) {
+    setError(null);
+    setMessage(null);
+    try {
+      if (ignored) {
+        await apiFetch("/api/contradictions/ignores", {
+          method: "POST",
+          body: JSON.stringify({
+            campaignId,
+            issueId: issue.id,
+            reason: "Segnata come intenzionale dal Contradiction Detector.",
+          }),
+        });
+        setMessage("Issue ignorata in modo persistente.");
+      } else {
+        await apiFetch(
+          `/api/contradictions/ignores?campaign_id=${encodeURIComponent(campaignId)}&issue_id=${encodeURIComponent(issue.id)}`,
+          { method: "DELETE" },
+        );
+        setMessage("Issue rimessa nell'audit attivo.");
+      }
+      setRefreshToken((current) => current + 1);
+    } catch (err) {
+      setError(messageForError(err));
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -169,7 +245,11 @@ export function ContradictionDetectorWorkbench() {
         <Stat label="Totale" value={String(report?.summary.total ?? 0)} tone="neutral" />
         <Stat label="Alta" value={String(report?.summary.high ?? 0)} tone="bad" />
         <Stat label="Media" value={String(report?.summary.medium ?? 0)} tone="warn" />
-        <Stat label="Bassa" value={String(report?.summary.low ?? 0)} tone="good" />
+        <Stat
+          label={includeIgnored ? "Ignorate" : "Bassa"}
+          value={String(includeIgnored ? (report?.summary.ignored ?? 0) : (report?.summary.low ?? 0))}
+          tone="good"
+        />
       </section>
 
       <section className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
@@ -192,6 +272,14 @@ export function ContradictionDetectorWorkbench() {
             >
               Scarica .md
             </button>
+            <label className="inline-flex h-8 items-center gap-2 rounded-md border border-zinc-300 px-3 text-xs font-medium dark:border-zinc-700">
+              <input
+                type="checkbox"
+                checked={includeIgnored}
+                onChange={(event) => setIncludeIgnored(event.target.checked)}
+              />
+              <span>Mostra ignorate</span>
+            </label>
             {(["all", "high", "medium", "low"] as const).map((value) => (
               <button
                 key={value}
@@ -229,6 +317,11 @@ export function ContradictionDetectorWorkbench() {
                   <h3 className="font-medium text-zinc-950 dark:text-zinc-50">
                     {issue.title}
                   </h3>
+                  {issue.ignored ? (
+                    <span className="mt-1 inline-flex rounded-full bg-zinc-100 px-2 py-1 text-[10px] font-semibold uppercase text-zinc-600 ring-1 ring-inset ring-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">
+                      ignorata
+                    </span>
+                  ) : null}
                   <p className="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                     {issue.detail}
                   </p>
@@ -245,6 +338,18 @@ export function ContradictionDetectorWorkbench() {
                       ))}
                     </ol>
                     <div className="mt-3 flex flex-wrap gap-2">
+                      {canQuickFix(issue) ? (
+                        <button
+                          type="button"
+                          onClick={() => void applyQuickFix(issue)}
+                          disabled={quickFixingId === issue.id}
+                          className="inline-flex h-8 items-center rounded-md bg-emerald-700 px-3 text-xs font-medium text-white hover:bg-emerald-800 disabled:opacity-50 dark:bg-emerald-500 dark:text-zinc-950 dark:hover:bg-emerald-400"
+                        >
+                          {quickFixingId === issue.id
+                            ? "Applico..."
+                            : "Quick fix: DM-only"}
+                        </button>
+                      ) : null}
                       {resolutionLinks(issue, campaignId).map((link) => (
                         <Link
                           key={link.href}
@@ -261,12 +366,20 @@ export function ContradictionDetectorWorkbench() {
                       >
                         Copia checklist
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => void setIgnored(issue, !issue.ignored)}
+                        className="inline-flex h-8 items-center rounded-md border border-zinc-300 px-3 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      >
+                        {issue.ignored ? "Ripristina audit" : "Ignora intenzionale"}
+                      </button>
                     </div>
                   </details>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {issue.targets.map((target) => (
                       <TargetLink
                         key={`${issue.id}-${target.type}-${target.id}`}
+                        issue={issue}
                         campaignId={campaignId}
                         target={target}
                       />
@@ -320,13 +433,15 @@ function SeverityBadge({ severity }: { severity: Severity }) {
 }
 
 function TargetLink({
+  issue,
   campaignId,
   target,
 }: {
+  issue: ContradictionIssue;
   campaignId: string;
   target: ContradictionIssue["targets"][number];
 }) {
-  const href = targetHref(target, campaignId);
+  const href = targetHref(issue, target, campaignId);
   const content = (
     <span className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-700 dark:border-zinc-800 dark:text-zinc-200">
       {target.label}
@@ -336,15 +451,25 @@ function TargetLink({
 }
 
 function targetHref(
+  issue: ContradictionIssue,
   target: ContradictionIssue["targets"][number],
   campaignId: string,
 ) {
   if (!campaignId) return null;
-  if (target.type === "entity" || target.type === "identity" || target.type === "link") {
-    return `/campaigns/${encodeURIComponent(campaignId)}`;
+  if (target.type === "entity") {
+    return campaignEntityHref(campaignId, target.id, tabForIssue(issue, target));
   }
-  if (target.type === "plot_thread") return "/plot-threads";
-  if (target.type === "truth_clue") return "/truth-clues";
+  if (target.type === "identity" || target.type === "link") {
+    return target.entityId
+      ? campaignEntityHref(campaignId, target.entityId, tabForIssue(issue, target))
+      : `/campaigns/${encodeURIComponent(campaignId)}`;
+  }
+  if (target.type === "plot_thread") {
+    return `/plot-threads?campaign_id=${encodeURIComponent(campaignId)}&thread=${encodeURIComponent(target.id)}`;
+  }
+  if (target.type === "truth_clue") {
+    return `/truth-clues?campaign_id=${encodeURIComponent(campaignId)}&clue=${encodeURIComponent(target.id)}#clue-${encodeURIComponent(target.id)}`;
+  }
   return null;
 }
 
@@ -362,19 +487,86 @@ function resolutionLinks(issue: ContradictionIssue, campaignId: string) {
   ) {
     links.push({
       label: "Apri Campaign Wiki",
-      href: `/campaigns/${encodeURIComponent(campaignId)}`,
+      href: firstEntityHref(issue, campaignId),
     });
   }
   if (["plot_state"].includes(issue.category)) {
-    links.push({ label: "Apri Plot Threads", href: "/plot-threads" });
+    const plot = issue.targets.find((target) => target.type === "plot_thread");
+    links.push({
+      label: "Apri Plot Threads",
+      href: plot
+        ? `/plot-threads?campaign_id=${encodeURIComponent(campaignId)}&thread=${encodeURIComponent(plot.id)}`
+        : "/plot-threads",
+    });
   }
   if (["plot_state", "clue_state"].includes(issue.category)) {
-    links.push({ label: "Apri Truth Clues", href: "/truth-clues" });
+    const clue = issue.targets.find((target) => target.type === "truth_clue");
+    links.push({
+      label: "Apri Truth Clues",
+      href: clue
+        ? `/truth-clues?campaign_id=${encodeURIComponent(campaignId)}&clue=${encodeURIComponent(clue.id)}#clue-${encodeURIComponent(clue.id)}`
+        : "/truth-clues",
+    });
   }
   if (issue.category === "visibility_gap") {
     links.push({ label: "Apri Spoiler Gate", href: "/reveal-tracker" });
   }
   return links;
+}
+
+function firstEntityHref(issue: ContradictionIssue, campaignId: string) {
+  const target = issue.targets.find((item) =>
+    ["entity", "identity", "link"].includes(item.type),
+  );
+  const entityId = target?.type === "entity" ? target.id : target?.entityId;
+  return entityId
+    ? campaignEntityHref(campaignId, entityId, tabForIssue(issue, target))
+    : `/campaigns/${encodeURIComponent(campaignId)}`;
+}
+
+function canQuickFix(issue: ContradictionIssue) {
+  if (
+    issue.category === "visibility_gap" &&
+    issue.targets.every((target) =>
+      target.type === "entity" || target.type === "plot_thread",
+    )
+  ) {
+    return true;
+  }
+  return issue.id.startsWith("duplicate-link:") && issue.targets.length > 1;
+}
+
+function quickFixTargets(issue: ContradictionIssue) {
+  if (issue.id.startsWith("duplicate-link:")) {
+    return issue.targets.slice(1);
+  }
+  return issue.targets;
+}
+
+function campaignEntityHref(
+  campaignId: string,
+  entityId: string,
+  tab?: string,
+) {
+  const params = new URLSearchParams({ focus: entityId });
+  if (tab) params.set("detail_tab", tab);
+  return `/campaigns/${encodeURIComponent(campaignId)}?${params.toString()}#entity-detail`;
+}
+
+function tabForIssue(
+  issue: ContradictionIssue,
+  target?: ContradictionIssue["targets"][number],
+) {
+  if (target?.type === "identity" || issue.category === "identity_conflict") {
+    return "identities";
+  }
+  if (target?.type === "link" || issue.category === "relationship_conflict") {
+    return "links";
+  }
+  if (issue.category === "visibility_gap") {
+    return "public";
+  }
+  return undefined;
 }
 
 function severityLabel(value: "all" | Severity) {
@@ -403,8 +595,11 @@ function slugify(value: string) {
     .replace(/^-|-$/g, "");
 }
 
-async function apiFetch<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
     try {
@@ -415,6 +610,7 @@ async function apiFetch<T>(url: string): Promise<T> {
     }
     throw new Error(message);
   }
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 

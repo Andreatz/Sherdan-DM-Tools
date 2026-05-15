@@ -169,6 +169,8 @@ export function PlotThreadsWorkbench() {
   const [savingThread, setSavingThread] = useState(false);
   const [savingEvent, setSavingEvent] = useState(false);
   const [savingEntity, setSavingEntity] = useState(false);
+  const [targetThreadId] = useState(() => queryParam("thread"));
+  const [targetCampaignId] = useState(() => queryParam("campaign_id"));
   const [refreshToken, setRefreshToken] = useState(0);
   const [detailRefreshToken, setDetailRefreshToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -181,7 +183,11 @@ export function PlotThreadsWorkbench() {
         const rows = await apiFetch<CampaignRow[]>("/api/campaigns");
         if (cancelled) return;
         setCampaigns(rows);
-        setCampaignId((current) => current || (rows[0]?.id ?? ""));
+        setCampaignId((current) =>
+          targetCampaignId && rows.some((row) => row.id === targetCampaignId)
+            ? targetCampaignId
+            : current || (rows[0]?.id ?? ""),
+        );
       } catch (err) {
         if (!cancelled) setError(messageForError(err));
       }
@@ -190,7 +196,7 @@ export function PlotThreadsWorkbench() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [targetCampaignId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -237,7 +243,11 @@ export function PlotThreadsWorkbench() {
         if (cancelled) return;
         setThreads(rows);
         setSelectedId((current) =>
-          rows.some((t) => t.id === current) ? current : (rows[0]?.id ?? null),
+          targetThreadId && rows.some((t) => t.id === targetThreadId)
+            ? targetThreadId
+            : rows.some((t) => t.id === current)
+              ? current
+              : (rows[0]?.id ?? null),
         );
       } catch (err) {
         if (!cancelled) setError(messageForError(err));
@@ -249,7 +259,7 @@ export function PlotThreadsWorkbench() {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, refreshToken]);
+  }, [campaignId, refreshToken, targetThreadId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1367,4 +1377,9 @@ function buildPlotThreadChatGptMarkdown({
 
 function listOrEmpty(rows: string[]) {
   return rows.length > 0 ? rows.join("\n") : "_Nessun elemento._";
+}
+
+function queryParam(name: string) {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get(name) ?? "";
 }

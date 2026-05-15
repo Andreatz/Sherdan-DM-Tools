@@ -882,11 +882,13 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
 - [x] Preset Bridge: sessione politica, dungeon, heist, recap giocatori, audit anti-railroad.
   - _Note implementative (2026-05-15): il workbench Bridge include preset rapidi che precompilano task type, densita', audience, sezioni incluse, focus e vincoli. I preset preservano campagna/sessione/location gia' selezionate e il recap giocatori forza audience `player` con segreti disabilitati._
   - _Hardening: aggiunti preset Downtime e Viaggio per prep tra sessioni, micro-archi PG, tappe, incontri e scoperte ambientali._
+  - _Hardening: aggiunti preset Crisi politica e Flashback per eventi politici multi-fazione, escalation/fallout e scene retroattive con reveal controllato._
 - [x] Copy-for-ChatGPT da ogni pagina entity/session/plot/clue.
   - _Note implementative (2026-05-15): aggiunto componente condiviso `CopyForChatGptButton` e montato su entity detail, sessione selezionata, plot thread selezionato e singola truth clue. Ogni bottone copia un blocco Markdown canonico con campi GM/player separati e contesto correlato già formattato per ChatGPT Web._
 - [x] Canon Diff per output importati.
   - _Note implementative (2026-05-15): `POST /api/chatgpt-bridge/import/analyze` confronta il markdown importato con recap, DM notes e prep notes della sessione target quando disponibile. La UI mostra similarita', righe nuove nell'import e righe presenti solo nel canon attuale._
   - _Hardening (2026-05-15): aggiunto diff campo-per-campo per titolo, recap, DM notes e prep notes. Le candidate arrivano prima dall'UPDATE PACK (`title`, `recapCandidate`, `dmNotesCandidate`, `prepNotesCandidate`) e poi da heading Markdown deterministici._
+  - _Hardening: la Review & Apply puo' applicare `prepNotesCandidate`; il pannello Canon Diff esporta/copia un report Markdown dedicato._
 - [x] Session Debrief Import post-sessione.
   - _Note implementative (2026-05-15): il salvataggio import supporta `confirmAppendToDmNotes`, appende il markdown alle `dmNotes` come "Debrief ChatGPT Web Bridge" e puo' creare la sessione mancante con la stessa opzione gia' usata dalle prep notes._
 - [x] Dashboard compatta delle ultime modifiche applicate via Bridge.
@@ -896,8 +898,10 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
   - _Note implementative (2026-05-15): aggiunti `GET /api/session-run` e `/session-run`. La vista aggrega sessione selezionata, scena live del Player Dashboard, iniziativa JSONB, entita attive, thread hot/warm, briciole non chiuse ed eventi della sessione, con copy-for-ChatGPT del contesto runtime._
 - [x] Matrice conoscenza PNG.
   - _Note implementative (2026-05-15): aggiunti `GET /api/knowledge-matrix` e `/knowledge-matrix`. La matrice incrocia player attivi e target entity, defaultando da `visibility` e mostrando override individuali `hidden/revealed` da `player_visibility_overrides`._
+  - _Polish: aggiunti ricerca, filtro "solo override", deep link al target nel Wiki e azioni bulk per riga (rivela/nascondi/reset per tutti i player)._
 - [x] Spoiler Gate / Reveal Tracker.
   - _Note implementative (2026-05-15): aggiunti `GET /api/reveal-tracker` e `/reveal-tracker`. La dashboard unifica `truth_clues` e `entity_secrets`, mostra stato party-level, layer/sezione sorgente e override per-player._
+  - _Polish: aggiunti ricerca testuale, filtro stato protetto/revealed e reset filtri._
 - [x] Azioni inline per matrice/reveal tracker.
   - _Note implementative (2026-05-15): `/knowledge-matrix` ora crea/aggiorna/cancella override `entity` per singolo player. `/reveal-tracker` gestisce party reveal/protezione su briciole e segreti, piu' override `truth_clue`/`entity_secret` per-player._
 - [x] Combat Tracker runtime.
@@ -910,11 +914,23 @@ Usare ChatGPT Web come "motore narrativo esterno" senza salvare API key OpenAI n
   - _Note implementative: ogni issue mostra checklist di risoluzione, link agli editor rilevanti (Campaign Wiki, Plot Threads, Truth Clues, Spoiler Gate) e copia della checklist per appunti._
 - [x] Export report Contradiction Detector in Markdown.
   - _Note implementative: aggiunta utility `buildContradictionReportMarkdown` e azioni UI "Copia report" / "Scarica .md" nella pagina `/contradictions`._
+- [x] Deep link per aprire direttamente la singola entity/clue/thread dall'audit.
+  - _Note implementative: i target del Detector ora puntano a `?focus=<entity>#entity-detail`, `?thread=<id>` e `?clue=<id>#clue-<id>`. Plot Threads seleziona il thread dal query param; Truth Clues porta la briciola in cima e la evidenzia._
+- [x] Quick fix sicuri dal Detector per casi non ambigui.
+  - _Note implementative: per `visibility_gap` la UI espone "Quick fix: DM-only", che patcha entity/plot thread a `visibility=dm_only` e ricarica il report._
+- [x] Deep link con tab specifica per identita, link e visibility nel Campaign Wiki.
+  - _Note implementative: target identity/link aprono rispettivamente tab `identities`/`links`; i gap player-facing aprono la tab pubblica dell'entity._
+- [x] Quick fix guidati per duplicati link esatti.
+  - _Note implementative: sulle issue `duplicate-link:*`, il quick fix conserva il primo link e cancella i duplicati via API `DELETE /api/entity-links/[id]`._
+- [x] Persistenza risoluzioni/ignore-list nel Contradiction Detector.
+  - _Note implementative: aggiunta tabella `contradiction_ignores` (migration 0006), API `/api/contradictions/ignores`, toggle "Mostra ignorate" e azioni ignore/ripristina issue._
+- [x] Debito test Forgia.
+  - _Note implementative: `tests/unit/parsers/sherdan-forgia.test.ts` usa una fixture fallback quando il markdown raw non e' presente in `public/`, mantenendo copertura parser senza violare il content safety gate._
 
 ### Prossimo ordine di esecuzione
-1. Preset Bridge aggiuntivi per eventi politici complessi e flashback.
-2. Deep link per aprire direttamente la singola entity/clue/thread dall'audit.
-3. Quick fix sicuri dal Detector per casi non ambigui.
+1. Quick fix piu ricchi per duplicati entity/alias, sempre con review manuale.
+2. Report mensile di salute canon: detector + reveal + knowledge matrix.
+3. E2E smoke dedicato per Contradiction Detector e Bridge diff export.
 
 ### Definition of done
 Con `LLM_PROVIDER=none`, il DM può preparare una sessione Sherdan usando solo `/chatgpt-bridge`: esporta contesto, lavora in ChatGPT Web, importa output, revisiona UPDATE PACK e applica modifiche al DB senza leak verso i giocatori e senza route generative attive.
